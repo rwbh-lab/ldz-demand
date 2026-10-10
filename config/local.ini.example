@@ -1,0 +1,4 @@
+# Copy to config/local.ini and edit. local.ini is gitignored.
+
+[storage]
+database = true

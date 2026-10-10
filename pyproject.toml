@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ldz-demand"
+version = "0.1.0"
+description = "LDZ-level Composite Weather Variable (CWV) gas demand models with ECMWF ensemble forecasts."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Robert Hemming" }]
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "requests",
+]
+
+[project.optional-dependencies]
+weather = ["xarray", "netCDF4", "cfgrib", "cdsapi", "ecmwf-opendata"]
+geo = ["geopandas", "shapely", "scipy"]
+models = ["scikit-learn", "statsmodels", "optuna"]
+plot = ["matplotlib", "cartopy"]
+dev = ["pytest"]
+all = ["ldz-demand[weather,geo,models,plot]"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
