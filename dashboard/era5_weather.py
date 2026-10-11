@@ -111,7 +111,8 @@ def _(ch, mo):
         - Code: `ldz_demand.charts.era5` · data: `docs/user_guide.md` §4.2.
         """),
         "Attribution": mo.md("Contains modified Copernicus Climate Change Service information [2021–2026]. "
-                             "Neither the European Commission nor ECMWF is responsible for any use of this information."),
+                             "Neither the European Commission nor ECMWF is responsible for any use of this information. "
+                             "Coastline: Natural Earth (public domain)."),
     })
     return
 

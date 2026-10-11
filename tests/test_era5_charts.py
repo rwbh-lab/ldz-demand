@@ -54,3 +54,15 @@ def test_mercator_midpoint_sits_north_of_mean_latitude():
     mid = ch._mercator_mid(49.625, 59.625)
     assert 54.625 < mid < 55.0
     assert mid == pytest.approx(54.934, abs=1e-3)
+
+
+def test_coastline_overlay_is_detailed_and_drawn_on_top():
+    from ldz_demand.charts import coastline
+
+    lons, lats = coastline.load()
+    assert sum(v is not None for v in lons) > 5000      # 1:10m detail
+    style.use()
+    fig = ch.grid_map(gas_day_slice(hourly_grid(), "2026-01-01"), "t2m", 2)
+    assert fig.data[1].mode == "lines"                   # coastline above the cells, below the labels
+    assert fig.data[2].mode == "text"
+    assert list(fig.frames[0].traces) == [0, 2]          # frames don't touch the coastline

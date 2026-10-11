@@ -15,6 +15,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.colors import sample_colorscale
 
+from ldz_demand.charts import coastline
 from ldz_demand.charts.style import active
 from ldz_demand.data.build.gas_day import gas_day_slice
 from ldz_demand.data.ingest.era5 import load_hourly
@@ -117,13 +118,14 @@ def grid_map(hourly, variable: str = "t2m", lat_points: int = 4, title: str | No
     frames = []
     for i, hour in enumerate(hours):
         z = grid.isel(time=i).values.ravel()
-        frames.append(go.Frame(name=hour.strftime("%H:%M"), data=[
+        frames.append(go.Frame(name=hour.strftime("%H:%M"), traces=[0, 2], data=[
             go.Choropleth(z=z),
             go.Scattergeo(text=[spec["fmt"].format(v) if np.isfinite(v) else "" for v in z],
                           textfont=dict(color=_text_colours(z, zmin, zmax, colorscale, t), size=_font_size(lat_points))),
         ]))
 
     first = frames[0].data
+    coast_lon, coast_lat = coastline.load()
     fig = go.Figure(
         data=[
             go.Choropleth(
@@ -135,6 +137,10 @@ def grid_map(hourly, variable: str = "t2m", lat_points: int = 4, title: str | No
                 customdata=np.stack([cell_lat, cell_lon], axis=1),
                 hovertemplate=f"%{{customdata[0]:.2f}}°N %{{customdata[1]:.2f}}°E<br>%{{z:.1f}} {spec['unit']}<extra></extra>",
             ),
+            # detailed coastline above the cells (Plotly's own is drawn beneath data) but below the
+            # labels; frames only update traces 0 and 2, so it stays put while the hours animate
+            go.Scattergeo(lon=coast_lon, lat=coast_lat, mode="lines", line=dict(color=t.ink, width=1.5),
+                          hoverinfo="skip", showlegend=False),
             go.Scattergeo(lat=cell_lat, lon=cell_lon, mode="text", text=first[1].text,
                           textfont=first[1].textfont, hoverinfo="skip", showlegend=False),
         ],
@@ -150,7 +156,7 @@ def grid_map(hourly, variable: str = "t2m", lat_points: int = 4, title: str | No
         lataxis_range=[south, north], lonaxis_range=[west, east],
         center=dict(lat=_mercator_mid(south, north), lon=(west + east) / 2),
         showland=True, landcolor=t.surface, showocean=True, oceancolor=t.page, showlakes=False,
-        showcoastlines=True, coastlinecolor=t.ink, coastlinewidth=1.5,
+        showcoastlines=False,  # replaced by the detailed coastline trace above
         showcountries=True, countrycolor=t.muted, bgcolor=t.surface, showframe=False,
     )
     steps = [dict(method="animate", label=f.name[:2],
