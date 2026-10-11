@@ -21,11 +21,16 @@ geo = ["geopandas", "shapely", "scipy"]
 models = ["scikit-learn", "statsmodels", "optuna"]
 plot = ["matplotlib", "cartopy"]
 db = ["sqlalchemy>=2.0", "pymysql", "cryptography", "python-dotenv"]
+dashboard = ["marimo", "plotly"]
 dev = ["pytest"]
-all = ["ldz-demand[weather,geo,models,plot,db]"]
+all = ["ldz-demand[weather,geo,models,plot,db,dashboard]"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.marimo.display]
+# Marimo widget theme; keep in step with the chart theme (python -m ldz_demand.charts.style <name>)
+theme = "dark"

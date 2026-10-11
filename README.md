@@ -26,8 +26,10 @@ src/ldz_demand/
   data/build/      raw_dir -> Store tables (one builder per table; rebuildable from the archive)
   data/store/      Store interface, CSV cache and MySQL implementations
   db/              MySQL connection, DDL, migration runner (python -m ldz_demand.db)
+  charts/          Plotly chart functions + shared theme (charts.style)
   models/          LDZ network, CWV demand estimator, seasonal normal
 db/migrations/     versioned SQL migrations (NNN_description.sql)
+dashboard/         Marimo pages (marimo run dashboard/<page>.py) + generated theme.css
 tests/
 data/              cache/ and raw/ — local only, never committed
 ```

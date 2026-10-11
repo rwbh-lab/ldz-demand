@@ -59,6 +59,7 @@ python -m pip install -e ".[all]"
 |---|---|
 | `weather` | ERA5 / ECMWF downloads (xarray, netCDF, cdsapi, ecmwf-opendata) |
 | `db` | MySQL mode (SQLAlchemy, PyMySQL, python-dotenv) |
+| `dashboard` | Interactive data pages (Marimo, Plotly) |
 | `geo`, `models`, `plot` | LDZ geometry, model fitting, figures |
 | `dev` | pytest |
 
@@ -268,6 +269,14 @@ table first: in CSV mode remove `data/cache/ng_ldz_daily.csv`; in MySQL mode emp
 
 ## 9. Checking the data
 
+- **Dashboard.** An interactive page walks through the National Gas data — coverage, demand
+  composition, whether the parts add up (with flagged days), and weather vs demand:
+  ```bash
+  marimo run dashboard/ng_ldz_daily.py
+  ```
+  It reads from the Store, so it works in CSV or MySQL mode. Theme: `python -m ldz_demand.charts.style
+  <claude_dark | neutral_dark | light>`, and set `[tool.marimo.display] theme` in `pyproject.toml` to
+  match (`dark` / `light`). More pages 🚧 coming soon.
 - **Coverage.** The National Gas build logs gaps inside each series' date range. No warning means
   every series is complete from its first to its last day.
 - **Energy balance.** Total demand converted to energy should roughly match DM + NDM + UIG. The
@@ -318,6 +327,8 @@ print((100 * (total_kwh - parts) / total_kwh).describe())   # SE 2026: mean ~1%,
 | `python -m ldz_demand.db status` | MySQL: connection check + migration status |
 | `python -m ldz_demand.db migrate [--dry-run]` | MySQL: apply pending migrations |
 | `python -m ldz_demand.db draft DATASET` | Print a `CREATE TABLE` for a dataset (developers) |
+| `marimo run dashboard/ng_ldz_daily.py` | Open the National Gas data page |
+| `python -m ldz_demand.charts.style THEME` | Set the dashboard/chart theme |
 
 ### 11.2 Config (`config/default.ini`, overridden by `config/local.ini`)
 
