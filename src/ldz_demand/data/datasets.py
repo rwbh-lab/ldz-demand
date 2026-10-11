@@ -15,6 +15,7 @@ NG_LDZ_DAILY = Dataset(
         "item": "str",                # e.g. demand_total_d6, demand_dm_d6, cwv_actual
         "data_item_id": "str",        # National Gas PUBOB id
         "value": "float",
+        "unit": "str",                # mcm, kWh, MJ/m3, degC — items are NOT all in the same unit
         "quality": "str",             # Quality Indicator
         "applicable_at": "datetime",  # Applicable At (publication time)
         "generated_time": "datetime",
