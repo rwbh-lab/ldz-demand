@@ -44,11 +44,11 @@ class DbSettings:
 
     @classmethod
     def from_env(
-        cls,
-        env: Mapping[str, str] | None = None,
-        probe: Callable[[str, int], bool] | None = None,
-        gateway: Callable[[], str | None] | None = None,
-    ) -> "DbSettings":
+            cls,
+            env: Mapping[str, str] | None = None,
+            probe: Callable[[str, int], bool] | None = None,
+            gateway: Callable[[], str | None] | None = None,
+        ) -> "DbSettings":
         """
         Build settings from env (default: os.environ after loading .env).
 
@@ -82,11 +82,11 @@ def load_env() -> None:
 
 
 def resolve_host(
-    env: Mapping[str, str],
-    port: int,
-    probe: Callable[[str, int], bool],
-    gateway: Callable[[], str | None],
-) -> tuple[str, str]:
+        env: Mapping[str, str],
+        port: int,
+        probe: Callable[[str, int], bool],
+        gateway: Callable[[], str | None],
+    ) -> tuple[str, str]:
     """Return (host, how it was chosen)."""
     if env.get("LDZ_DB_HOST"):
         return env["LDZ_DB_HOST"], "LDZ_DB_HOST"
