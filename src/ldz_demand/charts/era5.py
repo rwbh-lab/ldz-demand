@@ -1,9 +1,10 @@
 """
 Charts for raw ERA5 weather: hourly gridded maps over GB for a single gas day.
 
-The 0.25° ERA5 grid (47 x 43 cells over the GB box) is too fine to label, so it is averaged up to a
-coarser grid (0.5° or 1°) before plotting. Each cell is drawn as its true lat/lon box and labelled
-with its value; a slider steps through the hours of the gas day (05:00 to 05:00 UK time).
+The 0.25° ERA5 grid is too fine to label, so it is cropped to mainland GB and averaged into coarser
+cells that are square on the ground (~110 or ~55 km): at GB's latitude a degree of longitude is only
+~64 km, so cells span more longitude than latitude. Each cell is drawn as its true lat/lon box and
+labelled with its value; a slider steps through the hours of the gas day (05:00 to 05:00 UK time).
 """
 
 from dataclasses import dataclass
@@ -21,7 +22,9 @@ from ldz_demand.data.ingest.era5 import load_hourly
 ERA5_STEP = 0.25  # degrees
 HEATING_THRESHOLD = 15.5  # °C — roughly where space heating switches on; the temperature midpoint
 CELL_OPACITY = 0.6
-MAP_PAD = 0.5  # degrees of context around the grid
+# Mainland GB (Shetland, which has no gas network, is left out); edges sit on 0.25° grid points
+DISPLAY_BOX = dict(north=59.5, south=49.75, west=-8.5, east=2.0)
+CELL_SIZES = {"~110 km cells": 4, "~55 km cells": 2}  # latitude points (0.25° each) per cell
 
 
 @dataclass(frozen=True)
@@ -62,26 +65,37 @@ def load_gas_day(raw_dir: Path, day: str):
     return gas_day_slice(load_hourly(raw_dir, *months), day).load()
 
 
-def coarsen(hourly, step_deg: float):
-    """Average the 0.25° grid into step_deg cells (cells with partial coverage at the edge are dropped)."""
-    k = int(round(step_deg / ERA5_STEP))
-    return hourly if k <= 1 else hourly.coarsen(latitude=k, longitude=k, boundary="trim").mean()
+def crop(hourly, box: dict = DISPLAY_BOX):
+    return hourly.sel(latitude=slice(box["north"], box["south"]), longitude=slice(box["west"], box["east"]))
 
 
-def grid_map(hourly, variable: str = "t2m", step_deg: float = 1.0, title: str | None = None) -> go.Figure:
-    """Hour-by-hour map of one variable: coloured lat/lon cells, each labelled with its value."""
+def coarsen(hourly, lat_points: int):
+    """
+    Average lat_points x lon_points blocks of the 0.25° grid, with lon_points chosen so each cell is
+    square on the ground at the grid's mean latitude. Partial blocks at the edges are dropped.
+    """
+    mean_lat = float(hourly["latitude"].mean())
+    lon_points = max(1, int(round(lat_points / np.cos(np.radians(mean_lat)))))
+    if lat_points <= 1 and lon_points <= 1:
+        return hourly
+    return hourly.coarsen(latitude=lat_points, longitude=lon_points, boundary="trim").mean()
+
+
+def grid_map(hourly, variable: str = "t2m", lat_points: int = 4, title: str | None = None) -> go.Figure:
+    """Hour-by-hour map of one variable: coloured, square-on-the-ground cells, each labelled with its value."""
     t = active()
     spec = VARIABLES[variable]
-    grid = coarsen(hourly, step_deg)[variable]
+    grid = coarsen(crop(hourly), lat_points)[variable]
     lats, lons = grid["latitude"].values, grid["longitude"].values
-    half = step_deg / 2
+    half_lat = abs(float(np.diff(lats).mean())) / 2 if len(lats) > 1 else ERA5_STEP / 2
+    half_lon = abs(float(np.diff(lons).mean())) / 2 if len(lons) > 1 else ERA5_STEP / 2
     cells = [(la, lo) for la in lats for lo in lons]
     # Rings must run clockwise: Plotly's d3-geo reads an anticlockwise ring as "the globe minus this box"
     geojson = {"type": "FeatureCollection", "features": [
         {"type": "Feature", "id": str(i), "properties": {},
          "geometry": {"type": "Polygon", "coordinates": [[
-             [lo - half, la - half], [lo - half, la + half], [lo + half, la + half],
-             [lo + half, la - half], [lo - half, la - half]]]}}
+             [lo - half_lon, la - half_lat], [lo - half_lon, la + half_lat], [lo + half_lon, la + half_lat],
+             [lo + half_lon, la - half_lat], [lo - half_lon, la - half_lat]]]}}
         for i, (la, lo) in enumerate(cells)
     ]}
     ids = [str(i) for i in range(len(cells))]
@@ -94,8 +108,9 @@ def grid_map(hourly, variable: str = "t2m", step_deg: float = 1.0, title: str | 
         zmin, zmax = HEATING_THRESHOLD - span, HEATING_THRESHOLD + span
         stops = t.diverging
     else:
+        # multi-hue, monotonic in lightness (inferno-style), like forecast wind maps
         zmin, zmax = 0.0, 20.0
-        stops = (t.surface, *t.sequential)
+        stops = t.wind
     colorscale = [[i / (len(stops) - 1), c] for i, c in enumerate(stops)]
 
     hours = pd.DatetimeIndex(grid["local_time"].values)
@@ -105,7 +120,7 @@ def grid_map(hourly, variable: str = "t2m", step_deg: float = 1.0, title: str | 
         frames.append(go.Frame(name=hour.strftime("%H:%M"), data=[
             go.Choropleth(z=z),
             go.Scattergeo(text=[spec["fmt"].format(v) if np.isfinite(v) else "" for v in z],
-                          textfont=dict(color=_text_colours(z, zmin, zmax, colorscale, t), size=_font_size(step_deg))),
+                          textfont=dict(color=_text_colours(z, zmin, zmax, colorscale, t), size=_font_size(lat_points))),
         ]))
 
     first = frames[0].data
@@ -115,7 +130,7 @@ def grid_map(hourly, variable: str = "t2m", step_deg: float = 1.0, title: str | 
                 geojson=geojson, locations=ids, featureidkey="id", z=first[0].z,
                 zmin=zmin, zmax=zmax, colorscale=colorscale,
                 # semi-transparent so the coastline (always drawn beneath data in Plotly) shows through
-                marker=dict(line=dict(width=0.5, color=t.surface), opacity=CELL_OPACITY),
+                marker=dict(line=dict(width=0), opacity=CELL_OPACITY),  # no cell borders: boxes abut
                 colorbar=dict(title=dict(text=spec["unit"]), outlinewidth=0, thickness=10, len=0.75),
                 customdata=np.stack([cell_lat, cell_lon], axis=1),
                 hovertemplate=f"%{{customdata[0]:.2f}}°N %{{customdata[1]:.2f}}°E<br>%{{z:.1f}} {spec['unit']}<extra></extra>",
@@ -125,11 +140,15 @@ def grid_map(hourly, variable: str = "t2m", step_deg: float = 1.0, title: str | 
         ],
         frames=frames,
     )
+    south, north = float(lats.min()) - half_lat, float(lats.max()) + half_lat
+    west, east = float(lons.min()) - half_lon, float(lons.max()) + half_lon
     fig.update_geos(
-        # frame the map to the grid's box, so the (tall) region uses the full figure height
+        # frame the map exactly to the grid, so no strip without values is shown. Plotly centres on the
+        # mean latitude, which on a Mercator map sits too far south (top row clipped, gap at the bottom),
+        # so centre on the Mercator midpoint instead.
         projection_type="mercator", resolution=50,
-        lataxis_range=[float(lats.min()) - half - MAP_PAD, float(lats.max()) + half + MAP_PAD],
-        lonaxis_range=[float(lons.min()) - half - MAP_PAD, float(lons.max()) + half + MAP_PAD],
+        lataxis_range=[south, north], lonaxis_range=[west, east],
+        center=dict(lat=_mercator_mid(south, north), lon=(west + east) / 2),
         showland=True, landcolor=t.surface, showocean=True, oceancolor=t.page, showlakes=False,
         showcoastlines=True, coastlinecolor=t.ink, coastlinewidth=1.5,
         showcountries=True, countrycolor=t.muted, bgcolor=t.surface, showframe=False,
@@ -169,6 +188,12 @@ def day_summary(hourly) -> dict:
     }
 
 
+def _mercator_mid(south: float, north: float) -> float:
+    """Latitude halfway between south and north on a Mercator map."""
+    y = lambda lat: np.log(np.tan(np.pi / 4 + np.radians(lat) / 2))
+    return float(np.degrees(2 * np.arctan(np.exp((y(south) + y(north)) / 2)) - np.pi / 2))
+
+
 def _text_colours(z, zmin, zmax, colorscale, t) -> list[str]:
     """Dark or light label per cell, whichever contrasts with the cell's fill."""
     pos = np.clip((np.nan_to_num(z, nan=zmin) - zmin) / (zmax - zmin), 0, 1)
@@ -184,5 +209,5 @@ def _luminance(colour: str) -> float:
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
-def _font_size(step_deg: float) -> int:
-    return 12 if step_deg >= 1 else 9
+def _font_size(lat_points: int) -> int:
+    return 12 if lat_points >= 4 else 9

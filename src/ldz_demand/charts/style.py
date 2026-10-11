@@ -40,6 +40,7 @@ class Theme:
     series: tuple[str, ...]      # categorical slots, in order
     sequential: tuple[str, ...]  # low -> high magnitude
     diverging: tuple[str, ...]   # cold pole -> neutral midpoint -> warm pole (odd length, grey middle)
+    wind: tuple[str, ...]        # calm -> storm: multi-hue but monotonic in lightness (inferno-style)
     serious: str       # status colour for flagged data (always with a label)
     font: str = SYSTEM_SANS
 
@@ -52,23 +53,26 @@ _LIGHT_SEQ = ("#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95")
 # blue <-> red with a neutral grey midpoint, equal steps per arm
 _DARK_DIV = ("#184f95", "#2a78d6", "#6da7ec", "#45443f", "#ec8a8a", "#e34948", "#a8302f")
 _LIGHT_DIV = ("#184f95", "#3987e5", "#9ec5f4", "#f0efec", "#f3b0b0", "#e34948", "#a8302f")
+# dark: calm recedes into the background, storms glow; light: the reverse (pale = calm)
+_DARK_WIND = ("#1b0c41", "#4a0c6b", "#781c6d", "#a52c60", "#cf4446", "#ed6925", "#fb9b06", "#f7d13d")
+_LIGHT_WIND = ("#fcfdbf", "#fec287", "#fc8961", "#e75263", "#b73779", "#822681", "#51127c", "#231151")
 
 THEMES: dict[str, Theme] = {t.name: t for t in (
     # Warm charcoal in the spirit of the Claude desktop app (approximate, not official values)
     Theme("claude_dark", "dark",
           page="#1f1e1d", surface="#262624", ink="#faf9f5", ink_2="#c2c0b6", muted="#8f8d85",
           grid="#33322f", axis="#45443f", border="rgba(250,249,245,0.10)", accent="#d97757",
-          series=_DARK_SERIES, sequential=_DARK_SEQ, diverging=_DARK_DIV, serious="#ec835a"),
+          series=_DARK_SERIES, sequential=_DARK_SEQ, diverging=_DARK_DIV, wind=_DARK_WIND, serious="#ec835a"),
     # Neutral near-black (the dataviz reference dark surfaces)
     Theme("neutral_dark", "dark",
           page="#0d0d0d", surface="#1a1a19", ink="#ffffff", ink_2="#c3c2b7", muted="#898781",
           grid="#2c2c2a", axis="#383835", border="rgba(255,255,255,0.10)", accent="#3987e5",
-          series=_DARK_SERIES, sequential=_DARK_SEQ, diverging=_DARK_DIV, serious="#ec835a"),
+          series=_DARK_SERIES, sequential=_DARK_SEQ, diverging=_DARK_DIV, wind=_DARK_WIND, serious="#ec835a"),
     # Fallback if dark mode causes contrast trouble
     Theme("light", "light",
           page="#f9f9f7", surface="#fcfcfb", ink="#0b0b0b", ink_2="#52514e", muted="#898781",
           grid="#e1e0d9", axis="#c3c2b7", border="rgba(11,11,11,0.10)", accent="#2a78d6",
-          series=_LIGHT_SERIES, sequential=_LIGHT_SEQ, diverging=_LIGHT_DIV, serious="#d0662f"),
+          series=_LIGHT_SERIES, sequential=_LIGHT_SEQ, diverging=_LIGHT_DIV, wind=_LIGHT_WIND, serious="#d0662f"),
 )}
 
 _active: Theme = THEMES[DEFAULT_THEME]

@@ -24,7 +24,7 @@ def _(mo):
     combining observations with a weather model. It is what the demand model is trained on — the same
     kind of 2 m temperature and 10 m wind fields that the ECMWF ensemble will forecast later.
 
-    The raw grid is 0.25° (~28 km). Below, it is averaged into coarser cells so each can be labelled,
+    The raw grid is 0.25° (~28 km). Below, it is averaged into coarser square cells so each can be labelled,
     and you can step through the **gas day** — 05:00 to 05:00 UK time, the day gas demand is measured
     over. Pick one of a few days chosen from the archive for what they show.
     """)
@@ -54,7 +54,7 @@ def _(available, ch, mo):
     day_picker = mo.ui.dropdown(options={d.label: d.day for d in _days}, value=_days[0].label, label="Gas day")
     variable_picker = mo.ui.radio(options={v["label"]: k for k, v in ch.VARIABLES.items()},
                                   value="Temperature", label="Show", inline=True)
-    step_picker = mo.ui.dropdown(options={"1° cells": 1.0, "0.5° cells": 0.5}, value="1° cells", label="Grid")
+    step_picker = mo.ui.dropdown(options=ch.CELL_SIZES, value="~110 km cells", label="Grid")
     mo.hstack([day_picker, variable_picker, step_picker], justify="start", gap=2)
     return day_picker, step_picker, variable_picker
 
@@ -96,14 +96,17 @@ def _(ch, mo):
         - **Temperature** is coloured around **{ch.HEATING_THRESHOLD} °C**, roughly where space heating
           switches on: blue cells need heating, and the deeper the blue the more. The scale is fixed
           (−9.5 → 40.5 °C), so days and hours compare directly.
-        - **Wind** is 10 m wind speed on a fixed 0–20 m/s scale. Wind makes buildings lose heat faster,
-          which is why the official CWV includes it.
+        - **Wind** is 10 m wind speed on a fixed 0–20 m/s scale, dark purple (calm) through red and
+          orange to yellow (storm). Wind makes buildings lose heat faster, which is why the official CWV
+          includes it.
         - Cells cover sea as well as land; the offshore cells are milder in winter and cooler in summer.
         """),
         "How this was computed": mo.md(r"""
         - ERA5 hourly 2 m temperature and 10 m wind (u, v) over 61°N 8.5°W – 49.5°N 2°E; wind speed = √(u² + v²).
         - Hours assigned to the UK gas day on the local wall clock (05:00 → 05:00, 23 or 25 hours across clock changes).
-        - Cells: 0.25° grid averaged in 2×2 (0.5°) or 4×4 (1°) blocks; partial blocks at the edge dropped.
+        - Cells: the 0.25° grid, cropped to mainland GB (49.75–59.5°N), averaged in blocks of 4 × 7 (~110 km)
+          or 2 × 3 (~55 km) grid points — wider in longitude so cells are square on the ground. Partial
+          blocks at the edge are dropped.
         - Headline temperature: mean over an England box (50.5–54°N, 3°W–0.5°E).
         - Code: `ldz_demand.charts.era5` · data: `docs/user_guide.md` §4.2.
         """),
