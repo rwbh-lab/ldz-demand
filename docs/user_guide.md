@@ -295,7 +295,12 @@ table first: in CSV mode remove `data/cache/ng_ldz_daily.csv`; in MySQL mode emp
   ```bash
   marimo run dashboard/ng_ldz_daily.py
   ```
-  It reads from the Store, so it works in CSV or MySQL mode. Theme: `python -m ldz_demand.charts.style
+  It reads from the Store, so it works in CSV or MySQL mode. A second page maps hourly ERA5
+  temperature and wind over GB for a few notable gas days (reads the raw files in `raw_dir`):
+  ```bash
+  marimo run dashboard/era5_weather.py
+  ```
+  Theme: `python -m ldz_demand.charts.style
   <claude_dark | neutral_dark | light>`, and set `[tool.marimo.display] theme` in `pyproject.toml` to
   match (`dark` / `light`). More pages 🚧 coming soon.
 - **Coverage.** The National Gas build logs gaps inside each series' date range. No warning means
@@ -356,6 +361,7 @@ print((100 * (total_kwh - parts) / total_kwh).describe())   # SE 2026: mean ~1%,
 | `python -m ldz_demand.db migrate [--dry-run]` | MySQL: apply pending migrations |
 | `python -m ldz_demand.db draft DATASET` | Print a `CREATE TABLE` for a dataset (developers) |
 | `marimo run dashboard/ng_ldz_daily.py` | Open the National Gas data page |
+| `marimo run dashboard/era5_weather.py` | Open the ERA5 weather maps page |
 | `python -m ldz_demand.charts.style THEME` | Set the dashboard/chart theme |
 
 ### 11.2 Config (`config/default.ini`, overridden by `config/local.ini`)
