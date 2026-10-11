@@ -10,6 +10,7 @@ both backends work from. Raw downloads are not stored here — they always go to
 """
 
 import logging
+import re
 from dataclasses import dataclass
 from datetime import date
 from typing import Literal, Protocol
@@ -19,6 +20,9 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 DTYPES = ("date", "datetime", "str", "float", "int")
+
+# Table and column names are used directly in SQL, so they are restricted to safe identifiers
+IDENTIFIER = re.compile(r"[a-z][a-z0-9_]{0,63}")
 
 OnConflict = Literal["skip", "replace"]
 
@@ -46,6 +50,9 @@ class Dataset:
     date_col: str = "gas_day"
 
     def __post_init__(self) -> None:
+        bad_names = [n for n in (self.name, *self.columns) if not IDENTIFIER.fullmatch(n)]
+        if bad_names:
+            raise ValueError(f"{self.name}: names must be lower_snake_case identifiers, got {bad_names}")
         bad_dtypes = {c: t for c, t in self.columns.items() if t not in DTYPES}
         if bad_dtypes:
             raise ValueError(f"{self.name}: unknown dtypes {bad_dtypes}; expected one of {DTYPES}")
