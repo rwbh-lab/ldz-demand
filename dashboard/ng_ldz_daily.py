@@ -106,7 +106,7 @@ def _(ng, raw):
 
 @app.cell(hide_code=True)
 def _(le, mo):
-    ldz_picker = mo.ui.dropdown(options=[le.GB, *le.LDZS], value=le.GB, label="Zone")
+    ldz_picker = mo.ui.dropdown(options=[le.GB, *le.LDZS], value=le.GB, label="Zone (§2–3)")
     mo.vstack([
         mo.md(r"""
         ## 2 · What demand is made of
@@ -118,7 +118,8 @@ def _(le, mo):
 
         The thin line is the published total; the space between it and the stacked parts is gas the parts
         don't account for (§3). Click *NTS offtakes* in the legend to compare with the metered gas entering
-        from the national transmission system (§3b). The zone picker drives every chart below.
+        from the national transmission system (§3b). This zone picker drives §2 and §3; §3b and §4 have
+        their own, since they work per LDZ.
         """),
         ldz_picker,
     ])
@@ -179,12 +180,20 @@ def _(has_offtakes, mo):
 
 
 @app.cell(hide_code=True)
-def _(energy, has_offtakes, ldz_picker, mo, ng):
-    _zone = "SE" if ldz_picker.value == ng.GB else ldz_picker.value
+def _(energy, has_offtakes, le, mo, ng):
+    feed_picker = mo.ui.dropdown(options=list(le.LDZS), value="SE", label="LDZ")
     mo.vstack([
-        mo.md(f"*Showing LDZ {_zone}*" + (" — offtake checks are per LDZ, so SE is shown for GB." if ldz_picker.value == ng.GB else "")),
-        ng.feed_check(energy, _zone),
+        ng.offtake_share(energy),
+        mo.md("Each LDZ's offtakes cover ~94–103% of its total on a typical day — except **SE (~70%)**, "
+              "whose non-NTS input makes up the rest. Pick an LDZ to see its day-by-day check:"),
+        feed_picker,
     ]) if has_offtakes else None
+    return (feed_picker,)
+
+
+@app.cell(hide_code=True)
+def _(energy, feed_picker, has_offtakes, ng):
+    ng.feed_check(energy, feed_picker.value) if has_offtakes else None
     return
 
 
@@ -208,9 +217,10 @@ def _(energy, le, mo):
 
 
 @app.cell(hide_code=True)
-def _(energy, mo, ng):
+def _(energy, le, mo, ng):
     year_picker = mo.ui.dropdown(options=ng.gas_years(energy), value=ng.gas_years(energy)[1],
                                  label="Highlight gas year")
+    cwv_picker = mo.ui.dropdown(options=list(le.LDZS), value="SE", label="LDZ")
     target_picker = mo.ui.radio(options={"A · exclude flagged days": "target", "B · repair missing feed": "target_repaired"},
                                 value="A · exclude flagged days", label="Target", inline=True)
     mo.vstack([
@@ -229,18 +239,14 @@ def _(energy, mo, ng):
         separate bands here — the lower one was the under-reported total, not a change in behaviour.
         The CWV is only published per LDZ.
         """),
-        mo.hstack([year_picker, target_picker], justify="start", gap=2),
+        mo.hstack([cwv_picker, year_picker, target_picker], justify="start", gap=2),
     ])
-    return target_picker, year_picker
+    return cwv_picker, target_picker, year_picker
 
 
 @app.cell(hide_code=True)
-def _(energy, ldz_picker, mo, ng, target_picker, year_picker):
-    _zone = "SE" if ldz_picker.value == ng.GB else ldz_picker.value
-    mo.vstack([
-        mo.md(f"*Showing LDZ {_zone}*" + (" — GB has no single CWV, so SE is shown." if ldz_picker.value == ng.GB else "")),
-        ng.cwv_scatter(energy, _zone, highlight=year_picker.value, target=target_picker.value),
-    ])
+def _(cwv_picker, energy, ng, target_picker, year_picker):
+    ng.cwv_scatter(energy, cwv_picker.value, highlight=year_picker.value, target=target_picker.value)
     return
 
 

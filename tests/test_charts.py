@@ -42,5 +42,6 @@ def test_charts_build():
     raw = raw_rows()
     e = le.energy_frame(raw, offtake_rows())
     for fig in (ng.coverage(raw), ng.composition(e, "SE"), ng.gap(e, le.GB, as_pct=True),
-                ng.cwv_scatter(e, "SE", "2025/26", target="target_repaired"), ng.feed_check(e, "SE")):
+                ng.cwv_scatter(e, "SE", "2025/26", target="target_repaired"), ng.feed_check(e, "SE"),
+                ng.offtake_share(e)):
         assert fig.data

@@ -118,6 +118,31 @@ def gas_years(energy: pd.DataFrame) -> list[str]:
     return sorted(set(gas_year(energy.index.get_level_values("gas_day"))), reverse=True)
 
 
+def offtake_share(energy: pd.DataFrame) -> go.Figure:
+    """Per LDZ: NTS offtakes as % of the published total on ok days — median dot, 5–95% range bar."""
+    t = active()
+    e = energy.drop(index=GB, level="ldz")
+    e = e[(e["flag"] == "ok") & e["offtake"].notna() & (e["total"] > 0)]
+    share = (100 * e["offtake"] / e["total"]).groupby(level="ldz")
+    stats = pd.DataFrame({"median": share.median(), "p05": share.quantile(0.05), "p95": share.quantile(0.95)})
+    stats = stats.reindex([z for z in LDZS if z in stats.index][::-1])  # EA at the top
+    fig = go.Figure()
+    fig.add_vline(x=100, line=dict(color=t.axis, width=1))
+    fig.add_trace(go.Scatter(
+        x=stats["median"], y=stats.index, mode="markers", name="Median day",
+        marker=dict(size=10, color=t.series[0], line=dict(width=2, color=t.surface)),
+        error_x=dict(type="data", symmetric=False, array=stats["p95"] - stats["median"],
+                     arrayminus=stats["median"] - stats["p05"], color=_alpha(t.series[0], 0.5), thickness=2, width=0),
+        customdata=stats[["p05", "p95"]].values,
+        hovertemplate="%{y}: median %{x:.1f}% (5–95%%: %{customdata[0]:.0f}–%{customdata[1]:.0f}%)<extra></extra>",
+    ))
+    fig.update_layout(title="NTS offtakes as a share of each LDZ's published total (ok days)",
+                      xaxis_title="Offtakes ÷ total (%) — bar shows the 5–95% range of days",
+                      height=440, showlegend=False, hovermode="closest",
+                      yaxis=dict(showgrid=False))
+    return fig
+
+
 def feed_check(energy: pd.DataFrame, ldz: str) -> go.Figure:
     """Total − NTS offtakes (the LDZ's non-NTS input) against its usual level, with flagged days."""
     t = active()
