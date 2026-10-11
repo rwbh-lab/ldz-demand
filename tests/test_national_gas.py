@@ -1,8 +1,11 @@
+"""National Gas: ingest (download + archive) and the ng_ldz_daily builder."""
+
 from datetime import date, timedelta
 
 import pandas as pd
 import pytest
 
+from ldz_demand.data.build.ng_ldz_daily import NGLdzDailyBuilder, latest_values, parse
 from ldz_demand.data.datasets import NG_LDZ_DAILY
 from ldz_demand.data.ingest.national_gas import (
     HISTORY_DAYS,
@@ -10,8 +13,8 @@ from ldz_demand.data.ingest.national_gas import (
     LDZS,
     NationalGasError,
     NationalGasIngestor,
-    _identify,
-    parse,
+    archived_pulls,
+    identify,
 )
 from ldz_demand.data.store import CsvCacheStore
 
@@ -36,11 +39,13 @@ def csv_line(item, ldz, gas_day="31/01/2026", value="18.77856", quality=""):
     return f'06/02/2026 11:38:00,{gas_day},"{TEMPLATES[item].format(ldz=ldz)}",{value},06/02/2026 12:00:00,{quality}\n'
 
 
+# --- item registry ------------------------------------------------------------------------------
+
 def test_every_item_and_ldz_is_identified():
     assert set(TEMPLATES) == set(ITEMS)
     for name in ITEMS:
         for ldz in LDZS:
-            item, found_ldz = _identify(TEMPLATES[name].format(ldz=ldz))
+            item, found_ldz = identify(TEMPLATES[name].format(ldz=ldz))
             assert (item.name, found_ldz) == (name, ldz)
 
 
@@ -48,6 +53,69 @@ def test_ids_are_complete_and_unique():
     ids = [item.ids[ldz] for item in ITEMS.values() for ldz in LDZS]
     assert len(ids) == len(set(ids)) == len(ITEMS) * len(LDZS)
 
+
+# --- ingest: download + archive -----------------------------------------------------------------
+
+class FakeResponse:
+    def __init__(self, content: bytes):
+        self.content = content
+
+    def raise_for_status(self):
+        pass
+
+
+class FakeSession:
+    """Returns one demand_total_d6 SE row per requested gas day; value = day of month."""
+
+    def __init__(self):
+        self.headers = {}
+        self.calls = []
+
+    def get(self, url, params, timeout):
+        self.calls.append(params)
+        start, end = date.fromisoformat(params["dateFrom"]), date.fromisoformat(params["dateTo"])
+        days = [start + timedelta(days=i) for i in range((end - start).days + 1)]
+        lines = [csv_line("demand_total_d6", "SE", gas_day=d.strftime("%d/%m/%Y"), value=str(d.day)) for d in days]
+        return FakeResponse((HEADER + "".join(lines)).encode())
+
+
+@pytest.fixture
+def ingestor(tmp_path):
+    return NationalGasIngestor(tmp_path / "raw", items=["demand_total_d6"], ldzs=["SE"], session=FakeSession())
+
+
+def test_pull_chunks_by_year_and_archives_each_response(ingestor, tmp_path):
+    files = ingestor.pull(date(2025, 12, 30), date(2026, 1, 2))
+
+    calls = ingestor.session.calls
+    assert [(c["dateFrom"], c["dateTo"]) for c in calls] == [("2025-12-30", "2025-12-31"), ("2026-01-01", "2026-01-02")]
+    assert calls[0]["ids"] == "PUBOB646"
+    assert ingestor.session.headers["User-Agent"].startswith("ldz-demand")
+    assert [f.parent.name for f in files] == ["2025", "2026"]
+    assert files[0].read_bytes().startswith(b"Applicable At")
+
+    pulls = archived_pulls(tmp_path / "raw")
+    assert [(p.start, p.end) for p in pulls] == [(date(2025, 12, 30), date(2025, 12, 31)), (date(2026, 1, 1), date(2026, 1, 2))]
+
+
+def test_repeat_pull_never_overwrites(ingestor, tmp_path):
+    ingestor.pull(date(2026, 1, 1), date(2026, 1, 2))
+    ingestor.pull(date(2026, 1, 1), date(2026, 1, 2))
+    assert len(list((tmp_path / "raw").rglob("*.csv"))) == 2
+
+
+def test_refresh_full_history_then_from_archive(ingestor):
+    today = date(2026, 10, 11)
+    ingestor.refresh(today)
+    assert ingestor.session.calls[0]["dateFrom"] == (today - timedelta(days=HISTORY_DAYS)).isoformat()
+    assert ingestor.session.calls[-1]["dateTo"] == "2026-10-10"
+
+    ingestor.session.calls.clear()
+    ingestor.refresh(date(2026, 10, 20))
+    assert [(c["dateFrom"], c["dateTo"]) for c in ingestor.session.calls] == [("2026-09-30", "2026-10-19")]
+
+
+# --- build: archive -> ng_ldz_daily -------------------------------------------------------------
 
 def test_parse_units_dates_and_missing_values():
     content = (HEADER
@@ -74,69 +142,36 @@ def test_parse_rejects_unknown_items_and_bad_columns():
         parse(b"a,b\n1,2\n")
 
 
-class FakeResponse:
-    def __init__(self, content: bytes):
-        self.content = content
-
-    def raise_for_status(self):
-        pass
-
-
-class FakeSession:
-    """Returns one demand_total_d6 SE row per requested gas day."""
-
-    def __init__(self):
-        self.headers = {}
-        self.calls = []
-
-    def get(self, url, params, timeout):
-        self.calls.append(params)
-        start, end = date.fromisoformat(params["dateFrom"]), date.fromisoformat(params["dateTo"])
-        days = [start + timedelta(days=i) for i in range((end - start).days + 1)]
-        lines = [csv_line("demand_total_d6", "SE", gas_day=d.strftime("%d/%m/%Y"), value=str(i)) for i, d in enumerate(days)]
-        return FakeResponse((HEADER + "".join(lines)).encode())
+def test_latest_values_prefers_newest_pull_with_a_value():
+    row = {"gas_day": pd.Timestamp("2026-01-01"), "ldz": "SE", "item": "demand_total_d6"}
+    df = pd.DataFrame([
+        {**row, "value": 1.0, "_pulled": "20260101T000000Z"},
+        {**row, "value": 2.0, "_pulled": "20260102T000000Z"},   # newer value wins over older
+        {**row, "value": None, "_pulled": "20260103T000000Z"},  # newer blank does not erase it
+    ])
+    assert latest_values(df)["value"].tolist() == [2.0]
 
 
-@pytest.fixture
-def ingestor(tmp_path):
-    return NationalGasIngestor(
-        CsvCacheStore(tmp_path / "cache"), tmp_path / "raw",
-        items=["demand_total_d6"], ldzs=["SE"], session=FakeSession(),
-    )
+def test_build_from_archive_then_rebuild_is_idempotent(ingestor, tmp_path):
+    ingestor.pull(date(2025, 12, 30), date(2026, 1, 2))
+    store = CsvCacheStore(tmp_path / "cache")
+    builder = NGLdzDailyBuilder(store, tmp_path / "raw")
 
-
-def test_pull_chunks_by_year_archives_raw_and_writes_store(ingestor, tmp_path):
-    written = ingestor.pull(date(2025, 12, 30), date(2026, 1, 2))
-
-    assert written == 4
-    calls = ingestor.session.calls
-    assert [(c["dateFrom"], c["dateTo"]) for c in calls] == [("2025-12-30", "2025-12-31"), ("2026-01-01", "2026-01-02")]
-    assert calls[0]["ids"] == "PUBOB646"
-    assert ingestor.session.headers["User-Agent"].startswith("ldz-demand")
-
-    archived = sorted((tmp_path / "raw" / "national_gas").rglob("*.csv"))
-    assert [p.parent.name for p in archived] == ["2025", "2026"]
-    assert archived[0].read_bytes().startswith(b"Applicable At")
-
-    stored = ingestor.store.read(NG_LDZ_DAILY)
+    assert builder.build() == 4
+    assert builder.build() == 4  # replace: same rows rewritten
+    stored = store.read(NG_LDZ_DAILY)
     assert len(stored) == 4
     assert set(stored["unit"]) == {"mcm"}
 
 
-def test_repeat_pull_archives_again_and_replaces_rows(ingestor, tmp_path):
-    ingestor.pull(date(2026, 1, 1), date(2026, 1, 2))
-    ingestor.pull(date(2026, 1, 1), date(2026, 1, 2))
+def test_build_since_only_touches_recent_rows(ingestor, tmp_path):
+    ingestor.pull(date(2025, 12, 30), date(2026, 1, 2))
+    store = CsvCacheStore(tmp_path / "cache")
+    builder = NGLdzDailyBuilder(store, tmp_path / "raw")
 
-    assert len(list((tmp_path / "raw").rglob("*.csv"))) == 2
-    assert len(ingestor.store.read(NG_LDZ_DAILY)) == 2
+    assert builder.build(since=date(2026, 1, 2)) == 1
+    assert store.read(NG_LDZ_DAILY)["gas_day"].tolist() == [pd.Timestamp("2026-01-02")]
 
 
-def test_refresh_full_history_then_incremental(ingestor):
-    today = date(2026, 10, 11)
-    ingestor.refresh(today)
-    assert ingestor.session.calls[0]["dateFrom"] == (today - timedelta(days=HISTORY_DAYS)).isoformat()
-    assert ingestor.session.calls[-1]["dateTo"] == "2026-10-10"
-
-    ingestor.session.calls.clear()
-    ingestor.refresh(date(2026, 10, 20))
-    assert [(c["dateFrom"], c["dateTo"]) for c in ingestor.session.calls] == [("2026-09-30", "2026-10-19")]
+def test_build_with_empty_archive_writes_nothing(tmp_path):
+    assert NGLdzDailyBuilder(CsvCacheStore(tmp_path / "cache"), tmp_path / "raw").build() == 0

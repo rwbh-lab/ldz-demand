@@ -3,8 +3,8 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
-build/
-dist/
+/build/
+/dist/
 
 # Local config and secrets
 config/local.ini

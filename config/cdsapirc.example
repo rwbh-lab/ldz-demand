@@ -1,0 +1,5 @@
+# Copernicus Climate Data Store API config, used by the ERA5 ingestor.
+# Copy to ~/.cdsapirc (your home folder, NOT the repo) and replace the key with your API token
+# from https://cds.climate.copernicus.eu (profile page). Token only — no "UID:" prefix.
+url: https://cds.climate.copernicus.eu/api
+key: <your-api-token>

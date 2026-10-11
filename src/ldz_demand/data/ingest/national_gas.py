@@ -1,14 +1,12 @@
 """
-National Gas Transmission data portal ingestor.
+National Gas Transmission data portal ingestor — download and archive only.
 
 Public CSV API, no auth: per-LDZ daily demand (total, DM, NDM, UIG), calorific value and actual CWV.
-History is a rolling ~5 years, so every raw response is archived untouched under
-raw_dir/national_gas/ before parsing.
+History is a rolling ~5 years, so every response is archived untouched under
+raw_dir/national_gas/<year>/ng_ldz_<start>_<end>_pulled_<UTC time>.csv. The archive is the source
+of truth: the ng_ldz_daily table is built from it by ldz_demand.data.build.ng_ldz_daily.
 
-Units differ by item — total demand is in mcm, DM/NDM/UIG in kWh — so the stored rows carry a unit.
-Converting total demand to energy needs the LDZ calorific value: kWh = mcm * 1e6 * CV[MJ/m3] / 3.6.
-Checked on SE, Jan 2026: total (energy) = DM + NDM + UIG to within 0.2-0.4% (LDZ shrinkage + CV
-rounding).
+Units differ by item — total demand is in mcm, DM/NDM/UIG in kWh — see ITEMS.
 
 Run as a script:
     python -m ldz_demand.data.ingest.national_gas refresh
@@ -16,7 +14,6 @@ Run as a script:
 """
 
 import argparse
-import io
 import logging
 import re
 import sys
@@ -24,12 +21,9 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-import pandas as pd
 import requests
 
 from ldz_demand.config import create_config, resolve_path
-from ldz_demand.data.datasets import NG_LDZ_DAILY
-from ldz_demand.data.store import Store, get_store
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +32,7 @@ USER_AGENT = "ldz-demand/0.1"  # the portal rejects Python's default urllib user
 TIMEOUT = 300  # seconds; a full year of all items is ~4 MB and takes ~15 s
 HISTORY_DAYS = 5 * 365  # the portal keeps a rolling ~5 years
 REFRESH_LOOKBACK_DAYS = 10  # re-pull recent days so D+6 closed-out values replace provisional gaps
+ARCHIVE_NAME = re.compile(r"ng_ldz_(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})_pulled_(\w+)\.csv")
 
 LDZS = ("EA", "EM", "NE", "NO", "NT", "NW", "SC", "SE", "SO", "SW", "WM", "WN", "WS")
 
@@ -103,14 +98,29 @@ class NationalGasError(RuntimeError):
     pass
 
 
+@dataclass(frozen=True)
+class ArchivedPull:
+    path: Path
+    start: date
+    end: date
+    pulled: str  # UTC timestamp from the filename; sorts chronologically
+
+
+def archived_pulls(raw_dir: Path) -> list[ArchivedPull]:
+    """Archived responses under raw_dir/national_gas, oldest pull first."""
+    pulls = []
+    for path in (Path(raw_dir) / "national_gas").rglob("*.csv"):
+        if m := ARCHIVE_NAME.fullmatch(path.name):
+            pulls.append(ArchivedPull(path, date.fromisoformat(m.group(1)), date.fromisoformat(m.group(2)), m.group(3)))
+    return sorted(pulls, key=lambda p: p.pulled)
+
+
 class NationalGasIngestor:
     """
-    Pulls National Gas LDZ data items into a Store, archiving raw responses first.
+    Downloads National Gas LDZ data items and archives the raw responses.
 
     Parameters
     ----------
-    store : Store
-        Destination for parsed rows (dataset NG_LDZ_DAILY).
     raw_dir : Path
         Raw archive root; responses go to raw_dir/national_gas/<year>/.
     items, ldzs : sequence of str, optional
@@ -119,9 +129,8 @@ class NationalGasIngestor:
         Injectable for testing.
     """
 
-    def __init__(self, store: Store, raw_dir: Path, items=None, ldzs=None, session=None) -> None:
-        self.store = store
-        self.raw_dir = Path(raw_dir) / "national_gas"
+    def __init__(self, raw_dir: Path, items=None, ldzs=None, session=None) -> None:
+        self.raw_dir = Path(raw_dir)
         self.items = [ITEMS[name] for name in (items or ITEMS)]
         self.ldzs = list(ldzs or LDZS)
         self.session = session or requests.Session()
@@ -131,22 +140,18 @@ class NationalGasIngestor:
     def ids(self) -> list[str]:
         return [item.ids[ldz] for item in self.items for ldz in self.ldzs]
 
-    def pull(self, start: date, end: date) -> int:
-        """Pull [start, end] in calendar-year chunks. Returns rows written."""
-        written = 0
-        for chunk_start, chunk_end in _year_chunks(start, end):
-            content = self.fetch(chunk_start, chunk_end)
-            self.archive(content, chunk_start, chunk_end)
-            df = parse(content)
-            written += self.store.write(NG_LDZ_DAILY, df, on_conflict="replace")
-            _log_coverage(df, chunk_start, chunk_end, len(self.ids))
-        return written
+    def pull(self, start: date, end: date) -> list[Path]:
+        """Download [start, end] in calendar-year chunks. Returns the archived files."""
+        return [self.archive(self.fetch(s, e), s, e) for s, e in _year_chunks(start, end)]
 
-    def refresh(self, today: date | None = None) -> int:
-        """Pull from the last stored gas day (minus a lookback) up to yesterday; full history if empty."""
+    def refresh(self, today: date | None = None) -> list[Path]:
+        """Download from the last archived gas day (minus a lookback) to yesterday; full history if none."""
         today = today or date.today()
-        last = self.store.last_date(NG_LDZ_DAILY)
-        start = today - timedelta(days=HISTORY_DAYS) if last is None else last - timedelta(days=REFRESH_LOOKBACK_DAYS)
+        pulls = archived_pulls(self.raw_dir)
+        if pulls:
+            start = max(p.end for p in pulls) - timedelta(days=REFRESH_LOOKBACK_DAYS)
+        else:
+            start = today - timedelta(days=HISTORY_DAYS)
         return self.pull(start, today - timedelta(days=1))
 
     def fetch(self, start: date, end: date) -> bytes:
@@ -169,7 +174,7 @@ class NationalGasIngestor:
     def archive(self, content: bytes, start: date, end: date) -> Path:
         """Write the raw response to a new file; never overwrites."""
         pulled = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-        path = self.raw_dir / str(start.year) / f"ng_ldz_{start}_{end}_pulled_{pulled}.csv"
+        path = self.raw_dir / "national_gas" / str(start.year) / f"ng_ldz_{start}_{end}_pulled_{pulled}.csv"
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "xb") as f:
             f.write(content)
@@ -177,33 +182,8 @@ class NationalGasIngestor:
         return path
 
 
-def parse(content: bytes) -> pd.DataFrame:
-    """Portal CSV -> NG_LDZ_DAILY rows. Unrecognised data items raise rather than being dropped."""
-    raw = pd.read_csv(io.BytesIO(content), dtype=str, keep_default_na=False, encoding="utf-8-sig")
-    expected = ["Applicable At", "Applicable For", "Data Item", "Value", "Generated Time", "Quality Indicator"]
-    if list(raw.columns) != expected:
-        raise NationalGasError(f"Unexpected columns {list(raw.columns)}")
-
-    lookup = {name: _identify(name) for name in raw["Data Item"].unique()}
-    unknown = [name for name, hit in lookup.items() if hit is None]
-    if unknown:
-        raise NationalGasError(f"Unrecognised data items: {unknown}")
-
-    hits = [lookup[name] for name in raw["Data Item"]]
-    return pd.DataFrame({
-        "gas_day": pd.to_datetime(raw["Applicable For"], format="%d/%m/%Y"),
-        "ldz": [ldz for _, ldz in hits],
-        "item": [item.name for item, _ in hits],
-        "data_item_id": [item.ids[ldz] for item, ldz in hits],
-        "value": pd.to_numeric(raw["Value"].replace("", None)),
-        "unit": [item.unit for item, _ in hits],
-        "quality": raw["Quality Indicator"].replace("", None),
-        "applicable_at": pd.to_datetime(raw["Applicable At"].replace("", None), format="%d/%m/%Y %H:%M:%S"),
-        "generated_time": pd.to_datetime(raw["Generated Time"].replace("", None), format="%d/%m/%Y %H:%M:%S"),
-    })
-
-
-def _identify(data_item: str) -> tuple[Item, str] | None:
+def identify(data_item: str) -> tuple[Item, str] | None:
+    """Portal "Data Item" text -> (Item, LDZ), or None if it isn't one of ITEMS."""
     for item in ITEMS.values():
         match = item.pattern.fullmatch(data_item)
         if match and match.group(1) in item.ids:
@@ -219,37 +199,20 @@ def _year_chunks(start: date, end: date):
         current = chunk_end + timedelta(days=1)
 
 
-def _log_coverage(df: pd.DataFrame, start: date, end: date, n_series: int) -> None:
-    days = (end - start).days + 1
-    expected = days * n_series
-    present = int(df["value"].notna().sum())
-    if present >= expected:
-        logger.info(f"{start}..{end}: all {expected} values present")
-        return
-    counts = df[df["value"].notna()].groupby(["item", "ldz"]).size()
-    gaps = (days - counts).loc[lambda s: s > 0].sort_values(ascending=False)
-    missing_series = n_series - len(counts)
-    logger.warning(
-        f"{start}..{end}: {present}/{expected} values"
-        + (f"; {missing_series} series returned nothing" if missing_series else "")
-        + ("; largest gaps: " + ", ".join(f"{i}/{l}={n}d" for (i, l), n in gaps.head(5).items()) if len(gaps) else "")
-    )
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m ldz_demand.data.ingest.national_gas")
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("refresh", help="pull from the last stored day (full history if empty)")
-    pull_parser = sub.add_parser("pull", help="pull an explicit gas-day range")
+    sub.add_parser("refresh", help="download from the last archived day (full history if none)")
+    pull_parser = sub.add_parser("pull", help="download an explicit gas-day range")
     pull_parser.add_argument("start", type=date.fromisoformat)
     pull_parser.add_argument("end", type=date.fromisoformat)
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     config = create_config()
-    ingestor = NationalGasIngestor(get_store(config), resolve_path(config, "storage", "raw_dir"))
-    written = ingestor.refresh() if args.command == "refresh" else ingestor.pull(args.start, args.end)
-    logger.info(f"Done: {written} rows written")
+    ingestor = NationalGasIngestor(resolve_path(config, "storage", "raw_dir"))
+    files = ingestor.refresh() if args.command == "refresh" else ingestor.pull(args.start, args.end)
+    logger.info(f"Done: {len(files)} file(s) archived. Build the table with: python -m ldz_demand.data.build.ng_ldz_daily")
     return 0
 
 

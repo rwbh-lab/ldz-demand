@@ -1,5 +1,5 @@
 """
-ERA5 ingestor (Copernicus Climate Data Store).
+ERA5 ingestor (Copernicus Climate Data Store) — download and archive, plus reading the archive.
 
 Hourly 2m temperature and 10m wind (u, v) over a GB box, one NetCDF file per month, archived under
 raw_dir/era5/<year>/. Requires a free CDS account, ~/.cdsapirc with your API token, and the ERA5
@@ -11,9 +11,7 @@ FINAL_AFTER_DAYS are downloaded once to era5_gb_YYYY-MM.nc and never fetched aga
 months are downloaded to a new era5t_gb_YYYY-MM_pulled_<UTC time>.nc on each pull; load_hourly
 uses the final file when present, else the latest preliminary one.
 
-gas_day_means turns hourly fields into gas-day means. A gas day runs 05:00 to 05:00 UK local time
-(04:00 UTC during BST). Only complete gas days are returned: 24 hours, or 23 / 25 for the gas
-days spanning the spring / autumn clock changes.
+Gas-day aggregation and LDZ weighting happen in ldz_demand.data.build, not here.
 
 Run as a script:
     python -m ldz_demand.data.ingest.era5 refresh
@@ -39,8 +37,6 @@ DATASET = "reanalysis-era5-single-levels"
 VARIABLES = ["2m_temperature", "10m_u_component_of_wind", "10m_v_component_of_wind"]
 FINAL_AFTER_DAYS = 90  # months ending longer ago than this are treated as final ERA5
 LATENCY_DAYS = 6  # ERA5T is available ~5 days behind real time
-GAS_DAY_START_HOUR = 5  # UK local time
-UK_TZ = "Europe/London"
 
 FINAL_NAME = re.compile(r"era5_gb_(\d{4}-\d{2})\.nc")
 PRELIM_NAME = re.compile(r"era5t_gb_(\d{4}-\d{2})_pulled_(\w+)\.nc")
@@ -151,26 +147,6 @@ def load_hourly(raw_dir: Path, first: str | None = None, last: str | None = None
     ds = xr.concat([_standardise(xr.open_dataset(p)) for p in files], dim="time")
     ds = ds.sortby("time")
     return ds.isel(time=~ds.get_index("time").duplicated())
-
-
-def gas_day_means(hourly: xr.Dataset) -> xr.Dataset:
-    """Mean of each variable over each complete UK gas day (05:00-05:00 local). Index: gas_day."""
-    utc = pd.DatetimeIndex(hourly["time"].values).tz_localize("UTC")
-    # Shift on the local wall clock (naive), not in absolute time, so 05:00 BST maps to its own day
-    local = utc.tz_convert(UK_TZ).tz_localize(None)
-    gas_day = (local - pd.Timedelta(hours=GAS_DAY_START_HOUR)).normalize()
-    labelled = hourly.assign_coords(gas_day=("time", gas_day))
-    counts = pd.Series(1, index=gas_day).groupby(level=0).size()
-    complete = counts.index[counts == _gas_day_hours(counts.index)]
-    daily = labelled.groupby("gas_day").mean("time")
-    return daily.sel(gas_day=daily["gas_day"].isin(complete))
-
-
-def _gas_day_hours(gas_days: pd.DatetimeIndex) -> np.ndarray:
-    """Real length in hours of each gas day: 24, or 23 / 25 across the clock changes."""
-    starts = (gas_days + pd.Timedelta(hours=GAS_DAY_START_HOUR)).tz_localize(UK_TZ)
-    ends = (gas_days + pd.Timedelta(days=1, hours=GAS_DAY_START_HOUR)).tz_localize(UK_TZ)
-    return ((ends - starts) / pd.Timedelta(hours=1)).to_numpy().round().astype(int)
 
 
 def _standardise(ds: xr.Dataset) -> xr.Dataset:

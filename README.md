@@ -22,7 +22,8 @@ docs/
 src/ldz_demand/
   config.py        config loading (default.ini + local.ini)
   data/datasets.py processed table definitions (shared by CSV and MySQL)
-  data/ingest/     National Gas, ERA5, ECMWF ENS ingestors
+  data/ingest/     download + archive to raw_dir (one ingestor per source)
+  data/build/      raw_dir -> Store tables (one builder per table; rebuildable from the archive)
   data/store/      Store interface, CSV cache and MySQL implementations
   db/              MySQL connection, DDL, migration runner (python -m ldz_demand.db)
   models/          LDZ network, CWV demand estimator, seasonal normal
@@ -39,7 +40,13 @@ Processed tables go through one `Store` interface; `get_store(config)` picks the
 - `database = true`: MySQL (needs the `db` extra). Set in `config/local.ini`.
 
 Raw downloads (National Gas CSVs, ERA5 NetCDF, ECMWF GRIB) always go to `raw_dir` as files, in
-their native format, whichever backend is used.
+their native format, whichever backend is used. The archive is the source of truth: ingestors only
+download and archive, and builders turn the archive into Store tables:
+
+```bash
+python -m ldz_demand.data.ingest.national_gas refresh   # download new days -> raw_dir
+python -m ldz_demand.data.build.ng_ldz_daily             # raw_dir -> ng_ldz_daily (add --since to limit)
+```
 
 ## Database mode (MySQL)
 
