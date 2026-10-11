@@ -111,7 +111,7 @@ Run `migrate` again whenever you update the code; it only applies new migrations
 
 ## 4. Datasets
 
-### 4.1 National Gas — LDZ demand, calorific value, CWV
+### 4.1 National Gas — LDZ demand, calorific value, CWV, NTS offtakes
 
 | | |
 |---|---|
@@ -120,8 +120,15 @@ Run `migrate` again whenever you update the code; it only applies new migrations
 | **Account** | None |
 | **Terms** | See the portal's terms of use |
 | **History** | Rolling ~5 years (earliest gas day on 2026-10-11: 2021-10-12) |
-| **Size** | ~20 MB for 5 years |
-| **Raw files** | `raw_dir/national_gas/<year>/ng_ldz_<start>_<end>_pulled_<UTC time>.csv` |
+| **Size** | ~20 MB for 5 years per series |
+| **Raw files** | `raw_dir/national_gas/<year>/ng_ldz_…csv` (LDZ items), `raw_dir/national_gas/offtakes/<year>/ng_offtakes_…csv` (offtakes) |
+
+Two series are downloaded:
+
+- **`ldz`** — the per-LDZ items below.
+- **`offtakes`** — energy offtaken from the national transmission system (NTS) at each of the 122
+  LDZ offtake points (kWh/day). Summed per LDZ, an independent meter of the gas entering it, used to
+  check the published totals (§9).
 
 LDZs: EA, EM, NE, NO, NT, NW, SC, SE, SO, SW, WM, WN, WS.
 
@@ -138,6 +145,11 @@ LDZs: EA, EM, NE, NO, NT, NW, SC, SE, SO, SW, WM, WN, WS.
   `kWh = mcm × 10⁶ × CV / 3.6`.
 - **D+1 vs D+6.** D+1 values are provisional, published the day after. D+6 values are closed out
   six days later; use these for modelling. The most recent ~6 days only have D+1 values.
+- **Formatting.** Some offtake values are published with thousands separators (`"2,489,711"`); the
+  builder handles this.
+- **SE total.** SE normally takes ~31 GWh/day from a non-NTS input, which is missing from its
+  published total from Sep 2022 to Feb 2024 (and a few short spells since). Detected and flagged
+  using the offtakes — see §9.
 
 ### 4.2 ERA5 — hourly reanalysis weather
 
@@ -170,12 +182,15 @@ horizon. No account; CC-BY-4.0. Only recent runs stay online, so each run used i
 ### 5.1 National Gas
 
 ```bash
-python -m ldz_demand.data.ingest.national_gas refresh    # download -> raw_dir
+python -m ldz_demand.data.ingest.national_gas refresh    # download both series -> raw_dir
 python -m ldz_demand.data.build.ng_ldz_daily             # raw_dir -> ng_ldz_daily
+python -m ldz_demand.data.build.ng_offtake_daily         # raw_dir -> ng_offtake_daily
 ```
 
-- **First run:** `refresh` downloads the full ~5 years (6 requests, 1–2 minutes). The build then
-  writes ~204,000 rows.
+- **First run:** `refresh` downloads the full ~5 years of both series (12 requests, 2–3 minutes).
+  The builds then write ~204,000 and ~219,000 rows. In MySQL mode, run `python -m ldz_demand.db
+  migrate` first so both tables exist.
+- **One series only:** add `--series ldz` or `--series offtakes` to `refresh` / `pull`.
 - **Later runs:** `refresh` starts 10 days before the last archived gas day, so D+6 values that
   were missing get filled in. Rebuild only recent rows with `--since`:
   ```bash
@@ -211,7 +226,8 @@ Ingestor (download + archive each run) and builder (`ens_ldz_daily`) planned. Se
 ```
 raw_dir/
 ├── national_gas/
-│   └── <year>/ng_ldz_<start>_<end>_pulled_<UTC time>.csv     one file per request, never overwritten
+│   ├── <year>/ng_ldz_<start>_<end>_pulled_<UTC time>.csv     one file per request, never overwritten
+│   └── offtakes/<year>/ng_offtakes_<start>_<end>_pulled_<UTC time>.csv
 └── era5/
     └── <year>/era5_gb_YYYY-MM.nc                            final month
         <year>/era5t_gb_YYYY-MM_pulled_<UTC time>.nc         preliminary month, one per download
@@ -232,6 +248,10 @@ raw_dir/
 | `quality` | text | Portal quality indicator |
 | `applicable_at` | datetime | When the value was published |
 | `generated_time` | datetime | |
+
+**`ng_offtake_daily`** — one row per gas day × LDZ × offtake site. Key: `(gas_day, ldz, site)`.
+Same columns as `ng_ldz_daily`, with `site` (e.g. `Farningham`) in place of `item`; `unit` is
+always `kWh`.
 
 **🚧 Coming soon**
 
@@ -259,6 +279,7 @@ Builders read only `raw_dir`, so tables can always be rebuilt without downloadin
 
 ```bash
 python -m ldz_demand.data.build.ng_ldz_daily
+python -m ldz_demand.data.build.ng_offtake_daily
 ```
 
 Builds overwrite matching rows, so running one twice is safe. To start completely clean, delete the
@@ -279,6 +300,12 @@ table first: in CSV mode remove `data/cache/ng_ldz_daily.csv`; in MySQL mode emp
   match (`dark` / `light`). More pages 🚧 coming soon.
 - **Coverage.** The National Gas build logs gaps inside each series' date range. No warning means
   every series is complete from its first to its last day.
+- **Flags.** `ldz_demand.data.ldz_energy.energy_frame()` converts everything to GWh/day and flags
+  each LDZ-day: **invalid** (total < 10% of DM + NDM), **missing feed** (an LDZ's usual non-NTS
+  input — total minus offtakes — has dropped out of the published total; SE 2022–24), **mismatch**
+  (total minus offtakes far from its usual level). It also gives two model targets: `target`
+  (total − DM, flagged days excluded) and `target_repaired` (missing-feed days repaired as
+  offtakes + usual input). Without offtake data, a simpler rule flags totals < 70% of DM + NDM.
 - **Energy balance.** Total demand converted to energy should roughly match DM + NDM + UIG. The
   difference is mostly LDZ shrinkage (leakage and own use): a fairly constant amount of energy, so
   ~0.3% of demand in winter but ~1.5% in summer when demand is low (SE, 2025–26). A few days are
@@ -319,9 +346,10 @@ print((100 * (total_kwh - parts) / total_kwh).describe())   # SE 2026: mean ~1%,
 
 | Command | Does |
 |---|---|
-| `python -m ldz_demand.data.ingest.national_gas refresh` | Download new National Gas days (full history if none archived) |
-| `python -m ldz_demand.data.ingest.national_gas pull START END` | Download a gas-day range (YYYY-MM-DD) |
+| `python -m ldz_demand.data.ingest.national_gas refresh [--series ldz\|offtakes]` | Download new National Gas days (full history if none archived) |
+| `python -m ldz_demand.data.ingest.national_gas pull START END [--series …]` | Download a gas-day range (YYYY-MM-DD) |
 | `python -m ldz_demand.data.build.ng_ldz_daily [--since DAY]` | Build `ng_ldz_daily` from the archive |
+| `python -m ldz_demand.data.build.ng_offtake_daily [--since DAY]` | Build `ng_offtake_daily` from the archive |
 | `python -m ldz_demand.data.ingest.era5 refresh` | Download ERA5 from `[era5] start` to the latest month |
 | `python -m ldz_demand.data.ingest.era5 pull FIRST LAST` | Download a month range (YYYY-MM) |
 | `python -m ldz_demand.db status` | MySQL: connection check + migration status |

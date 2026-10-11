@@ -10,9 +10,10 @@ def _():
 
     from ldz_demand.charts import ng_ldz_daily as ng
     from ldz_demand.charts import style
+    from ldz_demand.data import ldz_energy as le
 
     theme = style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
-    return mo, ng
+    return le, mo, ng
 
 
 @app.cell(hide_code=True)
@@ -21,8 +22,8 @@ def _(mo):
     # National Gas LDZ data
 
     Daily gas demand for each of GB's 13 Local Distribution Zones (LDZs), as published by National Gas.
-    This page checks the raw data before any modelling: **what is there, whether the parts add up,
-    and how demand responds to weather.**
+    This page checks the raw data before any modelling: **what is there, whether it adds up, and how
+    demand responds to weather.**
 
     The model's target is **total demand minus daily-metered (DM) demand** — the weather-sensitive
     part, built from metered quantities rather than the published NDM allocation (which is itself
@@ -34,42 +35,54 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     from ldz_demand.config import create_config
-    from ldz_demand.data.datasets import NG_LDZ_DAILY
+    from ldz_demand.data.datasets import NG_LDZ_DAILY, NG_OFFTAKE_DAILY
     from ldz_demand.data.store import get_store
 
     try:
-        raw = get_store(create_config()).read(NG_LDZ_DAILY)
+        _store = get_store(create_config())
+        raw = _store.read(NG_LDZ_DAILY)
+        offtakes = _store.read(NG_OFFTAKE_DAILY)
         load_error = None
     except Exception as exc:  # show setup help instead of a traceback
-        raw, load_error = None, exc
+        raw, offtakes, load_error = None, None, exc
 
     mo.stop(
         raw is None or raw.empty,
         mo.callout(mo.md(
             "**No National Gas data found.** Build it first — see `docs/user_guide.md` §5.1:\n\n"
             "```bash\npython -m ldz_demand.data.ingest.national_gas refresh\n"
-            "python -m ldz_demand.data.build.ng_ldz_daily\n```"
+            "python -m ldz_demand.data.build.ng_ldz_daily\n"
+            "python -m ldz_demand.data.build.ng_offtake_daily\n```"
             + (f"\n\nError: `{load_error}`" if load_error else "")
         ), kind="warn"),
     )
-    return (raw,)
+    has_offtakes = offtakes is not None and not offtakes.empty
+    return has_offtakes, offtakes, raw
 
 
 @app.cell(hide_code=True)
-def _(mo, ng, raw):
-    energy = ng.energy_frame(raw)
-    _ldz = energy.drop(index=ng.GB, level="ldz")
+def _(has_offtakes, le, mo, offtakes, raw):
+    energy = le.energy_frame(raw, offtakes if has_offtakes else None)
+    _ldz = energy.drop(index=le.GB, level="ldz")
     _flags = _ldz["flag"].value_counts()
     _days = raw["gas_day"]
+    _bad = int((_ldz["flag"] != "ok").sum())
 
-    mo.hstack([
-        mo.stat(f"{(_days.max() - _days.min()).days / 365.25:.1f} years", label="History",
-                caption=f"{_days.min():%d %b %Y} → {_days.max():%d %b %Y}"),
-        mo.stat(f"{raw['ldz'].nunique()} LDZs", label="Zones", caption=f"{raw['item'].nunique()} items each"),
-        mo.stat(f"{raw['value'].notna().sum():,}", label="Values", caption="ng_ldz_daily rows with a value"),
-        mo.stat(f"{_flags.get('suspect', 0) + _flags.get('invalid', 0)}", label="Flagged LDZ-days",
-                caption=f"{_flags.get('suspect', 0)} suspect · {_flags.get('invalid', 0)} invalid"),
-    ], widths="equal", gap=1)
+    mo.vstack([
+        mo.hstack([
+            mo.stat(f"{(_days.max() - _days.min()).days / 365.25:.1f} years", label="History",
+                    caption=f"{_days.min():%d %b %Y} → {_days.max():%d %b %Y}"),
+            mo.stat(f"{raw['ldz'].nunique()} LDZs", label="Zones", caption=f"{raw['item'].nunique()} items each"),
+            mo.stat(f"{raw['value'].notna().sum():,}", label="Values",
+                    caption="ng_ldz_daily" + (f" + {offtakes['value'].notna().sum():,} offtake" if has_offtakes else "")),
+            mo.stat(f"{_bad}", label="Flagged LDZ-days",
+                    caption=" · ".join(f"{_flags.get(f, 0)} {f.replace('_', ' ')}" for f in le.FLAGS[1:] if _flags.get(f, 0))),
+        ], widths="equal", gap=1),
+        mo.md("") if has_offtakes else mo.callout(mo.md(
+            "Offtake data not loaded, so the offtake checks (§3b) are off and the simpler ratio rule is used. "
+            "Run `python -m ldz_demand.data.ingest.national_gas refresh --series offtakes` then "
+            "`python -m ldz_demand.data.build.ng_offtake_daily`."), kind="info"),
+    ])
     return (energy,)
 
 
@@ -92,36 +105,29 @@ def _(ng, raw):
 
 
 @app.cell(hide_code=True)
-def _(mo, ng):
-    ldz_picker = mo.ui.dropdown(options=[ng.GB, *ng.LDZS], value=ng.GB, label="Zone")
-    closeout_picker = mo.ui.radio(options={"D+6 (closed out)": "d6", "D+1 (provisional)": "d1"},
-                                  value="D+6 (closed out)", label="Values", inline=True)
+def _(le, mo):
+    ldz_picker = mo.ui.dropdown(options=[le.GB, *le.LDZS], value=le.GB, label="Zone")
     mo.vstack([
         mo.md(r"""
         ## 2 · What demand is made of
 
-        Total demand is metered at the points where gas enters each LDZ. It splits into
-        **daily-metered** sites (large industry and business — fairly flat) and **non-daily-metered**
-        demand (homes and small business — strongly seasonal). Total demand is published as a volume
-        (mcm), so it is converted to energy with each day's calorific value; everything below is GWh/day.
+        Total demand is metered as gas enters each LDZ. It splits into **daily-metered** sites (large
+        industry and business — fairly flat) and **non-daily-metered** demand (homes and small business —
+        strongly seasonal). Total demand is published as a volume (mcm), so it is converted to energy with
+        each day's calorific value; everything below is GWh/day.
 
-        The thin line is the total; the space between it and the stacked parts is gas the parts don't
-        account for (§3). Use the zone picker for any LDZ, or the GB sum.
+        The thin line is the published total; the space between it and the stacked parts is gas the parts
+        don't account for (§3). Click *NTS offtakes* in the legend to compare with the metered gas entering
+        from the national transmission system (§3b). The zone picker drives every chart below.
         """),
-        mo.hstack([ldz_picker, closeout_picker], justify="start", gap=2),
+        ldz_picker,
     ])
-    return closeout_picker, ldz_picker
+    return (ldz_picker,)
 
 
 @app.cell(hide_code=True)
-def _(closeout_picker, ng, raw):
-    zone_energy = ng.energy_frame(raw, closeout=closeout_picker.value)
-    return (zone_energy,)
-
-
-@app.cell(hide_code=True)
-def _(ldz_picker, ng, zone_energy):
-    ng.composition(zone_energy, ldz_picker.value)
+def _(energy, ldz_picker, ng):
+    ng.composition(energy, ldz_picker.value)
     return
 
 
@@ -136,12 +142,7 @@ def _(mo):
         **Total − DM − NDM** is what the published parts don't explain: unidentified gas plus LDZ
         shrinkage (leakage and own use). Once UIG is published (March 2025) we can subtract it too,
         leaving **shrinkage alone** — a fairly steady ~0.6–1 GWh/day per LDZ, so ~0.3% of winter
-        demand but ~1.5% in summer.
-
-        Some published totals are clearly wrong. Days where the total is below 10% of DM + NDM are
-        **invalid** (zero or negative totals); below 70% are **suspect** — notably long spells in SE
-        (Aug–Nov 2022, May–Oct 2023) where the total runs at about half its parts, as if part of the
-        metered total is missing. Flagged days (✕) are excluded from the model target.
+        demand but ~1.5% in summer. Flagged days (✕, see §3b) are excluded.
         """),
         gap_units,
     ])
@@ -155,16 +156,52 @@ def _(energy, gap_units, ldz_picker, ng):
 
 
 @app.cell(hide_code=True)
-def _(energy, mo, ng):
-    _flagged = ng.flagged_days(energy)
+def _(has_offtakes, mo):
+    mo.md(r"""
+    ## 3b · Checking totals against NTS offtakes
+
+    National Gas also publishes the energy taken from the national transmission system (NTS) at each
+    of the 122 LDZ offtake points — an independent meter of gas entering each LDZ. In most LDZs the
+    offtakes account for almost all of the total. **SE is different: it normally takes a steady
+    ~31 GWh/day from a non-NTS input** (about a quarter of its demand).
+
+    From **September 2022 to February 2024 that input vanishes from SE's published total** — the total
+    equals the offtakes alone — and then returns. Nothing else moves to compensate: the gas is simply
+    missing from the published figure. Because the missing input is so steady, those days can be
+    **repaired** (offtakes + the usual input, uncertainty ~±5 GWh/day) or **excluded**; the model is
+    fitted both ways (§4) to check the result doesn't depend on the choice.
+    """ if has_offtakes else r"""
+    ## 3b · Checking totals against NTS offtakes
+
+    *Needs the offtake data — see the note at the top of the page.*
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(energy, has_offtakes, ldz_picker, mo, ng):
+    _zone = "SE" if ldz_picker.value == ng.GB else ldz_picker.value
+    mo.vstack([
+        mo.md(f"*Showing LDZ {_zone}*" + (" — offtake checks are per LDZ, so SE is shown for GB." if ldz_picker.value == ng.GB else "")),
+        ng.feed_check(energy, _zone),
+    ]) if has_offtakes else None
+    return
+
+
+@app.cell(hide_code=True)
+def _(energy, le, mo):
+    _flagged = le.flagged_days(energy)
     mo.accordion({
         f"Flagged LDZ-days ({len(_flagged)}) — table": mo.ui.table(_flagged, page_size=12, selection=None),
         "How this was computed": mo.md(rf"""
-        - Energy: `total_GWh = total_mcm × CV / 3.6`; DM, NDM and UIG are published in kWh (÷ 10⁶).
-        - `ratio = total / (DM + NDM)`; **invalid** if < {ng.INVALID_BELOW}, **suspect** if < {ng.SUSPECT_BELOW}.
+        - Energy: `total_GWh = total_mcm × CV / 3.6`; DM, NDM, UIG and offtakes are published in kWh (÷ 10⁶).
+        - `ratio = total / (DM + NDM)`; **invalid** if < {le.INVALID_BELOW}.
+        - `other = total − Σ NTS offtakes`; `usual` = that LDZ's median.
+          **missing feed** if usual > {le.FEED_MATERIAL:g} GWh/day and other < {le.FEED_MISSING_SHARE:g} × usual
+          (repaired total = offtakes + usual); **mismatch** if |other − usual| > max({le.MISMATCH_ABS:g} GWh, {le.MISMATCH_REL:.0%} of total).
+        - Without offtake data: **suspect** if ratio < {le.SUSPECT_BELOW}.
         - GB = sum of the 13 LDZs; a GB day takes the worst flag of its LDZs.
-        - Residual flags (> 5% of total) only apply from March 2025, when UIG exists.
-        - Code: `ldz_demand.charts.ng_ldz_daily` · data: `docs/user_guide.md` §4.1.
+        - Code: `ldz_demand.data.ldz_energy` (data), `ldz_demand.charts.ng_ldz_daily` (charts) · data: `docs/user_guide.md` §4.1.
         """),
     })
     return
@@ -174,28 +211,35 @@ def _(energy, mo, ng):
 def _(energy, mo, ng):
     year_picker = mo.ui.dropdown(options=ng.gas_years(energy), value=ng.gas_years(energy)[1],
                                  label="Highlight gas year")
+    target_picker = mo.ui.radio(options={"A · exclude flagged days": "target", "B · repair missing feed": "target_repaired"},
+                                value="A · exclude flagged days", label="Target", inline=True)
     mo.vstack([
         mo.md(r"""
         ## 4 · Weather drives demand
 
         Each point is one gas day: the official **Composite Weather Variable** (CWV — a blend of
         temperature and wind, roughly "how cold it feels") against the model target, total − DM.
-        Demand falls steeply as CWV rises, then **flattens** above ~15 °C, where heating switches off.
-        That bend — and how the curve steepens in the cold — is what the model has to capture.
+        Against the official CWV, demand is **close to a straight line**. That is by design: the CWV
+        formula already bends temperature (warm-weather cut-offs, wind chill, blending with seasonal
+        normals) into a variable that demand responds to linearly. Rebuilding that bending from raw
+        weather is the core of the model.
 
-        The CWV is only published per LDZ, so pick a zone (GB has no single CWV).
+        Switch the target between **A** (flagged days excluded) and **B** (SE's missing feed repaired):
+        for SE, B fills in the 2022/23 and 2023/24 winters. Before the offtake check, SE showed two
+        separate bands here — the lower one was the under-reported total, not a change in behaviour.
+        The CWV is only published per LDZ.
         """),
-        year_picker,
+        mo.hstack([year_picker, target_picker], justify="start", gap=2),
     ])
-    return (year_picker,)
+    return target_picker, year_picker
 
 
 @app.cell(hide_code=True)
-def _(energy, ldz_picker, mo, ng, year_picker):
+def _(energy, ldz_picker, mo, ng, target_picker, year_picker):
     _zone = "SE" if ldz_picker.value == ng.GB else ldz_picker.value
     mo.vstack([
-        mo.md(f"*Showing LDZ {_zone}*" + (" — GB is selected above, so SE is shown." if ldz_picker.value == ng.GB else "")),
-        ng.cwv_scatter(energy, _zone, highlight=year_picker.value),
+        mo.md(f"*Showing LDZ {_zone}*" + (" — GB has no single CWV, so SE is shown." if ldz_picker.value == ng.GB else "")),
+        ng.cwv_scatter(energy, _zone, highlight=year_picker.value, target=target_picker.value),
     ])
     return
 

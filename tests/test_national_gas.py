@@ -135,6 +135,11 @@ def test_parse_units_dates_and_missing_values():
     assert pd.isna(df.loc[df["item"] == "cv", "value"].item())
 
 
+def test_parse_handles_thousands_separators():
+    content = (HEADER + csv_line("demand_dm_d6", "SE", value='"2,489,711"')).encode()
+    assert parse(content)["value"].item() == 2489711
+
+
 def test_parse_rejects_unknown_items_and_bad_columns():
     with pytest.raises(NationalGasError, match="Unrecognised data items"):
         parse((HEADER + '06/02/2026 11:38:00,31/01/2026,"Something Else, LDZ(SE)",1,06/02/2026 12:00:00,\n').encode())
@@ -175,3 +180,46 @@ def test_build_since_only_touches_recent_rows(ingestor, tmp_path):
 
 def test_build_with_empty_archive_writes_nothing(tmp_path):
     assert NGLdzDailyBuilder(CsvCacheStore(tmp_path / "cache"), tmp_path / "raw").build() == 0
+
+
+# --- offtakes series ----------------------------------------------------------------------------
+
+def offtake_line(site, code, gas_day="31/01/2026", value='"2,489,711"'):
+    return f'01/02/2026 12:01:01,{gas_day},"NTS Energy Offtaken, {site}, {code}, LDZ Offtake",{value},01/02/2026 12:01:01,L\n'
+
+
+def test_offtake_registry_and_identify():
+    from ldz_demand.data.ingest.national_gas import OFFTAKES, identify_offtake
+
+    ids = [i for sites in OFFTAKES.values() for i in sites.values()]
+    assert len(ids) == len(set(ids)) == 122
+    assert set(OFFTAKES) == set(LDZS)
+    assert identify_offtake("NTS Energy Offtaken, Shorne, SE, LDZ Offtake") == ("SE", "Shorne", "PUBOBJ943")
+    # Peters Green has a second item published under "SM", which also feeds North Thames
+    assert identify_offtake("NTS Energy Offtaken, PetersGrn, SM, LDZ Offtake") == ("NT", "PetersGrnSM", "PUBOBJ929")
+    assert identify_offtake("NTS Energy Offtaken, Nowhere, SE, LDZ Offtake") is None
+
+
+def test_offtake_pull_archives_separately_and_builds(tmp_path):
+    from ldz_demand.data.build.ng_offtake_daily import NGOfftakeDailyBuilder
+    from ldz_demand.data.datasets import NG_OFFTAKE_DAILY
+
+    class OfftakeSession(FakeSession):
+        def get(self, url, params, timeout):
+            self.calls.append(params)
+            body = HEADER + offtake_line("Shorne", "SE") + offtake_line("PetersGrn", "SM", value="5")
+            return FakeResponse(body.encode())
+
+    ing = NationalGasIngestor(tmp_path / "raw", series="offtakes", ldzs=["SE"], session=OfftakeSession())
+    files = ing.pull(date(2026, 1, 31), date(2026, 1, 31))
+    assert files[0].parent.parent.name == "offtakes" and files[0].name.startswith("ng_offtakes_")
+    assert ing.session.calls[0]["ids"].split(",") == ["PUBOBJ887", "PUBOBJ2028", "PUBOBJ943", "PUBOBJ950", "PUBOBJ963"]
+    assert archived_pulls(tmp_path / "raw", "ldz") == []  # series don't mix
+    assert len(archived_pulls(tmp_path / "raw", "offtakes")) == 1
+
+    store = CsvCacheStore(tmp_path / "cache")
+    assert NGOfftakeDailyBuilder(store, tmp_path / "raw").build() == 2
+    df = store.read(NG_OFFTAKE_DAILY).set_index("site")
+    assert df.loc["Shorne", "value"] == 2489711
+    assert df.loc["PetersGrnSM", "ldz"] == "NT"
+    assert set(df["unit"]) == {"kWh"}

@@ -17,6 +17,8 @@ from ldz_demand.data.store.base import Dataset, OnConflict, conform
 
 logger = logging.getLogger(__name__)
 
+DATE_FORMATS = {"date": "%Y-%m-%d", "datetime": "%Y-%m-%d %H:%M:%S"}
+
 
 class CsvCacheStore:
     """
@@ -85,14 +87,31 @@ class CsvCacheStore:
         path = self.path(dataset)
         if not path.exists():
             return conform(dataset, pd.DataFrame(columns=list(dataset.columns)))
-        return conform(dataset, pd.read_csv(path, dtype=str, keep_default_na=False, na_values=[""]))
+        df = pd.read_csv(path, dtype=str, keep_default_na=False, na_values=[""])
+        for col, dtype in dataset.columns.items():
+            if dtype in ("date", "datetime"):
+                # ISO8601 also reads files written before formats were fixed (mixed date / datetime)
+                df[col] = pd.to_datetime(df[col], format="ISO8601")
+        return conform(dataset, df)
 
     def _save(self, dataset: Dataset, df: pd.DataFrame) -> None:
         path = self.path(dataset)
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".csv.tmp")
-        df.to_csv(tmp, index=False)
+        _format_dates(dataset, df).to_csv(tmp, index=False)
         os.replace(tmp, path)
+
+
+def _format_dates(dataset: Dataset, df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Write dates and datetimes in one fixed format each. Left to pandas, to_csv picks the format per
+    chunk of rows (date-only when every time in the chunk is midnight), which mixes formats in one file.
+    """
+    out = df.copy()
+    for col, dtype in dataset.columns.items():
+        if dtype in ("date", "datetime"):
+            out[col] = out[col].dt.strftime(DATE_FORMATS[dtype])
+    return out
 
 
 def _anti_join(left: pd.DataFrame, right: pd.DataFrame, keys: list[str]) -> pd.DataFrame:

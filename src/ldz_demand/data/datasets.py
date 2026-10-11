@@ -23,4 +23,20 @@ NG_LDZ_DAILY = Dataset(
     keys=("gas_day", "ldz", "item"),
 )
 
-DATASETS: dict[str, Dataset] = {ds.name: ds for ds in (NG_LDZ_DAILY,)}
+NG_OFFTAKE_DAILY = Dataset(
+    "ng_offtake_daily",
+    columns={
+        "gas_day": "date",
+        "ldz": "str",
+        "site": "str",                # NTS offtake point, e.g. Farningham
+        "data_item_id": "str",        # National Gas PUBOBJ id
+        "value": "float",
+        "unit": "str",                # kWh
+        "quality": "str",
+        "applicable_at": "datetime",
+        "generated_time": "datetime",
+    },
+    keys=("gas_day", "ldz", "site"),
+)
+
+DATASETS: dict[str, Dataset] = {ds.name: ds for ds in (NG_LDZ_DAILY, NG_OFFTAKE_DAILY)}

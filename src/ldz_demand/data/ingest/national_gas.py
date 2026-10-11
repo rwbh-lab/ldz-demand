@@ -1,15 +1,21 @@
 """
 National Gas Transmission data portal ingestor — download and archive only.
 
-Public CSV API, no auth: per-LDZ daily demand (total, DM, NDM, UIG), calorific value and actual CWV.
-History is a rolling ~5 years, so every response is archived untouched under
-raw_dir/national_gas/<year>/ng_ldz_<start>_<end>_pulled_<UTC time>.csv. The archive is the source
-of truth: the ng_ldz_daily table is built from it by ldz_demand.data.build.ng_ldz_daily.
+Public CSV API, no auth. Two series, each archived untouched (the portal keeps a rolling ~5 years):
+
+- "ldz": per-LDZ daily demand (total, DM, NDM, UIG), calorific value and actual CWV (ITEMS)
+  -> raw_dir/national_gas/<year>/ng_ldz_<start>_<end>_pulled_<UTC time>.csv
+- "offtakes": energy offtaken from the NTS at each LDZ offtake point (OFFTAKES), used to check
+  the published LDZ totals
+  -> raw_dir/national_gas/offtakes/<year>/ng_offtakes_<start>_<end>_pulled_<UTC time>.csv
+
+The archive is the source of truth: tables are built from it by ldz_demand.data.build.
 
 Units differ by item — total demand is in mcm, DM/NDM/UIG in kWh — see ITEMS.
 
 Run as a script:
-    python -m ldz_demand.data.ingest.national_gas refresh
+    python -m ldz_demand.data.ingest.national_gas refresh                    # both series
+    python -m ldz_demand.data.ingest.national_gas refresh --series offtakes
     python -m ldz_demand.data.ingest.national_gas pull 2021-10-01 2026-10-10
 """
 
@@ -32,7 +38,11 @@ USER_AGENT = "ldz-demand/0.1"  # the portal rejects Python's default urllib user
 TIMEOUT = 300  # seconds; a full year of all items is ~4 MB and takes ~15 s
 HISTORY_DAYS = 5 * 365  # the portal keeps a rolling ~5 years
 REFRESH_LOOKBACK_DAYS = 10  # re-pull recent days so D+6 closed-out values replace provisional gaps
-ARCHIVE_NAME = re.compile(r"ng_ldz_(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})_pulled_(\w+)\.csv")
+SERIES = ("ldz", "offtakes")
+ARCHIVE = {  # series -> (sub-folder of raw_dir/national_gas, filename prefix)
+    "ldz": ("", "ng_ldz"),
+    "offtakes": ("offtakes", "ng_offtakes"),
+}
 
 LDZS = ("EA", "EM", "NE", "NO", "NT", "NW", "SC", "SE", "SO", "SW", "WM", "WN", "WS")
 
@@ -94,6 +104,29 @@ ITEMS: dict[str, Item] = {i.name: i for i in (
 )}
 
 
+# Energy offtaken (kWh) at each NTS -> LDZ offtake point, from the portal catalogue, checked 2026-10-11.
+# LDZ -> {site: id}. Peters Green has two items: one published under NT, and one under "SM" whose
+# physical-flow item is labelled "SM, NT" — it also feeds North Thames, so it sits in NT as PetersGrnSM.
+OFFTAKES: dict[str, dict[str, str]] = {
+    "EA": {"Bacton": "PUBOBJ858", "Brisley": "PUBOBJ867", "GtWilbraham": "PUBOBJ893", "MatchngGreen": "PUBOBJ918", "PeterborEye": "PUBOBJ927", "RoudhamHeath": "PUBOBJ936", "Royston": "PUBOBJ937", "WestWinch": "PUBOBJ958", "Whitwell": "PUBOBJ961", "Yelverton": "PUBOBJ965"},
+    "EM": {"Alrewas": "PUBOBJ847", "Blaby": "PUBOBJ862", "Blyborough": "PUBOBJ864", "Caldecott": "PUBOBJ870", "Drointon": "PUBOBJ880", "Gosberton": "PUBOBJ892", "Kirkstead": "PUBOBJ906", "MktHarborogh": "PUBOBJ922", "SilkWillough": "PUBOBJ945", "SuttonBridge": "PUBOBJ949", "ThorntonCurt": "PUBOBJ951", "TurLangton": "PUBOBJ955", "Walesby": "PUBOBJ956"},
+    "NE": {"Asselby": "PUBOBJ851", "Baldersby": "PUBOBJ859", "BurleyBank": "PUBOBJ869", "Ganstead": "PUBOBJ889", "LtBurdon": "PUBOBJ912", "Pannal": "PUBOBJ924", "Paull": "PUBOBJ926", "Pickering": "PUBOBJ930", "Rawcliffe": "PUBOBJ933", "Towton": "PUBOBJ954"},
+    "NO": {"Auckland": "PUBOBJ852", "AucklandTF": "PUBOBJ853", "Coldstream": "PUBOBJ876", "Corbridge": "PUBOBJ877", "CowpenBewley": "PUBOBJ878", "Elton": "PUBOBJ885", "Guyzance": "PUBOBJ894", "Humbleton": "PUBOBJ898", "Keld": "PUBOBJ903", "Melkinthorpe": "PUBOBJ919", "Saltwick": "PUBOBJ939", "SaltwickH": "PUBOBJ940", "Thrintoft": "PUBOBJ952", "TowLaw": "PUBOBJ953", "Wetheral": "PUBOBJ960"},
+    "NT": {"PetersGrnSM": "PUBOBJ929", "Horndon": "PUBOBJ897", "LuxboroughLn": "PUBOBJ914", "PetersGrn": "PUBOBJ928", "Winkfield": "PUBOBJ962"},
+    "NW": {"Audley": "PUBOBJ854", "Blackrod": "PUBOBJ863", "Eccleston": "PUBOBJ884", "HolmesChapel": "PUBOBJ896", "Lupton": "PUBOBJ913", "Malpas": "PUBOBJ916", "MickleTrafd": "PUBOBJ920", "Partington": "PUBOBJ925", "Samlesbury": "PUBOBJ941", "Warburton": "PUBOBJ957", "WestonPoint": "PUBOBJ959"},
+    "SC": {"Aberdeen": "PUBOBJ846", "Armadale": "PUBOBJ849", "Balgray": "PUBOBJ860", "Bathgate": "PUBOBJ861", "Broxburn": "PUBOBJ868", "Burnhervie": "PUBOBJ2031", "Careston": "PUBOBJ871", "Drum": "PUBOBJ881", "Glenmavis": "PUBOBJ891", "Hume": "PUBOBJ899", "Kinknockie": "PUBOBJ905", "Langholm": "PUBOBJ907", "Lockerbie": "PUBOBJ910", "NetherHwclgh": "PUBOBJ923", "Pitcairn": "PUBOBJ931", "Soutra": "PUBOBJ946", "StFergus": "PUBOBJ947"},
+    "SE": {"Farningham": "PUBOBJ887", "FarninghamB": "PUBOBJ2028", "Shorne": "PUBOBJ943", "Tatsfield": "PUBOBJ950", "Winkfield": "PUBOBJ963"},
+    "SO": {"BraishfieldA": "PUBOBJ865", "BraishfieldB": "PUBOBJ866", "Hardwick": "PUBOBJ895", "Ipsden1": "PUBOBJ901", "Ipsden2": "PUBOBJ902", "Mappowder": "PUBOBJ917", "Winkfield": "PUBOBJ964"},
+    "SW": {"Aylesbeare": "PUBOBJ857", "Choakford": "PUBOBJ872", "Cirencester": "PUBOBJ874", "Coffinswell": "PUBOBJ875", "EastonGrey": "PUBOBJ883", "Evesham": "PUBOBJ886", "Fiddington": "PUBOBJ888", "Ilchester": "PUBOBJ900", "Kenn": "PUBOBJ904", "LittletnDrew": "PUBOBJ909", "Pucklechurch": "PUBOBJ932", "Ross": "PUBOBJ934", "Seabank": "PUBOBJ942"},
+    "WM": {"Alrewas": "PUBOBJ848", "Aspley": "PUBOBJ850", "Audley": "PUBOBJ855", "Austrey": "PUBOBJ856", "Churchovr": "PUBOBJ873", "Leamington": "PUBOBJ908", "LowerQuinton": "PUBOBJ911", "Milwich": "PUBOBJ921", "Ross": "PUBOBJ935", "Rugby": "PUBOBJ938", "Shustoke": "PUBOBJ944", "StratfrdAvon": "PUBOBJ948"},
+    "WN": {"Maelor": "PUBOBJ915"},
+    "WS": {"Dowlais": "PUBOBJ879", "DyffrynClyd": "PUBOBJ882", "Gilwern": "PUBOBJ890"},
+}
+OFFTAKE_UNIT = "kWh"
+OFFTAKE_PATTERN = re.compile(r"NTS Energy Offtaken, (\w+), (\w\w), LDZ Offtake")
+PUBLISHED_ALIASES = {("PetersGrn", "SM"): ("NT", "PetersGrnSM")}  # (site, code) -> (LDZ, site)
+
+
 class NationalGasError(RuntimeError):
     pass
 
@@ -106,31 +139,38 @@ class ArchivedPull:
     pulled: str  # UTC timestamp from the filename; sorts chronologically
 
 
-def archived_pulls(raw_dir: Path) -> list[ArchivedPull]:
-    """Archived responses under raw_dir/national_gas, oldest pull first."""
+def archived_pulls(raw_dir: Path, series: str = "ldz") -> list[ArchivedPull]:
+    """Archived responses for a series, oldest pull first."""
+    folder, prefix = ARCHIVE[series]
+    name = re.compile(rf"{prefix}_(\d{{4}}-\d{{2}}-\d{{2}})_(\d{{4}}-\d{{2}}-\d{{2}})_pulled_(\w+)\.csv")
     pulls = []
-    for path in (Path(raw_dir) / "national_gas").rglob("*.csv"):
-        if m := ARCHIVE_NAME.fullmatch(path.name):
+    for path in (Path(raw_dir) / "national_gas" / folder).rglob("*.csv"):
+        if m := name.fullmatch(path.name):
             pulls.append(ArchivedPull(path, date.fromisoformat(m.group(1)), date.fromisoformat(m.group(2)), m.group(3)))
     return sorted(pulls, key=lambda p: p.pulled)
 
 
 class NationalGasIngestor:
     """
-    Downloads National Gas LDZ data items and archives the raw responses.
+    Downloads one National Gas series and archives the raw responses.
 
     Parameters
     ----------
     raw_dir : Path
-        Raw archive root; responses go to raw_dir/national_gas/<year>/.
+        Raw archive root; responses go under raw_dir/national_gas/ (see ARCHIVE).
+    series : str
+        "ldz" (ITEMS per LDZ) or "offtakes" (OFFTAKES).
     items, ldzs : sequence of str, optional
-        Subset to pull. Defaults to all ITEMS and all LDZS.
+        Subset to pull. items applies to "ldz" only. Defaults to everything.
     session : requests.Session, optional
         Injectable for testing.
     """
 
-    def __init__(self, raw_dir: Path, items=None, ldzs=None, session=None) -> None:
+    def __init__(self, raw_dir: Path, series: str = "ldz", items=None, ldzs=None, session=None) -> None:
+        if series not in SERIES:
+            raise ValueError(f"series must be one of {SERIES}, got '{series}'")
         self.raw_dir = Path(raw_dir)
+        self.series = series
         self.items = [ITEMS[name] for name in (items or ITEMS)]
         self.ldzs = list(ldzs or LDZS)
         self.session = session or requests.Session()
@@ -138,6 +178,8 @@ class NationalGasIngestor:
 
     @property
     def ids(self) -> list[str]:
+        if self.series == "offtakes":
+            return [i for ldz in self.ldzs for i in OFFTAKES[ldz].values()]
         return [item.ids[ldz] for item in self.items for ldz in self.ldzs]
 
     def pull(self, start: date, end: date) -> list[Path]:
@@ -147,7 +189,7 @@ class NationalGasIngestor:
     def refresh(self, today: date | None = None) -> list[Path]:
         """Download from the last archived gas day (minus a lookback) to yesterday; full history if none."""
         today = today or date.today()
-        pulls = archived_pulls(self.raw_dir)
+        pulls = archived_pulls(self.raw_dir, self.series)
         if pulls:
             start = max(p.end for p in pulls) - timedelta(days=REFRESH_LOOKBACK_DAYS)
         else:
@@ -164,7 +206,7 @@ class NationalGasIngestor:
             "ids": ",".join(self.ids),
             "type": "CSV",
         }
-        logger.info(f"Fetching {len(self.ids)} series for {start}..{end}")
+        logger.info(f"Fetching {len(self.ids)} {self.series} series for {start}..{end}")
         response = self.session.get(BASE_URL, params=params, timeout=TIMEOUT)
         response.raise_for_status()
         if not response.content.lstrip(b"\xef\xbb\xbf").startswith(b"Applicable At"):
@@ -174,7 +216,8 @@ class NationalGasIngestor:
     def archive(self, content: bytes, start: date, end: date) -> Path:
         """Write the raw response to a new file; never overwrites."""
         pulled = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-        path = self.raw_dir / "national_gas" / str(start.year) / f"ng_ldz_{start}_{end}_pulled_{pulled}.csv"
+        folder, prefix = ARCHIVE[self.series]
+        path = self.raw_dir / "national_gas" / folder / str(start.year) / f"{prefix}_{start}_{end}_pulled_{pulled}.csv"
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "xb") as f:
             f.write(content)
@@ -191,6 +234,16 @@ def identify(data_item: str) -> tuple[Item, str] | None:
     return None
 
 
+def identify_offtake(data_item: str) -> tuple[str, str, str] | None:
+    """Portal offtake "Data Item" text -> (LDZ, site, id), or None if it isn't one of OFFTAKES."""
+    match = OFFTAKE_PATTERN.fullmatch(data_item)
+    if not match:
+        return None
+    ldz, site = PUBLISHED_ALIASES.get((match.group(1), match.group(2)), (match.group(2), match.group(1)))
+    data_id = OFFTAKES.get(ldz, {}).get(site)
+    return (ldz, site, data_id) if data_id else None
+
+
 def _year_chunks(start: date, end: date):
     current = start
     while current <= end:
@@ -202,17 +255,23 @@ def _year_chunks(start: date, end: date):
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m ldz_demand.data.ingest.national_gas")
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("refresh", help="download from the last archived day (full history if none)")
+    refresh_parser = sub.add_parser("refresh", help="download from the last archived day (full history if none)")
     pull_parser = sub.add_parser("pull", help="download an explicit gas-day range")
     pull_parser.add_argument("start", type=date.fromisoformat)
     pull_parser.add_argument("end", type=date.fromisoformat)
+    for p in (refresh_parser, pull_parser):
+        p.add_argument("--series", choices=[*SERIES, "all"], default="all")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     config = create_config()
-    ingestor = NationalGasIngestor(resolve_path(config, "storage", "raw_dir"))
-    files = ingestor.refresh() if args.command == "refresh" else ingestor.pull(args.start, args.end)
-    logger.info(f"Done: {len(files)} file(s) archived. Build the table with: python -m ldz_demand.data.build.ng_ldz_daily")
+    raw_dir = resolve_path(config, "storage", "raw_dir")
+    for series in (SERIES if args.series == "all" else [args.series]):
+        ingestor = NationalGasIngestor(raw_dir, series=series)
+        files = ingestor.refresh() if args.command == "refresh" else ingestor.pull(args.start, args.end)
+        logger.info(f"{series}: {len(files)} file(s) archived")
+    logger.info("Build the tables with: python -m ldz_demand.data.build.ng_ldz_daily "
+                "and python -m ldz_demand.data.build.ng_offtake_daily")
     return 0
 
 

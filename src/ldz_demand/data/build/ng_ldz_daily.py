@@ -59,11 +59,29 @@ class NGLdzDailyBuilder:
         return self.store.write(NG_LDZ_DAILY, df.drop(columns="_pulled"), on_conflict="replace")
 
 
-def parse(content: bytes) -> pd.DataFrame:
-    """Portal CSV -> NG_LDZ_DAILY rows. Unrecognised data items raise rather than being dropped."""
+def read_portal_csv(content: bytes) -> pd.DataFrame:
+    """Portal CSV as strings, with the expected columns checked."""
     raw = pd.read_csv(io.BytesIO(content), dtype=str, keep_default_na=False, encoding="utf-8-sig")
     if list(raw.columns) != COLUMNS:
         raise NationalGasError(f"Unexpected columns {list(raw.columns)}")
+    return raw
+
+
+def common_columns(raw: pd.DataFrame) -> dict:
+    """Columns parsed the same way for every National Gas series."""
+    return {
+        "gas_day": pd.to_datetime(raw["Applicable For"], format="%d/%m/%Y"),
+        # some values are published with thousands separators ("2,489,711"); decimals use "."
+        "value": pd.to_numeric(raw["Value"].str.replace(",", "", regex=False).replace("", None)),
+        "quality": raw["Quality Indicator"].replace("", None),
+        "applicable_at": pd.to_datetime(raw["Applicable At"].replace("", None), format="%d/%m/%Y %H:%M:%S"),
+        "generated_time": pd.to_datetime(raw["Generated Time"].replace("", None), format="%d/%m/%Y %H:%M:%S"),
+    }
+
+
+def parse(content: bytes) -> pd.DataFrame:
+    """Portal CSV -> NG_LDZ_DAILY rows. Unrecognised data items raise rather than being dropped."""
+    raw = read_portal_csv(content)
 
     lookup = {name: identify(name) for name in raw["Data Item"].unique()}
     unknown = [name for name, hit in lookup.items() if hit is None]
@@ -72,37 +90,33 @@ def parse(content: bytes) -> pd.DataFrame:
 
     hits = [lookup[name] for name in raw["Data Item"]]
     return pd.DataFrame({
-        "gas_day": pd.to_datetime(raw["Applicable For"], format="%d/%m/%Y"),
+        **common_columns(raw),
         "ldz": [ldz for _, ldz in hits],
         "item": [item.name for item, _ in hits],
         "data_item_id": [item.ids[ldz] for item, ldz in hits],
-        "value": pd.to_numeric(raw["Value"].replace("", None)),
         "unit": [item.unit for item, _ in hits],
-        "quality": raw["Quality Indicator"].replace("", None),
-        "applicable_at": pd.to_datetime(raw["Applicable At"].replace("", None), format="%d/%m/%Y %H:%M:%S"),
-        "generated_time": pd.to_datetime(raw["Generated Time"].replace("", None), format="%d/%m/%Y %H:%M:%S"),
     })
 
 
-def latest_values(df: pd.DataFrame) -> pd.DataFrame:
+def latest_values(df: pd.DataFrame, keys=NG_LDZ_DAILY.keys) -> pd.DataFrame:
     """One row per key: the most recent pull that has a value, else the most recent pull."""
-    keys = list(NG_LDZ_DAILY.keys)
+    keys = list(keys)
     ranked = df.assign(_has_value=df["value"].notna()).sort_values([*keys, "_has_value", "_pulled"])
     return ranked.drop_duplicates(keys, keep="last").drop(columns="_has_value").reset_index(drop=True)
 
 
-def log_coverage(df: pd.DataFrame) -> None:
+def log_coverage(df: pd.DataFrame, series=("item", "ldz")) -> None:
     """Warn about gaps inside each series' own date range (so late-starting series, e.g. UIG, aren't flagged)."""
     present = df[df["value"].notna()]
     gaps = []
-    for (item, ldz), days in present.groupby(["item", "ldz"])["gas_day"]:
+    for (item, ldz), days in present.groupby(list(series))["gas_day"]:
         span = (days.max() - days.min()).days + 1
         if (missing := span - days.nunique()) > 0:
             gaps.append(f"{item}/{ldz}={missing}d")
     if gaps:
         logger.warning(f"Gaps within series ranges: {', '.join(gaps[:10])}{' ...' if len(gaps) > 10 else ''}")
     else:
-        logger.info(f"No gaps within series ranges ({present.groupby(['item', 'ldz']).ngroups} series)")
+        logger.info(f"No gaps within series ranges ({present.groupby(list(series)).ngroups} series)")
 
 
 def main(argv: list[str] | None = None) -> int:
