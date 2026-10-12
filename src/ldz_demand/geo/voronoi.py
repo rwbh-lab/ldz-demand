@@ -107,14 +107,28 @@ def authority_shares(smoothing_deg: float = SMOOTHING_DEG) -> pd.DataFrame:
 
 def geojson(smoothing_deg: float = SMOOTHING_DEG, decimals: int = 3) -> dict:
     """The Voronoi LDZ polygons as GeoJSON for Plotly (rings clockwise, ids = LDZ codes)."""
+    return to_geojson(ldz_polygons(smoothing_deg), decimals)
+
+
+def to_geojson(polygons: dict, decimals: int = 3) -> dict:
+    """{ldz: geometry} as Plotly-ready GeoJSON: polygons only, rings clockwise, ids = LDZ codes."""
     from shapely.geometry import mapping
     from shapely.geometry.polygon import orient
 
     features = []
-    for ldz, geom in ldz_polygons(smoothing_deg).items():
-        parts = [orient(p, sign=-1.0) for p in getattr(geom, "geoms", [geom]) if p.geom_type == "Polygon" and not p.is_empty]
+    for ldz, geom in polygons.items():
+        parts = [orient(p, sign=-1.0) for p in _polygons(geom)]
         coords = [mapping(p)["coordinates"] for p in parts]
         rounded = [[[[round(x, decimals), round(y, decimals)] for x, y in ring] for ring in poly] for poly in coords]
         features.append({"type": "Feature", "id": ldz, "properties": {"ldz": ldz},
                          "geometry": {"type": "MultiPolygon", "coordinates": rounded}})
     return {"type": "FeatureCollection", "features": features}
+
+
+def _polygons(geom) -> list:
+    """All non-empty Polygons inside a (Multi)Polygon or GeometryCollection."""
+    if geom.is_empty:
+        return []
+    if geom.geom_type == "Polygon":
+        return [geom]
+    return [p for g in getattr(geom, "geoms", []) for p in _polygons(g)]

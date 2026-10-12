@@ -51,16 +51,17 @@ def ldz_colours(las: pd.DataFrame) -> dict[str, str]:
     return {ldz: t.series[i] for ldz, i in slot.items()}
 
 
-METHODS = {"authority": "Local authority (town votes)", "voronoi": "Voronoi (original method)"}
+METHODS = {"authority": "Local authority (town votes)", "voronoi": "Voronoi (original method)",
+           "hybrid": "Hybrid (authorities + Voronoi inside splits)"}
 GAP_RANGE = 3.0  # percentage points either side of zero on the gap view
 
 
 def allocation(las: pd.DataFrame, method: str = "authority") -> pd.DataFrame:
     """Share of each local authority (rows: lad24cd) allocated to each LDZ (columns), per method."""
-    if method == "voronoi":
-        from ldz_demand.geo import voronoi
+    if method in ("voronoi", "hybrid"):
+        from ldz_demand.geo import hybrid, voronoi
 
-        shares = voronoi.authority_shares()
+        shares = (voronoi if method == "voronoi" else hybrid).authority_shares()
         return shares.rename(index=dict(zip(las["lad23cd"], las["lad24cd"])))
     rows = {}
     for r in las.itertuples():
@@ -85,8 +86,8 @@ def ldz_map(las: pd.DataFrame, towns: pd.DataFrame | None = None, view: str = "l
         col = f"gap_{method}"
         gap = check.set_index("ldz")[col] if col in check else check.set_index("ldz")["difference_pp"]
 
-    if method == "voronoi":
-        _voronoi_layer(fig, las, view, colours, gap)
+    if method in ("voronoi", "hybrid"):
+        _polygon_layer(fig, method, view, colours, gap)
     else:
         _authority_layer(fig, las, view, colours, gap)
 
@@ -165,11 +166,11 @@ def _authority_layer(fig, las, view, colours, gap) -> None:
                                     marker=dict(symbol="square-open", size=12, color=colour, line=dict(width=2))))
 
 
-def _voronoi_layer(fig, las, view, colours, gap) -> None:
-    from ldz_demand.geo import voronoi
+def _polygon_layer(fig, method, view, colours, gap) -> None:
+    from ldz_demand.geo import hybrid, voronoi
 
     t = active()
-    geo = voronoi.geojson()
+    geo = (voronoi if method == "voronoi" else hybrid).geojson()
     ids = [f["id"] for f in geo["features"]]
     common = dict(geojson=geo, featureidkey="id", locations=ids, hovertemplate="%{text}<extra></extra>")
     if view == "gap" and gap is not None:
@@ -197,7 +198,7 @@ def _slots(ldz: pd.Series, colours: dict[str, str]):
 
 
 def membership_check(las: pd.DataFrame, gas_use: pd.DataFrame, energy: pd.DataFrame | None,
-                     methods=("authority", "voronoi")) -> pd.DataFrame:
+                     methods=("authority", "voronoi", "hybrid")) -> pd.DataFrame:
     """
     Each LDZ's share of DESNZ annual gas use under each membership method (authorities split by vote
     share or by Voronoi area share), vs its share of measured National Gas demand (mean of the last
@@ -224,7 +225,7 @@ def membership_check(las: pd.DataFrame, gas_use: pd.DataFrame, energy: pd.DataFr
     return out.reset_index().sort_values("ng_share" if energy is not None else "desnz_share")
 
 
-def membership_check_chart(check: pd.DataFrame, methods=("authority", "voronoi")) -> go.Figure:
+def membership_check_chart(check: pd.DataFrame, methods=("authority", "voronoi", "hybrid")) -> go.Figure:
     """Each LDZ's share of GB gas: measured demand vs each membership method."""
     t = active()
     fig = go.Figure()

@@ -100,8 +100,8 @@ def _(energy, geo_charts, las, use):
 
 @app.cell(hide_code=True)
 def _(energy, mo):
-    method_picker = mo.ui.radio(options={"Local authority": "authority", "Voronoi (original)": "voronoi"},
-                                value="Local authority", label="Method", inline=True)
+    method_picker = mo.ui.radio(options={"Local authority": "authority", "Voronoi (original)": "voronoi", "Hybrid": "hybrid"},
+                                value="Hybrid", label="Method", inline=True)
     _views = {"LDZ": "ldz", "Confidence": "confidence"}
     if energy is not None:
         _views["Gap vs demand"] = "gap"
@@ -119,6 +119,9 @@ def _(energy, mo):
         - **Voronoi** — the original quant-lib method: every town gets the area closer to it than to any
           other town, smoothed and merged into LDZs. Boundaries follow the towns rather than
           administrative lines, so they are noisier — but they can cut through an authority.
+        - **Hybrid** — whole authorities where an authority is clearly in one LDZ, and Voronoi cells only
+          inside the split authorities, limited to the LDZs that authority's towns voted for. Each method
+          is used where it is strong.
 
         **Gap vs National Gas demand** colours each LDZ by how far its share of GB gas use (under that
         method) is from its share of measured demand — see §3. Neighbouring LDZs always get different
@@ -152,12 +155,14 @@ def _(check, demand_note, energy, geo_charts, mo):
         Agreement to within ~1 percentage point is about as close as these sources allow: DESNZ
         leaves out some very large industrial sites and its "years" don't match gas years.
 
-        The two methods are about equally accurate overall but **wrong in different places**. Voronoi
-        handles the SO/SW and EA edges better; the local-authority method handles **London** far
-        better — London's boroughs aren't listed as towns, so Voronoi lets surrounding towns' cells
-        carve the city up and gives much of it to SE.
+        The two pure methods are about equally accurate overall but **wrong in different places**.
+        Voronoi handles the northern and SO/SW edges better; the local-authority method handles
+        **London** far better — London's boroughs aren't listed as towns, so Voronoi lets surrounding
+        towns' cells carve the city up and gives much of it to SE. The **hybrid** keeps London right and
+        takes Voronoi's gains in the split areas, and is the closest of the three to measured demand —
+        so it is the map used from here on, with the other two kept for comparison.
 
-        **SO is short under both** — by ~2 pp, about 10 TWh a year. The strongest lead is **Wiltshire and
+        **SO is short under all three** — by ~2 pp, about 10 TWh a year. The strongest lead is **Wiltshire and
         Swindon**, listed under SW: worth ~0.9 pp, almost exactly SW's excess. The **Berkshire**
         authorities the lists put in NT (Reading, Wokingham, Windsor & Maidenhead, Slough, Bracknell)
         are the next candidates. Both contradict the source lists, so they need an authoritative check

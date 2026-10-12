@@ -69,3 +69,21 @@ def test_membership_check_reports_both_methods(las):
     check = g.membership_check(las, gas_use.load(), None)
     for m in ("authority", "voronoi"):
         assert check[f"share_{m}"].sum() == pytest.approx(100)
+
+
+def test_hybrid_keeps_single_authorities_whole_and_splits_only_among_voting_ldzs(las):
+    import json
+
+    from ldz_demand.geo import hybrid
+
+    shares = hybrid.authority_shares()
+    assert (shares.sum(axis=1).round(6) == 1).all()
+    by_code = las.set_index("lad23cd")
+    for code, row in shares.iterrows():
+        la = by_code.loc[code]
+        used = set(row[row > 0].index)
+        if la["method"] == "split":
+            assert used <= set(json.loads(la["votes"]))
+        else:
+            assert used == {la["ldz"]}
+    assert {f["id"] for f in hybrid.geojson()["features"]} == set(g.LDZS)
