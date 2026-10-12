@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -117,3 +119,52 @@ def test_comparison_separates_steady_offsets_from_day_to_day_differences():
     assert stats.loc["hybrid", "mean_diff"] == pytest.approx(0.5) and stats.loc["hybrid", "sd_diff"] == pytest.approx(0)
     assert stats.loc["station", "sd_diff"] == pytest.approx(np.std([0, 1, 0, 1], ddof=1))
     assert stats.loc["station", "max_abs_diff"] == pytest.approx(1.0)
+
+
+def test_prepare_gives_the_same_comparison_as_the_long_table():
+    from ldz_demand.charts import weather_ldz as wx
+
+    days = pd.date_range("2026-01-01", periods=5)
+    rows = [{"gas_day": d, "ldz": z, "membership": m, "weighting": w, "variable": v, "value": i * 0.1 + hash((z, m, v)) % 7}
+            for i, d in enumerate(days) for z in ("NT", "SO") for m, w in (("sampled", "gas"), ("station", "point"))
+            for v in ("t2m", "ws10")]
+    long = pd.DataFrame(rows)
+    wide = wx.prepare(long)
+    assert set(wide) == {"t2m", "ws10"} and wide["t2m"].shape == (5, 4)
+    pd.testing.assert_frame_equal(wx.comparison(wide, "ws10"), wx.comparison(long, "ws10"))
+
+
+def test_page_menu_links_every_page_and_marks_the_current_one():
+    from pathlib import Path
+
+    from ldz_demand.charts import pages
+
+    dashboard = Path(__file__).parent.parent / "dashboard"
+    assert set(pages.PAGES) | {pages.INDEX} == {p.name for p in dashboard.glob("*.py")}
+    lines = pages.contents_markdown("ldz_weather.py").split("  \n")
+    assert lines == ["Data: [National Gas data](/ng-ldz-daily) | [ERA5 weather](/era5-weather)",
+                     "Models: [LDZ geography](/ldz-geography) | **LDZ weather**"]
+    assert "(/)" in pages.nav("ldz_weather.py").text or 'href="/"' in pages.nav("ldz_weather.py").text
+
+
+def test_dashboard_server_mounts_the_overview_at_root_and_every_page(monkeypatch):
+    import marimo
+
+    from ldz_demand import dashboard
+    from ldz_demand.charts import pages
+
+    mounted = {}
+
+    class Builder:
+        def with_app(self, path, root):
+            mounted[path] = root
+            return self
+
+        def build(self):
+            return "app"
+
+    monkeypatch.setattr(marimo, "create_asgi_app", lambda: Builder())
+    assert dashboard.build_app() == "app"
+    assert mounted["/"].endswith("dashboard/index.py")
+    assert {p.path for p in pages.PAGES.values()} | {"/"} == set(mounted)
+    assert all(Path(root).exists() for root in mounted.values())

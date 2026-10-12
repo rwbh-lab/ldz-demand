@@ -118,8 +118,8 @@ def ldz_map(las: pd.DataFrame, towns: pd.DataFrame | None = None, view: str = "l
     )
     titles = {"ldz": "LDZ membership", "confidence": "Confidence: share of town votes for the winning LDZ",
               "gap": "Gap to measured demand: LDZ share of gas use minus share of National Gas demand (pp)"}
-    fig.update_layout(title=f"{titles.get(view, '')} — {METHODS[method]}", height=820, margin=dict(l=8, r=8, t=64, b=8),
-                      legend=dict(orientation="h", x=0, xanchor="left", y=1.0, yanchor="bottom"))
+    fig.update_layout(title=f"{titles.get(view, '')} — {METHODS[method]}", height=860, margin=dict(l=8, r=8, t=64, b=72),
+                      legend=dict(orientation="h", x=0, xanchor="left", y=-0.01, yanchor="top"))
     return fig
 
 

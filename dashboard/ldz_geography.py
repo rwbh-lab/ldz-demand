@@ -16,6 +16,14 @@ def _():
 
 
 @app.cell(hide_code=True)
+def _():
+    from ldz_demand.charts import pages as _pages
+
+    _pages.nav("ldz_geography.py")
+    return
+
+
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     # LDZ geography
@@ -100,17 +108,17 @@ def _(energy, geo_charts, las, use):
 
 @app.cell(hide_code=True)
 def _(energy, mo):
-    method_picker = mo.ui.radio(options={"Local authority": "authority", "Voronoi (original)": "voronoi", "Hybrid": "hybrid",
-                                         "Sampled": "sampled"},
-                                value="Sampled", label="Method", inline=True)
+    method_picker = mo.ui.dropdown(options={"Local authority": "authority", "Voronoi (original)": "voronoi", "Hybrid": "hybrid",
+                                            "Sampled": "sampled"},
+                                   value="Sampled", label="Method")
     _views = {"LDZ": "ldz", "Confidence": "confidence"}
     if energy is not None:
         _views["Gap vs demand"] = "gap"
-    view_picker = mo.ui.radio(options=_views, value="LDZ", label="Colour by", inline=True)
+    view_picker = mo.ui.dropdown(options=_views, value="LDZ", label="Colour by")
     towns_toggle = mo.ui.switch(value=False, label="Show listed towns")
     mo.vstack([
         mo.md(r"""
-        ## 2 · The map
+        ## 2 · The LDZ map
 
         Four ways to turn the town lists into a map:
 
@@ -278,19 +286,23 @@ def _(las, mo, towns):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## 4 · Weighting the weather — 🚧 next
+    ## 4 · Weighting the weather → [LDZ weather](/ldz-weather)
 
     With membership settled, each LDZ's weather is an average of the grid cells inside it. *How* to
     weight those cells is a modelling choice, so several are built and compared by how well each
-    explains demand — not by how plausible it looks:
+    explains demand, not by how plausible it looks. The *LDZ weather* page builds and compares them:
 
-    | Variant | Weights | What it tests |
+    | Variant | Weights | Status |
     |---|---|---|
-    | **Station point** | The grid cell at the official CWV station | The official approach, on the same weather data |
-    | **Land mean** | Every land cell equally | Does weighting help at all? |
-    | **Settlement density** | Density of the listed towns | The original idea, rebuilt |
-    | **Population** | Census population | Where people live |
-    | **Gas use** | Domestic gas meters / consumption | Where gas is used — off-grid areas count for nothing |
+    | **Station point** | The grid cells at the official CWV station | ✓ built |
+    | **Land mean** | Every km² of land equally | ✓ built (`area`) |
+    | **Gas use** | Each authority's DESNZ gas use, spread over its area | ✓ built (`gas`) |
+    | **Settlement density** | Density of the listed towns | 🚧 |
+    | **Population** | Census population | 🚧 |
+
+    First result: with gas-use weighting, the four map methods give LDZ temperatures within a few
+    hundredths of a degree of each other day to day. The weighting, and above all the official
+    stations, matter far more.
     """)
     return
 

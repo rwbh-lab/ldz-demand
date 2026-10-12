@@ -45,10 +45,22 @@ def _marker(variant: tuple[str, str], size: int = 10) -> dict:
     return dict(size=size, symbol="circle", color=colour, line=dict(width=2, color=t.surface))
 
 
-def wide(weather: pd.DataFrame, variable: str = "t2m") -> pd.DataFrame:
-    """Daily values, index gas_day, columns (ldz, membership, weighting)."""
+def wide(weather, variable: str = "t2m") -> pd.DataFrame:
+    """
+    Daily values, index gas_day, columns (ldz, membership, weighting).
+
+    `weather` is the long weather_ldz_daily table, or the {variable: wide frame} dict from
+    prepare() — pages should prepare once, as the long table is ~25x larger in memory.
+    """
+    if isinstance(weather, dict):
+        return weather[variable]
     w = weather[weather["variable"] == variable]
     return w.pivot_table(index="gas_day", columns=["ldz", "membership", "weighting"], values="value").sort_index()
+
+
+def prepare(weather: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    """{variable: wide frame} — the compact form for pages (one float per gas day and series)."""
+    return {v: wide(weather, v) for v in UNITS if (weather["variable"] == v).any()}
 
 
 def comparison(weather: pd.DataFrame, variable: str = "t2m", reference: tuple[str, str] = REFERENCE) -> pd.DataFrame:
@@ -116,8 +128,9 @@ def difference_chart(weather: pd.DataFrame, ldz: str, variants: list[tuple[str, 
                                            dash="solid" if v[1] != "area" else "dot"),
                                  hovertemplate=f"%{{x|%d %b %Y}}: %{{y:+.2f}} {UNITS[variable]}<extra>{label(v)}</extra>"))
     fig.update_layout(title=f"{ldz}: daily difference from {label(reference)} ({UNITS[variable]})",
-                      yaxis_title=UNITS[variable], height=420, hovermode="x unified", margin=dict(t=64, b=40),
-                      xaxis=dict(rangeslider=dict(visible=True, thickness=0.06)))
+                      yaxis_title=UNITS[variable], height=480, hovermode="x unified", margin=dict(t=64, b=40),
+                      xaxis=dict(rangeslider=dict(visible=True, thickness=0.06)),
+                      legend=dict(orientation="h", x=0, xanchor="left", y=-0.32, yanchor="top"))
     return fig
 
 
@@ -130,8 +143,9 @@ def series_chart(weather: pd.DataFrame, ldz: str, variants: list[tuple[str, str]
             fig.add_trace(go.Scatter(x=block.index, y=block[v], mode="lines", name=label(v),
                                      line=dict(color=_colour(v[0]), width=1.5, dash="solid" if v[1] != "area" else "dot"),
                                      hovertemplate=f"%{{x|%d %b %Y}}: %{{y:.1f}} {UNITS[variable]}<extra>{label(v)}</extra>"))
-    fig.update_layout(title=f"{ldz}: daily gas-day mean ({UNITS[variable]})", yaxis_title=UNITS[variable], height=380,
-                      hovermode="x unified", margin=dict(t=64, b=40))
+    fig.update_layout(title=f"{ldz}: daily gas-day mean ({UNITS[variable]})", yaxis_title=UNITS[variable], height=420,
+                      hovermode="x unified", margin=dict(t=64, b=40),
+                      legend=dict(orientation="h", x=0, xanchor="left", y=-0.12, yanchor="top"))
     return fig
 
 
@@ -152,7 +166,7 @@ def weights_map(weights: pd.DataFrame, ldz: str, variant: tuple[str, str], varia
                     line=dict(width=0), colorbar=dict(title=dict(text="weight"), outlinewidth=0, thickness=10, len=0.6)),
         text=[f"{la:.2f}°N {lo:.2f}°E: {x:.1%}" for la, lo, x in zip(w["lat"], w["lon"], w["weight"])],
         hovertemplate="%{text}<extra></extra>"))
-    south, north, west, east = 49.85, 59.0, -8.2, 1.9
+    south, north, west, east = _extent(w)
     fig.update_geos(projection_type="mercator", resolution=50, lataxis_range=[south, north], lonaxis_range=[west, east],
                     center=dict(lat=_mercator_mid(south, north), lon=(west + east) / 2), showland=True,
                     landcolor=t.surface, showocean=True, oceancolor=t.page, showcoastlines=False, showcountries=False,
@@ -160,3 +174,18 @@ def weights_map(weights: pd.DataFrame, ldz: str, variant: tuple[str, str], varia
     fig.update_layout(title=f"{ldz}: where its {'temperature' if variable == 't2m' else 'wind'} comes from — {label(variant)}"
                             f" ({len(w)} cells)", height=640, margin=dict(l=8, r=8, t=64, b=8))
     return fig
+
+
+def _extent(w: pd.DataFrame, pad: float = 1.0) -> tuple[float, float, float, float]:
+    """(south, north, west, east) around the weighted cells, at least ~4° tall so small LDZs keep context."""
+    if w.empty:
+        return 49.85, 59.0, -8.2, 1.9
+    south, north = w["lat"].min() - pad, w["lat"].max() + pad
+    west, east = w["lon"].min() - pad * 1.6, w["lon"].max() + pad * 1.6
+    if north - south < 4:
+        mid = (north + south) / 2
+        south, north = mid - 2, mid + 2
+    if east - west < 6:
+        mid = (east + west) / 2
+        west, east = mid - 3, mid + 3
+    return max(south, 49.5), min(north, 61.0), max(west, -8.5), min(east, 2.0)

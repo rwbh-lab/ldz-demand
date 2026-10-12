@@ -16,6 +16,14 @@ def _():
 
 
 @app.cell(hide_code=True)
+def _():
+    from ldz_demand.charts import pages as _pages
+
+    _pages.nav("era5_weather.py")
+    return
+
+
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     # ERA5 weather
@@ -52,8 +60,8 @@ def _(mo):
 def _(available, ch, mo):
     _days = [d for d in ch.SAMPLE_DAYS if d.day[:7] in available]
     day_picker = mo.ui.dropdown(options={d.label: d.day for d in _days}, value=_days[0].label, label="Gas day")
-    variable_picker = mo.ui.radio(options={v["label"]: k for k, v in ch.VARIABLES.items()},
-                                  value="Temperature", label="Show", inline=True)
+    variable_picker = mo.ui.dropdown(options={v["label"]: k for k, v in ch.VARIABLES.items()},
+                                     value="Temperature", label="Show")
     step_picker = mo.ui.dropdown(options=ch.CELL_SIZES, value="~110 km cells", label="Grid")
     mo.hstack([day_picker, variable_picker, step_picker], justify="start", gap=2)
     return day_picker, step_picker, variable_picker

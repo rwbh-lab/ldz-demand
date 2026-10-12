@@ -62,7 +62,8 @@ def composition(energy: pd.DataFrame, ldz: str) -> go.Figure:
         fig.add_trace(go.Scatter(x=e.index, y=e["offtake"], name="NTS offtakes", visible="legendonly",
                                  line=dict(width=1.5, color=t.muted), hovertemplate="%{y:,.1f} GWh"))
     fig.update_layout(title=f"Demand composition — {_label(ldz)}", yaxis_title="GWh / day",
-                      hovermode="x unified", height=420, xaxis=_range_controls())
+                      hovermode="x unified")
+    fig.update_layout(**_range_layout(420))
     return fig
 
 
@@ -85,7 +86,8 @@ def gap(energy: pd.DataFrame, ldz: str, as_pct: bool = False) -> go.Figure:
                                  customdata=np.stack([bad["flag"].astype(str), bad["ratio"]], axis=1),
                                  hovertemplate="%{customdata[0]} — total %{customdata[1]:.2f}× DM+NDM<extra></extra>"))
     fig.update_layout(title=f"What the published parts don't explain — {_label(ldz)}", yaxis_title=unit,
-                      hovermode="x unified", height=400, xaxis=_range_controls())
+                      hovermode="x unified")
+    fig.update_layout(**_range_layout(400))
     if as_pct:
         fig.update_yaxes(range=[-15, 25])
     return fig
@@ -170,7 +172,8 @@ def feed_check(energy: pd.DataFrame, ldz: str) -> go.Figure:
         fig.update_yaxes(range=[min(lo, 0) - 10, top + 10])
     fig.update_layout(title=f"Published total vs metered NTS offtakes — {_label(ldz)}",
                       yaxis_title="GWh / day (extremes off-scale; see table)",
-                      hovermode="x unified", height=400, xaxis=_range_controls())
+                      hovermode="x unified")
+    fig.update_layout(**_range_layout(400))
     return fig
 
 
@@ -178,16 +181,26 @@ def _label(ldz: str) -> str:
     return "GB (all 13 LDZs)" if ldz == GB else f"LDZ {ldz}"
 
 
-def _range_controls() -> dict:
+# Charts with range buttons stack three bands above the plot: title, then buttons, then legend
+RANGE_TOP = 116          # top margin, px
+RANGE_BUTTONS_GAP = 42   # px from the top of the plot to the bottom of the buttons (the legend sits below)
+MARGIN_BOTTOM = 48       # the template's bottom margin
+
+
+def _range_layout(height: int) -> dict:
+    """Layout for a time-series chart with 1y / 2y / All buttons, title and legend kept clear of them."""
     t = active()
+    plot_height = height - RANGE_TOP - MARGIN_BOTTOM
     return dict(
-        rangeselector=dict(
+        height=height, margin=dict(t=RANGE_TOP),
+        title=dict(y=1, yref="container", yanchor="top", pad=dict(t=12)),
+        xaxis=dict(rangeselector=dict(
             buttons=[dict(count=1, label="1y", step="year", stepmode="backward"),
                      dict(count=2, label="2y", step="year", stepmode="backward"),
                      dict(step="all", label="All")],
-            bgcolor=t.surface, activecolor=t.axis, bordercolor=t.axis, borderwidth=1,
-            font=dict(color=t.ink_2), x=0, y=1.0, yanchor="bottom",
-        ),
+            bgcolor=t.surface, activecolor=t.axis, bordercolor=t.axis, borderwidth=1, font=dict(color=t.ink_2),
+            x=-0.05, xanchor="left", y=1 + RANGE_BUTTONS_GAP / plot_height, yanchor="bottom",
+        )),
     )
 
 

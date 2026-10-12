@@ -17,6 +17,14 @@ def _():
 
 
 @app.cell(hide_code=True)
+def _():
+    from ldz_demand.charts import pages as _pages
+
+    _pages.nav("ng_ldz_daily.py")
+    return
+
+
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     # National Gas LDZ data

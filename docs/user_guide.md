@@ -324,11 +324,13 @@ table first: in CSV mode remove `data/cache/ng_ldz_daily.csv`; in MySQL mode emp
   marimo run dashboard/era5_weather.py
   ```
   Model pages: *LDZ geography* (the LDZ map methods and the demand check) and *LDZ weather* (how
-  much LDZ temperature and wind depend on the map method and weighting; reads `weather_ldz_daily`):
+  much LDZ temperature and wind depend on the map method and weighting; reads `weather_ldz_daily`).
+  **All pages together**, opening on an overview page written like a paper, with the contents
+  (Data / Models) at the head of every page to move between them:
   ```bash
-  marimo run dashboard/ldz_geography.py
-  marimo run dashboard/ldz_weather.py
+  python -m ldz_demand.dashboard            # http://localhost:2718
   ```
+  Each page loads its data when first opened (a few seconds), then stays responsive.
   Theme: `python -m ldz_demand.charts.style
   <claude_dark | neutral_dark | light>`, and set `[tool.marimo.display] theme` in `pyproject.toml` to
   match (`dark` / `light`). More pages 🚧 coming soon.

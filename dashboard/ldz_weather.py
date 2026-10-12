@@ -16,6 +16,14 @@ def _():
 
 
 @app.cell(hide_code=True)
+def _():
+    from ldz_demand.charts import pages as _pages
+
+    _pages.nav("ldz_weather.py")
+    return
+
+
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     # LDZ weather
@@ -44,7 +52,7 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(mo):
+def _(mo, wx):
     from ldz_demand.config import create_config
     from ldz_demand.data.datasets import WEATHER_LDZ_DAILY
     from ldz_demand.data.store import get_store
@@ -52,12 +60,21 @@ def _(mo):
 
     weights = grid_weights.load()
     try:
-        weather = get_store(create_config()).read(WEATHER_LDZ_DAILY)
+        _long = get_store(create_config()).read(WEATHER_LDZ_DAILY)
         load_error = None
     except Exception as exc:  # show setup help instead of a traceback
-        weather, load_error = None, exc
-    has_weather = weather is not None and not weather.empty
-    return grid_weights, has_weather, load_error, weather, weights
+        _long, load_error = None, exc
+    has_weather = _long is not None and not _long.empty
+    # keep only the compact wide form (one float per gas day and series) and a few summary facts
+    if has_weather:
+        _t = _long[_long["variable"] == "t2m"]
+        weather_facts = dict(first=_long["gas_day"].min(), last=_long["gas_day"].max(),
+                             preliminary=int(_t.loc[_t["source"] == "era5t", "gas_day"].nunique()))
+        weather = wx.prepare(_long)
+    else:
+        weather, weather_facts = None, None
+    del _long
+    return grid_weights, has_weather, load_error, weather, weather_facts, weights
 
 
 @app.cell(hide_code=True)
@@ -101,15 +118,12 @@ def _(has_weather, load_error, mo):
 
 
 @app.cell(hide_code=True)
-def _(mo, variant_options, weather, wx):
-    _days = weather["gas_day"]
-    _prelim = int((weather.loc[weather["variable"] == "t2m", "source"] == "era5t").sum() /
-                  max(1, weather.loc[weather["variable"] == "t2m"].groupby(["ldz", "membership", "weighting"]).ngroups))
-    variable = mo.ui.radio(options={"Temperature": "t2m", "Wind speed": "ws10"}, value="Temperature",
-                           label="Variable", inline=True)
+def _(mo, variant_options, weather_facts, wx):
+    _first, _last = weather_facts["first"], weather_facts["last"]
+    variable = mo.ui.dropdown(options={"Temperature": "t2m", "Wind speed": "ws10"}, value="Temperature", label="Variable")
     reference = mo.ui.dropdown(options=list(variant_options), value=wx.label(wx.REFERENCE), label="Compared with")
-    metric = mo.ui.radio(options={"Day-to-day (SD)": "sd_diff", "Mean offset": "mean_diff", "Largest day": "max_abs_diff"},
-                         value="Day-to-day (SD)", label="Measure", inline=True)
+    metric = mo.ui.dropdown(options={"Day-to-day (SD)": "sd_diff", "Mean offset": "mean_diff", "Largest day": "max_abs_diff"},
+                            value="Day-to-day (SD)", label="Measure")
     mo.vstack([
         mo.md(r"""
         ## 2 · How much do the variants differ?
@@ -117,24 +131,36 @@ def _(mo, variant_options, weather, wx):
         Each dot is one variant's difference from the chosen reference over every gas day. The default
         reference is *sampled membership, gas-use weighting*, the best-checked map with the most
         physical weighting. **Day-to-day (SD)** is the measure that matters for the model; mean
-        offsets are shown for completeness. LDZs with the largest differences are at the top.
+        offsets are shown for completeness. LDZs with the largest differences are at the top. The
+        chart starts with three key comparisons: the **official station**, **area** weighting, and the
+        **original Voronoi** map. Add the rest with *Include*.
         """),
         mo.hstack([
-            mo.stat(f"{(_days.max() - _days.min()).days / 365.25:.1f} years", label="History",
-                    caption=f"{_days.min():%d %b %Y} → {_days.max():%d %b %Y}"),
+            mo.stat(f"{(_last - _first).days / 365.25:.1f} years", label="History",
+                    caption=f"{_first:%d %b %Y} → {_last:%d %b %Y}"),
             mo.stat(f"{len(variant_options)}", label="Variants", caption="4 maps × 2 weightings + station"),
-            mo.stat(f"{_prelim}", label="Preliminary days", caption="ERA5T, replaced by final ERA5 later"),
+            mo.stat(f"{weather_facts['preliminary']}", label="Preliminary days", caption="ERA5T, replaced by final ERA5 later"),
         ], widths="equal", gap=1),
-        mo.hstack([variable, metric], justify="start", gap=2),
-        reference,
+        mo.hstack([variable, metric, reference], justify="start", gap=2),
     ])
     return metric, reference, variable
 
 
 @app.cell(hide_code=True)
-def _(metric, mo, reference, variable, variant_options, weather, wx):
+def _(mo, reference, variant_options, wx):
+    _others = [v for v in variant_options if v != reference.value]
+    _key = [wx.label(v) for v in (("station", "point"), ("sampled", "area"), ("voronoi", "gas"))]
+    include = mo.ui.multiselect(options=_others, value=[v for v in _key if v in _others], label="Include")
+    include
+    return (include,)
+
+
+@app.cell(hide_code=True)
+def _(include, metric, mo, reference, variable, variant_options, weather, wx):
     _ref = variant_options[reference.value]
     stats = wx.comparison(weather, variable.value, _ref)
+    stats = stats[stats["variant"].isin(include.value)]
+    mo.stop(stats.empty, mo.callout(mo.md("Choose at least one variant to include."), kind="info"))
     _table = (stats.pivot_table(index="ldz", columns="variant", values=metric.value).round(2)
               .reset_index().rename(columns={"ldz": "LDZ"}))
     mo.vstack([
