@@ -228,26 +228,44 @@ def membership_check(las: pd.DataFrame, gas_use: pd.DataFrame, energy: pd.DataFr
     return out.reset_index().sort_values("ng_share" if energy is not None else "desnz_share")
 
 
-def membership_check_chart(check: pd.DataFrame, methods=("authority", "voronoi", "hybrid")) -> go.Figure:
-    """Each LDZ's share of GB gas: measured demand vs each membership method."""
+def membership_check_chart(check: pd.DataFrame, methods=("authority",), show_demand: bool = True) -> go.Figure:
+    """Each LDZ's share of GB gas: measured demand and the chosen membership methods."""
     t = active()
     fig = go.Figure()
-    for r in check.itertuples():
-        xs = [getattr(r, f"share_{m}") for m in methods] + [r.ng_share]
-        fig.add_trace(go.Scatter(x=[min(xs), max(xs)], y=[r.ldz, r.ldz], mode="lines",
-                                 line=dict(color=t.axis, width=2), hoverinfo="skip", showlegend=False))
-    fig.add_trace(go.Scatter(x=check["ng_share"], y=check["ldz"], mode="markers", name="National Gas demand (measured)",
-                             marker=dict(size=11, color=t.ink, symbol="line-ns", line=dict(width=3, color=t.ink)),
-                             hovertemplate="%{y}: %{x:.2f}% of measured demand<extra></extra>"))
-    for i, m in enumerate(methods):
-        mae = check[f"gap_{m}"].abs().mean()
+    cols = [f"share_{m}" for m in methods] + (["ng_share"] if show_demand else [])
+    if len(cols) > 1:
+        for r in check.itertuples():
+            xs = [getattr(r, c) for c in cols]
+            fig.add_trace(go.Scatter(x=[min(xs), max(xs)], y=[r.ldz, r.ldz], mode="lines",
+                                     line=dict(color=t.axis, width=2), hoverinfo="skip", showlegend=False))
+    if show_demand:
+        fig.add_trace(go.Scatter(x=check["ng_share"], y=check["ldz"], mode="markers", name="National Gas demand (measured)",
+                                 marker=dict(size=11, color=t.ink, symbol="line-ns", line=dict(width=3, color=t.ink)),
+                                 hovertemplate="%{y}: %{x:.2f}% of measured demand<extra></extra>"))
+    for m in methods:
+        slot = list(METHODS).index(m)  # colour follows the method, whichever others are shown
+        mae = check[f"gap_{m}"].abs().mean() if f"gap_{m}" in check else None
+        label = METHODS[m] + (f" — mean |gap| {mae:.2f} pp" if mae is not None else "")
         fig.add_trace(go.Scatter(
-            x=check[f"share_{m}"], y=check["ldz"], mode="markers", name=f"{METHODS[m]} — mean |gap| {mae:.2f} pp",
-            marker=dict(size=10, color=t.series[i], line=dict(width=2, color=t.surface)),
-            customdata=check[f"gap_{m}"], hovertemplate="%{y}: %{x:.2f}% (%{customdata:+.2f} pp)<extra></extra>"))
-    fig.update_layout(title="Each LDZ's share of GB gas: membership methods vs measured demand", xaxis_title="% of GB",
-                      height=520, hovermode="closest", yaxis=dict(showgrid=False))
+            x=check[f"share_{m}"], y=check["ldz"], mode="markers", name=label,
+            marker=dict(size=10, color=t.series[slot], line=dict(width=2, color=t.surface)),
+            customdata=check.get(f"gap_{m}", check[f"share_{m}"] * 0),
+            hovertemplate="%{y}: %{x:.2f}% (%{customdata:+.2f} pp)<extra></extra>"))
+    fig.update_layout(
+        title="Each LDZ's share of GB gas: membership methods vs measured demand", xaxis_title="% of GB",
+        height=560, hovermode="closest", yaxis=dict(showgrid=False), margin=dict(t=72, b=110),
+        # legend under the plot, so the title has the top to itself
+        legend=dict(orientation="h", x=0, xanchor="left", y=-0.14, yanchor="top"),
+    )
     return fig
+
+
+def gap_table(check: pd.DataFrame, methods=tuple(METHODS)) -> pd.DataFrame:
+    """Gap (pp) per LDZ and method, LDZs in the chart's top-to-bottom order, plus mean |gap| and RMS rows."""
+    rows = check.iloc[::-1].set_index("ldz")[[f"gap_{m}" for m in methods]]
+    rows.columns = [METHODS[m] for m in methods]
+    summary = pd.DataFrame([rows.abs().mean(), (rows ** 2).mean() ** 0.5], index=["Mean |gap|", "RMS gap"])
+    return pd.concat([rows, summary]).round(2)
 
 
 def _key(las: pd.DataFrame) -> str:

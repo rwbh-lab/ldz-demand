@@ -143,7 +143,17 @@ def _(check, geo_charts, las, method_picker, mo, towns, towns_toggle, view_picke
 
 
 @app.cell(hide_code=True)
-def _(check, demand_note, energy, geo_charts, mo):
+def _(mo):
+    show_demand = mo.ui.checkbox(value=True, label="National Gas demand")
+    show_authority = mo.ui.checkbox(value=True, label="Local authority")
+    show_voronoi = mo.ui.checkbox(value=False, label="Voronoi (original)")
+    show_hybrid = mo.ui.checkbox(value=False, label="Hybrid")
+    return show_authority, show_demand, show_hybrid, show_voronoi
+
+
+@app.cell(hide_code=True)
+def _(check, demand_note, energy, geo_charts, mo, show_authority, show_demand, show_hybrid, show_voronoi):
+    _methods = [m for m, box in (("authority", show_authority), ("voronoi", show_voronoi), ("hybrid", show_hybrid)) if box.value]
     mo.vstack([
         mo.md(r"""
         ## 3 · Does the map add up?
@@ -176,9 +186,15 @@ def _(check, demand_note, energy, geo_charts, mo):
         an authoritative source (e.g. a gas network postcode lookup) confirms them. Voronoi ignores
         authority labels, so overrides can't improve it — one argument for the label-based methods.
         """),
-        geo_charts.membership_check_chart(check) if energy is not None else mo.callout(mo.md(
+        mo.hstack([show_demand, show_authority, show_voronoi, show_hybrid], justify="start", gap=2),
+        geo_charts.membership_check_chart(check, methods=_methods, show_demand=show_demand.value and energy is not None)
+        if energy is not None else mo.callout(mo.md(
             f"National Gas demand not loaded, so only our map's shares are available. `{demand_note}`"), kind="info"),
-        mo.md(""),
+        mo.md("**Gap to measured demand by LDZ** (percentage points; + means our map gives the LDZ too much). "
+              "Rows follow the chart, top to bottom.") if energy is not None else mo.md(""),
+        mo.ui.table(geo_charts.gap_table(check).reset_index().rename(columns={"index": "LDZ"}), selection=None,
+                    pagination=False, show_column_summaries=False, show_data_types=False, show_search=False)
+        if energy is not None else mo.md(""),
     ])
     return
 

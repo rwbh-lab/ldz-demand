@@ -87,3 +87,30 @@ def test_hybrid_keeps_single_authorities_whole_and_splits_only_among_voting_ldzs
         else:
             assert used == {la["ldz"]}
     assert {f["id"] for f in hybrid.geojson()["features"]} == set(g.LDZS)
+
+
+def test_gap_table_rows_follow_chart_order_with_summary_rows(las):
+    import numpy as np
+
+    check = g.membership_check(las, gas_use.load(), None)
+    rng = np.random.default_rng(0)
+    check["ng_share"] = check["desnz_share"]
+    for m in g.METHODS:
+        check[f"gap_{m}"] = rng.normal(size=len(check))
+    check = check.sort_values("ng_share")
+    table = g.gap_table(check)
+    assert list(table.index[:-2]) == list(check["ldz"][::-1])     # top of chart first
+    assert list(table.index[-2:]) == ["Mean |gap|", "RMS gap"]
+    first = g.METHODS["authority"]
+    assert table.loc["Mean |gap|", first] == pytest.approx(check["gap_authority"].abs().mean(), abs=0.01)
+
+
+def test_check_chart_shows_only_chosen_series(las):
+    check = g.membership_check(las, gas_use.load(), None)
+    check["ng_share"] = check["desnz_share"]
+    for m in g.METHODS:
+        check[f"gap_{m}"] = 0.0
+    names = [tr.name for tr in g.membership_check_chart(check, methods=("authority",)).data if tr.name]
+    assert len(names) == 2 and names[0].startswith("National Gas")
+    names = [tr.name for tr in g.membership_check_chart(check, methods=("voronoi", "hybrid"), show_demand=False).data if tr.name]
+    assert len(names) == 2 and not any(n.startswith("National Gas") for n in names)
