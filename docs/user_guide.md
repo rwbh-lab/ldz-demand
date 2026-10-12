@@ -210,8 +210,18 @@ python -m ldz_demand.data.ingest.era5 pull 2026-01 2026-01   # explicit month ra
   if it stops, run it again and it skips months already downloaded.
 - Try a single month first to check your account and licence.
 
-**Build — 🚧 Coming soon:** `weather_ldz_daily`, LDZ-weighted gas-day temperature and wind
-(needs the LDZ weighting, not built yet).
+**Build:** `weather_ldz_daily`, gas-day temperature and wind per LDZ, for every map method ×
+weighting plus the official one-station reference:
+
+```bash
+python -m ldz_demand.data.build.weather_ldz_daily                  # every month in the archive
+python -m ldz_demand.data.build.weather_ldz_daily --since 2026-08  # that month onwards
+```
+
+- Uses the committed cell weights (`ldz_demand/geo/data/ldz_cell_weights.csv`, rebuilt by
+  `python -m ldz_demand.geo build`). If you change `[era5] area`, rebuild the weights first.
+- Safe to rerun: rows are replaced. Rerun after `refresh` so preliminary (ERA5T) days are replaced by
+  final ERA5 once it arrives; the `source` column says which each day is.
 
 ### 5.3 ECMWF ensemble — 🚧 Coming soon
 
@@ -253,11 +263,24 @@ raw_dir/
 Same columns as `ng_ldz_daily`, with `site` (e.g. `Farningham`) in place of `item`; `unit` is
 always `kWh`.
 
+**`weather_ldz_daily`** — one row per gas day × LDZ × variant × variable.
+Key: `(gas_day, ldz, membership, weighting, variable)`.
+
+| Column | Type | Notes |
+|---|---|---|
+| `gas_day` | date | 05:00–05:00 UK time |
+| `ldz` | str | |
+| `membership` | str | `authority`, `voronoi`, `hybrid`, `sampled` (map methods), or `station` |
+| `weighting` | str | `area`, `gas` (DESNZ gas use), or `point` (station) |
+| `variable` | str | `t2m` (2 m temperature), `ws10` (10 m wind speed) |
+| `value` | float | gas-day mean |
+| `unit` | str | `degC`, `m s-1` |
+| `source` | str | `era5` (final) or `era5t` (preliminary) |
+
 **🚧 Coming soon**
 
 | Table | Contents |
 |---|---|
-| `weather_ldz_daily` | ERA5 gas-day temperature and wind per LDZ |
 | `ens_ldz_daily` | Ensemble forecast temperature and wind per LDZ, per member and run |
 
 ---
@@ -299,6 +322,12 @@ table first: in CSV mode remove `data/cache/ng_ldz_daily.csv`; in MySQL mode emp
   temperature and wind over GB for a few notable gas days (reads the raw files in `raw_dir`):
   ```bash
   marimo run dashboard/era5_weather.py
+  ```
+  Model pages: *LDZ geography* (the LDZ map methods and the demand check) and *LDZ weather* (how
+  much LDZ temperature and wind depend on the map method and weighting; reads `weather_ldz_daily`):
+  ```bash
+  marimo run dashboard/ldz_geography.py
+  marimo run dashboard/ldz_weather.py
   ```
   Theme: `python -m ldz_demand.charts.style
   <claude_dark | neutral_dark | light>`, and set `[tool.marimo.display] theme` in `pyproject.toml` to

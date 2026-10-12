@@ -64,12 +64,9 @@ def allocation(las: pd.DataFrame, method: str = "authority") -> pd.DataFrame:
 
         shares = {"voronoi": voronoi, "hybrid": hybrid, "sampled": postcode_sample}[method].authority_shares()
         return shares.rename(index=dict(zip(las["lad23cd"], las["lad24cd"])))
-    rows = {}
-    for r in las.itertuples():
-        votes = json.loads(r.votes) if r.ldz == "split" else {r.ldz: 1.0}
-        total = sum(votes.values())
-        rows[r.lad24cd] = {ldz: w / total for ldz, w in votes.items()}
-    return pd.DataFrame.from_dict(rows, orient="index").reindex(columns=list(LDZS)).fillna(0.0)
+    from ldz_demand.geo.ldz_membership import vote_shares
+
+    return vote_shares(las, index="lad24cd")
 
 
 def ldz_map(las: pd.DataFrame, towns: pd.DataFrame | None = None, view: str = "ldz", method: str = "authority",

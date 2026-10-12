@@ -39,4 +39,19 @@ NG_OFFTAKE_DAILY = Dataset(
     keys=("gas_day", "ldz", "site"),
 )
 
-DATASETS: dict[str, Dataset] = {ds.name: ds for ds in (NG_LDZ_DAILY, NG_OFFTAKE_DAILY)}
+WEATHER_LDZ_DAILY = Dataset(
+    "weather_ldz_daily",
+    columns={
+        "gas_day": "date",
+        "ldz": "str",
+        "membership": "str",          # map method: authority, voronoi, hybrid, sampled; or station
+        "weighting": "str",           # area, gas; or point (station)
+        "variable": "str",            # t2m, ws10
+        "value": "float",
+        "unit": "str",                # degC, m s-1
+        "source": "str",              # era5 (final) or era5t (preliminary)
+    },
+    keys=("gas_day", "ldz", "membership", "weighting", "variable"),
+)
+
+DATASETS: dict[str, Dataset] = {ds.name: ds for ds in (NG_LDZ_DAILY, NG_OFFTAKE_DAILY, WEATHER_LDZ_DAILY)}

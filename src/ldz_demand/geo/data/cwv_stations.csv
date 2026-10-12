@@ -1,0 +1,19 @@
+# Weather stations behind the official CWV, by LDZ: National Gas, Gas Demand Forecasting Methodology (2016),
+# Appendix 1, Table A1.1 (CWV version 32, applicable from October 2015). Later CWV versions may use other stations.
+# variable: t2m / ws10 where an LDZ takes temperature and wind from different stations, else all.
+# lat/lon: Met Office station locations, approximate (to ~0.02 degrees); our own lookup, not from the source.
+ldz,variable,station,lat,lon
+SC,all,Bishopton,55.907,-4.533
+NO,all,Albemarle,55.020,-1.880
+NW,all,Rostherne No 2,53.358,-2.383
+NE,all,Nottingham Watnall,53.005,-1.250
+EM,all,Nottingham Watnall,53.005,-1.250
+WM,t2m,Winterbourne No 2,52.455,-1.928
+WM,ws10,Coleshill,52.480,-1.689
+WN,all,Rostherne No 2,53.358,-2.383
+WS,all,St Athan,51.405,-3.440
+EA,all,Heathrow,51.479,-0.449
+NT,all,Heathrow,51.479,-0.449
+SE,all,Heathrow,51.479,-0.449
+SO,all,Southampton Oceanographic Centre,50.893,-1.395
+SW,all,Filton,51.521,-2.576

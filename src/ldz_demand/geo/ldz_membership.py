@@ -408,6 +408,16 @@ def _log_summary(towns: pd.DataFrame, las: pd.DataFrame) -> None:
     logger.info(f"Local authorities: {len(las)} — {la_methods}")
 
 
+def vote_shares(las: pd.DataFrame, index: str = "lad23cd") -> pd.DataFrame:
+    """Local-authority method: share of each authority in each LDZ (split authorities by vote share)."""
+    rows = {}
+    for r in las.itertuples():
+        votes = json.loads(r.votes) if r.ldz == "split" else {r.ldz: 1.0}
+        total = sum(votes.values())
+        rows[getattr(r, index)] = {ldz: w / total for ldz, w in votes.items()}
+    return pd.DataFrame.from_dict(rows, orient="index").reindex(columns=list(LDZS)).fillna(0.0)
+
+
 def read_table(name: str) -> pd.DataFrame:
     """Load a committed reference table (skipping the comment header)."""
     return pd.read_csv(DATA_DIR / name, comment="#", dtype={"lad23cd": str, "lad24cd": str})

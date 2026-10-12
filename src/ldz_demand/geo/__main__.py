@@ -12,7 +12,7 @@ import logging
 import sys
 
 from ldz_demand.config import create_config, resolve_path
-from ldz_demand.geo import boundaries, gas_use, ldz_membership, postcode_sample
+from ldz_demand.geo import boundaries, gas_use, grid_weights, ldz_membership, postcode_sample
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -21,7 +21,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     raw_dir = resolve_path(create_config(), "storage", "raw_dir")
-    for module in (ldz_membership, boundaries, gas_use, postcode_sample):
+    for module in (ldz_membership, boundaries, gas_use, postcode_sample, grid_weights):
         getattr(module, args.command)(raw_dir)
     return 0
 
