@@ -2,47 +2,74 @@
 # Each postcode lies inside the authority named (checked with postcodes.io, ONS Postcode Directory, OGL).
 # broker_ldz / broker_zone: what the search returned. also_tried: postcodes that returned no LDZ (off network
 # or not in their database) before the one recorded. Rows with no broker_ldz were not checked: the site's search
-# limit was reached. Findings are applied in src/ldz_demand/geo/data/town_corrections.csv and la_overrides.csv.
-priority,authority,lad23cd,question,test_town,lists_say,our_map,postcode,broker_ldz,broker_zone,also_tried,finding
-1,Bracknell Forest,E06000036,Confirm override -> SO,Sandhurst,SO,SO,GU47 9DX,SO,SO2,,list correct; Bracknell town not checked
-1,Reading,E06000038,Confirm override -> SO,Reading,NT,SO,RG2 7LE,SO,SO1,,list wrong: Reading is SO
-1,Slough,E06000039,Confirm override -> SO,Slough (authority centre),NT,SO,SL3 7HT,NT,NT3,,override wrong: Slough is NT
-1,Swindon,E06000030,Confirm override -> SO,Swindon,SW,SO,SN1 2NB,SW,SW2,,override wrong: Swindon is SW
-1,Wiltshire,E06000054,Confirm override -> SO,Salisbury,SO,SO,SP1 1EX,SO,SO2,SP2 7BF,list correct
-1,Wiltshire,E06000054,Confirm override -> SO,Chippenham,SW,SO,SN15 2RB,SW,SW2,,list correct; Wiltshire is split SW (north) / SO (south)
-1,Windsor and Maidenhead,E06000040,Confirm override -> SO,Windsor,NT,SO,SL4 3QR,NT,NT3,,override wrong: Windsor is NT
-1,Wokingham,E06000041,Confirm override -> SO,Wokingham,NT,SO,RG40 1SF,SO,SO1,,list wrong: Wokingham is SO
-2,Barnet,E09000003,Split: EA / NT,Chipping Barnet,EA/NT,split (main EA),EN5 5UN,EA,EA4,NW7 1FS,EA side confirmed; NT side not found
-2,Buckinghamshire,E06000060,Split: NT / SO,Amersham,NT,split (main NT),HP6 5EG,NT,NT3,,split confirmed
-2,Buckinghamshire,E06000060,Split: NT / SO,Aylesbury,SO,split (main NT),HP21 7SE,SO,SO1,HP21 7GQ,split confirmed
-2,Cheshire West and Chester,E06000050,Split: NW / WN,Frodsham,NW,split (main NW),WA6 6RB,NW,NW2,,
-2,Cheshire West and Chester,E06000050,Split: NW / WN,Malpas,WN,split (main NW),SY14 8NP,NW,NW2,,list wrong: Malpas is NW
-2,Cheshire West and Chester,E06000050,Split: NW / WN,Chester,WN,split (main NW),CH1 2SA,NW,NW2,,list wrong: Chester is NW; authority wholly NW
-2,Doncaster,E08000017,Split: NE / EM,Doncaster,NE,split (main NE),DN4 5ES,EM,EM1,,list wrong: Doncaster is EM
-2,Doncaster,E08000017,Split: NE / EM,Thorne,-,split (main NE),DN8 5NP,EM,EM1,,north of the authority also EM
-2,Doncaster,E08000017,Split: NE / EM,Mexborough,EM,split (main NE),S64 9QE,EM,EM1,,list correct; authority wholly EM
-2,High Peak,E07000037,Split: NW / EM,Glossop,NW,split (main NW),SK13 8HP,NW,NW2,,
-2,High Peak,E07000037,Split: NW / EM,Buxton,EM,split (main NW),SK17 9RP,NW,NW2,,list wrong: Buxton is NW; authority wholly NW
-2,North Yorkshire,E06000065,Split: NE / NO,Filey,NE,split (main NE),YO14 0BT,NE,NE2,,split confirmed
-2,North Yorkshire,E06000065,Split: NE / NO,Catterick Garrison,NO,split (main NE),DL9 3JF,NO,NO1,DL9 3PZ,split confirmed
-2,Oldham,E08000004,Split: NE / NW,Oldham,NE,split (main NE),OL8 1SD,NW,NW1,,list wrong: Oldham is NW
-2,Oldham,E08000004,Split: NE / NW,Uppermill (Saddleworth),-,split (main NE),OL3 6AD,,,,
-2,Rotherham,E08000018,Split: EM / NE,Rotherham (authority centre),EM/NE,split (main EM),S65 3DL,EM,EM1,,
-2,Rotherham,E08000018,Split: EM / NE,Wath upon Dearne,-,split (main EM),S63 7LW,,,,
-2,Sheffield,E08000019,Split: EM / NE,Sheffield (authority centre),EM/NE,split (main EM),S10 1NQ,EM,EM3,,list wrong: Sheffield is EM
-2,Sheffield,E08000019,Split: EM / NE,Stocksbridge,-,split (main EM),S36 2GQ,EM,EM3,,north of the authority also EM
-2,Barnsley,E08000016,Neighbour of the above,Barnsley,NE,NE,S70 1SH,EM,EM1,,list wrong: Barnsley is EM (all of South Yorkshire is EM)
-2,Shropshire,E06000051,Split: WM / WN,Bishops Castle,WM,split (main WM),,,,SY9 5AD; SY9 5FA; SY9 5AJ,off network
-2,Shropshire,E06000051,Split: WM / WN,Ludlow,-,split (main WM),SY8 1NG,WM,WM3,,
-2,Shropshire,E06000051,Split: WM / WN,Church Stretton,-,split (main WM),SY6 7BL,WM,WM1,,
-2,Shropshire,E06000051,Split: WM / WN,Ellesmere,WN,split (main WM),SY12 0EG,WN,WA1,SY12 0FN,split confirmed
-2,West Northamptonshire,E06000062,Split: EM / SO,Brackley,EM,split (main EM),NN13 6EJ,SO,SO1,,list wrong: Brackley is SO; split confirmed
-2,West Northamptonshire,E06000062,Split: EM / SO,Towcester,EM,split (main EM),NN12 6DD,,,,
-2,Westmorland and Furness,E06000064,Split: NW / NO,Ambleside,NW,split (main NW),LA22 0BX,NW,NW1,,split confirmed
-2,Westmorland and Furness,E06000064,Split: NW / NO,Alston,NO,split (main NW),CA9 3SF,NO,NO2,,split confirmed
-3,Bracknell Forest,E06000036,Not checked,Bracknell,NT,split,RG12 1HA,,,,
-3,Wiltshire,E06000054,Where the SW/SO line runs,Tidworth,SO,split,SP9 7LA,,,,
-3,Wiltshire,E06000054,Where the SW/SO line runs,Warminster,SW,split,BA12 9BT,,,,
-3,Wiltshire,E06000054,Where the SW/SO line runs,Devizes,SW,split,SN10 1AY,,,,
-3,Wiltshire,E06000054,Where the SW/SO line runs,Marlborough,SW,split,SN8 1AG,,,,
-3,Wiltshire,E06000054,Where the SW/SO line runs,Amesbury,-,split,SP4 7FG,,,,
+# limit was reached.
+# operator_check: the gas network operators' own new-connection postcode checkers, 2026-10-12 — Wales & West Utilities
+# (WWU = SW or WS LDZ) and SGN (SGN = SO or SE LDZ). Cadent runs EA, EM, NT, NW, WM and can't be told apart this way.
+# A positive answer is strong evidence; a negative can also mean the postcode is missing from that operator's list.
+# Findings are applied in src/ldz_demand/geo/data/town_corrections.csv and la_overrides.csv; rows marked
+# "operator only" are not applied yet.
+priority,authority,lad23cd,question,test_town,lists_say,our_map,postcode,broker_ldz,broker_zone,operator_check,also_tried,finding
+1,Bracknell Forest,E06000036,Confirm override -> SO,Sandhurst,SO,SO,GU47 9DX,SO,SO2,SGN,,list correct; Bracknell town not checked
+1,Reading,E06000038,Confirm override -> SO,Reading,NT,SO,RG2 7LE,SO,SO1,SGN,,list wrong: Reading is SO
+1,Slough,E06000039,Confirm override -> SO,Slough (authority centre),NT,SO,SL3 7HT,NT,NT3,not SGN,,override wrong: Slough is NT
+1,Swindon,E06000030,Confirm override -> SO,Swindon,SW,SO,SN1 2NB,SW,SW2,WWU,,override wrong: Swindon is SW
+1,Wiltshire,E06000054,Confirm override -> SO,Salisbury,SO,SO,SP1 1EX,SO,SO2,SGN,SP2 7BF,list correct
+1,Wiltshire,E06000054,Confirm override -> SO,Chippenham,SW,SO,SN15 2RB,SW,SW2,WWU,,list correct; Wiltshire is split SW (north) / SO (south)
+1,Windsor and Maidenhead,E06000040,Confirm override -> SO,Windsor,NT,SO,SL4 3QR,NT,NT3,not SGN,,override wrong: Windsor is NT
+1,Wokingham,E06000041,Confirm override -> SO,Wokingham,NT,SO,RG40 1SF,SO,SO1,SGN,,list wrong: Wokingham is SO
+2,Barnet,E09000003,Split: EA / NT,Chipping Barnet,EA/NT,split (main EA),EN5 5UN,EA,EA4,,NW7 1FS,EA side confirmed; NT side not found
+2,Buckinghamshire,E06000060,Split: NT / SO,Amersham,NT,split (main NT),HP6 5EG,NT,NT3,not SGN,,split confirmed
+2,Buckinghamshire,E06000060,Split: NT / SO,Aylesbury,SO,split (main NT),HP21 7SE,SO,SO1,SGN,HP21 7GQ,split confirmed
+2,Cheshire West and Chester,E06000050,Split: NW / WN,Frodsham,NW,split (main NW),WA6 6RB,NW,NW2,,,
+2,Cheshire West and Chester,E06000050,Split: NW / WN,Malpas,WN,split (main NW),SY14 8NP,NW,NW2,,,list wrong: Malpas is NW
+2,Cheshire West and Chester,E06000050,Split: NW / WN,Chester,WN,split (main NW),CH1 2SA,NW,NW2,,,list wrong: Chester is NW; authority wholly NW
+2,Doncaster,E08000017,Split: NE / EM,Doncaster,NE,split (main NE),DN4 5ES,EM,EM1,,,list wrong: Doncaster is EM
+2,Doncaster,E08000017,Split: NE / EM,Thorne,-,split (main NE),DN8 5NP,EM,EM1,,,north of the authority also EM
+2,Doncaster,E08000017,Split: NE / EM,Mexborough,EM,split (main NE),S64 9QE,EM,EM1,,,list correct; authority wholly EM
+2,High Peak,E07000037,Split: NW / EM,Glossop,NW,split (main NW),SK13 8HP,NW,NW2,,,
+2,High Peak,E07000037,Split: NW / EM,Buxton,EM,split (main NW),SK17 9RP,NW,NW2,,,list wrong: Buxton is NW; authority wholly NW
+2,North Yorkshire,E06000065,Split: NE / NO,Filey,NE,split (main NE),YO14 0BT,NE,NE2,,,split confirmed
+2,North Yorkshire,E06000065,Split: NE / NO,Catterick Garrison,NO,split (main NE),DL9 3JF,NO,NO1,,DL9 3PZ,split confirmed
+2,Oldham,E08000004,Split: NE / NW,Oldham,NE,split (main NE),OL8 1SD,NW,NW1,,,list wrong: Oldham is NW
+2,Oldham,E08000004,Split: NE / NW,Uppermill (Saddleworth),-,split (main NE),OL3 6AD,,,,,
+2,Rotherham,E08000018,Split: EM / NE,Rotherham (authority centre),EM/NE,split (main EM),S65 3DL,EM,EM1,,,
+2,Rotherham,E08000018,Split: EM / NE,Wath upon Dearne,-,split (main EM),S63 7LW,,,,,
+2,Sheffield,E08000019,Split: EM / NE,Sheffield (authority centre),EM/NE,split (main EM),S10 1NQ,EM,EM3,,,list wrong: Sheffield is EM
+2,Sheffield,E08000019,Split: EM / NE,Stocksbridge,-,split (main EM),S36 2GQ,EM,EM3,,,north of the authority also EM
+2,Barnsley,E08000016,Neighbour of the above,Barnsley,NE,NE,S70 1SH,EM,EM1,,,list wrong: Barnsley is EM (all of South Yorkshire is EM)
+2,Shropshire,E06000051,Split: WM / WN,Bishops Castle,WM,split (main WM),,,,,SY9 5AD; SY9 5FA; SY9 5AJ,off network
+2,Shropshire,E06000051,Split: WM / WN,Ludlow,-,split (main WM),SY8 1NG,WM,WM3,,,
+2,Shropshire,E06000051,Split: WM / WN,Church Stretton,-,split (main WM),SY6 7BL,WM,WM1,,,
+2,Shropshire,E06000051,Split: WM / WN,Ellesmere,WN,split (main WM),SY12 0EG,WN,WA1,,SY12 0FN,split confirmed
+2,West Northamptonshire,E06000062,Split: EM / SO,Brackley,EM,split (main EM),NN13 6EJ,SO,SO1,not SGN (but NN13 6DB/6EF/6EQ/6LH SGN),,list wrong: Brackley is SO; split confirmed; SGN agrees at other NN13 6 postcodes
+2,West Northamptonshire,E06000062,Split: EM / SO,Towcester,EM,split (main EM),NN12 6DD,,,SGN,,list wrong (operator only): Towcester is SO
+2,Westmorland and Furness,E06000064,Split: NW / NO,Ambleside,NW,split (main NW),LA22 0BX,NW,NW1,,,split confirmed
+2,Westmorland and Furness,E06000064,Split: NW / NO,Alston,NO,split (main NW),CA9 3SF,NO,NO2,,,split confirmed
+3,Bracknell Forest,E06000036,Not checked,Bracknell,NT,split,RG12 1HA,,,not SGN,,list correct: Bracknell is NT (Cadent); authority split NT/SO
+3,Wiltshire,E06000054,Where the SW/SO line runs,Tidworth,SO,split,SP9 7LA,,,not WWU,,list correct: SO
+3,Wiltshire,E06000054,Where the SW/SO line runs,Warminster,SW,split,BA12 9BT,,,WWU,,list correct: SW
+3,Wiltshire,E06000054,Where the SW/SO line runs,Devizes,SW,split,SN10 1AY,,,WWU,,list correct: SW
+3,Wiltshire,E06000054,Where the SW/SO line runs,Marlborough,SW,split,SN8 1AG,,,WWU,,list correct: SW
+3,Wiltshire,E06000054,Where the SW/SO line runs,Amesbury,-,split,SP4 7FG,,,not WWU,,SO
+3,Wiltshire,E06000054,Where the SW/SO line runs,Pewsey,SW,split,SN9 5AE,,,WWU,,list correct: SW
+3,Wiltshire,E06000054,Where the SW/SO line runs,Trowbridge,SW,split,BA14 8BE,,,WWU,,list correct: SW
+3,Wiltshire,E06000054,Where the SW/SO line runs,Bradford-on-Avon,SW,split,BA15 1DE,,,WWU,,list correct: SW
+3,Wiltshire,E06000054,Where the SW/SO line runs,Calne,SW,split,SN11 0HS,,,WWU,,list correct: SW
+3,Wiltshire,E06000054,Where the SW/SO line runs,Corsham,SW,split,SN13 9BL,,,WWU,,list correct: SW
+3,Wiltshire,E06000054,Where the SW/SO line runs,Malmesbury,SW,split,SN16 9AS,,,WWU,,list correct: SW
+3,Wiltshire,E06000054,Where the SW/SO line runs,Melksham,SW,split,SN12 6LA,,,WWU,,list correct: SW
+3,Wiltshire,E06000054,Where the SW/SO line runs,Westbury,-,split,BA13 3HF,,,WWU,,SW
+3,Wiltshire,E06000054,Where the SW/SO line runs,Mere,-,split,BA12 6DD,,,WWU,,SW
+3,Wiltshire,E06000054,Where the SW/SO line runs,Royal Wootton Bassett,-,split,SN4 7BU,,,WWU,,SW
+3,Wiltshire,E06000054,Where the SW/SO line runs,Wilton,-,split,SP2 0BQ,,,not WWU,,SO
+3,Wiltshire,E06000054,Where the SW/SO line runs,Ludgershall,-,split,SP11 9PZ,,,not WWU,,"SO; SO is only the south-east corner (Salisbury, Wilton, Amesbury, Tidworth, Ludgershall)"
+3,West Berkshire,E06000037,Split: SO / SW,Newbury,SO,split (main SO),RG14 5BA,,,SGN; not WWU,,list correct: SO
+3,West Berkshire,E06000037,Split: SO / SW,Thatcham,-,split (main SO),RG19 3JH,,,not WWU,,SO
+3,West Berkshire,E06000037,Split: SO / SW,Hungerford,SW,split (main SO),RG17 0LU,,,WWU; not SGN,,list correct: SW
+3,West Berkshire,E06000037,Split: SO / SW,Lambourn,-,split (main SO),RG17 8XX,,,WWU,,SW; split confirmed
+3,Bracknell Forest,E06000036,Split: NT / SO,Binfield,-,split,RG42 4AA,,,not SGN,,NT
+3,Windsor and Maidenhead,E06000040,NT edge,Ascot,NT,NT,SL5 7HG,,,not SGN,,list correct: NT
+3,Surrey Heath,E07000214,Listed NT,Camberley,NT,NT,GU15 2HE,,,SGN,,"list wrong (operator only): Camberley is SO or SE, not NT"
+3,South Oxfordshire,E07000179,Listed NT,Henley-on-Thames,NT,SO,RG9 1AH,,,SGN,,list wrong (operator only): Henley is SO
+3,West Northamptonshire,E06000062,Split: EM / SO,Northampton,EM,split (main EM),NN1 1DF,,,not SGN,,list correct: EM
+3,West Northamptonshire,E06000062,Split: EM / SO,Daventry,EM,split (main EM),NN11 4BS,,,SGN,,"list wrong (operator only; also NN11 3DD, 4HF, 4NH): Daventry is SO"

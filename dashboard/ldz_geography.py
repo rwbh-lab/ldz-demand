@@ -100,8 +100,9 @@ def _(energy, geo_charts, las, use):
 
 @app.cell(hide_code=True)
 def _(energy, mo):
-    method_picker = mo.ui.radio(options={"Local authority": "authority", "Voronoi (original)": "voronoi", "Hybrid": "hybrid"},
-                                value="Hybrid", label="Method", inline=True)
+    method_picker = mo.ui.radio(options={"Local authority": "authority", "Voronoi (original)": "voronoi", "Hybrid": "hybrid",
+                                         "Sampled": "sampled"},
+                                value="Sampled", label="Method", inline=True)
     _views = {"LDZ": "ldz", "Confidence": "confidence"}
     if energy is not None:
         _views["Gap vs demand"] = "gap"
@@ -111,18 +112,22 @@ def _(energy, mo):
         mo.md(r"""
         ## 2 · The map
 
-        Two ways to turn the town lists into a map:
+        Four ways to turn the town lists into a map:
 
-        - **Local authority** — each authority takes the LDZ its towns vote for (this page's method).
+        - **Local authority** — each authority takes the LDZ its towns vote for.
           **Split** authorities are faded with a red outline; authorities with no listed town have an
           orange outline; **manual overrides** (from postcode checks, see §3) have a white outline. *Confidence*
-          shows how decisive each vote was (local authority method only).
+          shows how decisive each split was (local authority and sampled methods).
         - **Voronoi** — the original quant-lib method: every town gets the area closer to it than to any
           other town, smoothed and merged into LDZs. Boundaries follow the towns rather than
           administrative lines, so they are noisier — but they can cut through an authority.
         - **Hybrid** — whole authorities where an authority is clearly in one LDZ, and Voronoi cells only
           inside the split authorities, limited to the LDZs that authority's towns voted for. Each method
           is used where it is strong.
+        - **Sampled** — like the hybrid, but inside each authority on a boundary the split is *measured*:
+          a random sample of its postcodes is run through the gas network operators' own postcode
+          checkers, and the authority is shared out as its sample is. The dots are the sampled
+          postcodes, coloured by the LDZ the operators put them in.
 
         **Gap vs National Gas demand** colours each LDZ by how far its share of GB gas use (under that
         method) is from its share of measured demand — see §3. Neighbouring LDZs always get different
@@ -145,15 +150,17 @@ def _(check, geo_charts, las, method_picker, mo, towns, towns_toggle, view_picke
 @app.cell(hide_code=True)
 def _(mo):
     show_demand = mo.ui.checkbox(value=True, label="National Gas demand")
-    show_authority = mo.ui.checkbox(value=True, label="Local authority")
+    show_authority = mo.ui.checkbox(value=False, label="Local authority")
     show_voronoi = mo.ui.checkbox(value=False, label="Voronoi (original)")
     show_hybrid = mo.ui.checkbox(value=False, label="Hybrid")
-    return show_authority, show_demand, show_hybrid, show_voronoi
+    show_sampled = mo.ui.checkbox(value=True, label="Sampled")
+    return show_authority, show_demand, show_hybrid, show_sampled, show_voronoi
 
 
 @app.cell(hide_code=True)
-def _(check, demand_note, energy, geo_charts, mo, show_authority, show_demand, show_hybrid, show_voronoi):
-    _methods = [m for m, box in (("authority", show_authority), ("voronoi", show_voronoi), ("hybrid", show_hybrid)) if box.value]
+def _(check, demand_note, energy, geo_charts, mo, show_authority, show_demand, show_hybrid, show_sampled, show_voronoi):
+    _methods = [m for m, box in (("authority", show_authority), ("voronoi", show_voronoi), ("hybrid", show_hybrid),
+                                 ("sampled", show_sampled)) if box.value]
     mo.vstack([
         mo.md(r"""
         ## 3 · Does the map add up?
@@ -190,18 +197,39 @@ def _(check, demand_note, energy, geo_charts, mo, show_authority, show_demand, s
         | Mean absolute gap (pp) | 0.75 | 0.55 | 0.52 |
         | RMS gap (pp) | 0.93 | 0.66 | 0.67 |
 
-        **Still open:** under the local-authority and hybrid methods, SO is still 1.2–1.5 pp short, SW is
-        0.6–0.8 pp over and EA is 1.0–1.3 pp over. Candidates are where Wiltshire's SO/SW line runs,
-        West Berkshire, and London's EA/NT edge. The unfinished checks are listed in the review file
-        (the broker site's search limit stopped this round).
+        **Measuring the splits: the postcode sample.** Town votes count towns, and Voronoi cells count
+        area, so neither measures how an authority's *gas* divides. Wiltshire shows the problem: its towns
+        vote 19% SO, its Voronoi area is 34% SO. The sampled method measures it instead. In every
+        authority whose towns name more than one LDZ, 40 random postcodes go to the gas network
+        operators' own new-connection checkers. SGN runs SO, SE and SC; Wales & West Utilities runs SW,
+        WS and WN; a postcode neither claims is Cadent's or Northern Gas Networks'. Postcodes cover
+        similar numbers of addresses, so the sample is roughly population-weighted. 29 authorities
+        could be measured (1,160 postcodes, 98% resolved). EA/NT, NE/NO and SO/SE edges can't be,
+        because one operator runs both sides.
+
+        Some results: **Wiltshire** is 28% SO (±7 pp). **Surrey Heath** (listed NT) is 92% SGN, so the
+        Camberley area is not NT. **Richmond upon Thames** is 38% SE, though its towns say 7%. **Wychavon**
+        is 62% WM, though its towns say 70% SW. **Wokingham** is 98% SO, confirming the override.
 
         **Methods compared:** Voronoi still breaks **London** (NT −2.4, SE +2.6 pp). London's boroughs
-        aren't listed as towns, so the cells of surrounding towns carve the city up. It is better on EA and EM,
-        though. The **hybrid** keeps London right and has the smallest RMS gap (0.61 pp vs 0.67 local
-        authority, 1.08 Voronoi): its worst errors are the smallest. It is the map used from here on, with
-        the other two kept for comparison.
+        aren't listed as towns, so the cells of surrounding towns carve the city up. It is better on EA
+        and EM, though.
+
+        | | Local authority | Voronoi | Hybrid | Sampled |
+        |---|---|---|---|---|
+        | Mean absolute gap (pp) | 0.52 | 0.69 | 0.53 | **0.50** |
+        | RMS gap (pp) | 0.67 | 1.08 | 0.61 | **0.57** |
+
+        The **sampled** method is closest on both measures, and every split it uses is measured rather
+        than inferred. It is the map used from here on, with the other three kept for comparison. The
+        gain is modest: measuring the splits doesn't close the largest gaps.
+
+        **Still open:** SO is still about 1.0 pp short, while EA is 1.1 pp over and SW 0.55 pp over.
+        These sit mostly on edges the operator checkers can't separate (EA/NT, SO/SE) or come from the
+        sources themselves: DESNZ leaves out some large sites, which may also explain WS (−0.7 pp). The EA/NT
+        edge needs the broker's postcode search, once its limit resets.
         """),
-        mo.hstack([show_demand, show_authority, show_voronoi, show_hybrid], justify="start", gap=2),
+        mo.hstack([show_demand, show_authority, show_voronoi, show_hybrid, show_sampled], justify="start", gap=2),
         geo_charts.membership_check_chart(check, methods=_methods, show_demand=show_demand.value and energy is not None)
         if energy is not None else mo.callout(mo.md(
             f"National Gas demand not loaded, so only our map's shares are available. `{demand_note}`"), kind="info"),
@@ -228,17 +256,21 @@ def _(las, mo, towns):
         - Tables: `ldz_demand/geo/data/ldz_local_authority.csv` and `ldz_towns.csv`; manual decisions go in
           `la_overrides.csv`, towns listed under the wrong LDZ in `town_corrections.csv`, town name fixes in
           `town_aliases.csv`, wrong source counties in `county_corrections.csv`. Postcode evidence:
-          `docs/review/ldz_postcode_checks.csv`.
+          `docs/review/ldz_postcode_checks.csv`. Postcode sample: `ldz_postcode_sample.csv`
+          (`python -m ldz_demand.geo.postcode_sample check` runs the operator lookups, paced and cached).
         - An authority is single-LDZ if one LDZ has ≥ 80% of its town votes; a town spanning several
           authorities votes for each in equal parts.
-        - Code: `ldz_demand.geo.ldz_membership`, `ldz_demand.charts.geography`.
+        - Code: `ldz_demand.geo.ldz_membership`, `ldz_demand.geo.postcode_sample`, `ldz_demand.charts.geography`.
         """),
         "Sources & attribution": mo.md(
             "Town lists per LDZ: energybrokers.co.uk (used as evidence; not an official boundary). "
             "Place locations and local authorities: ONS Index of Place Names, July 2024. Boundaries: ONS Local "
             "Authority Districts, December 2023 (BUC); contains OS data © Crown copyright and database right 2023. "
             "Gas use: DESNZ subnational gas consumption statistics, 2024. All ONS/DESNZ data under the Open "
-            "Government Licence v3.0. Coastline: Natural Earth (public domain)."),
+            "Government Licence v3.0. Postcode sample frame: OS Code-Point Open (contains OS data © Crown copyright and "
+            "database right; Royal Mail data © Royal Mail copyright and database right; National Statistics data © Crown "
+            "copyright and database right; OGL v3.0). Network operator answers: SGN and Wales & West Utilities "
+            "new-connection postcode checkers. Coastline: Natural Earth (public domain)."),
     })
     return
 

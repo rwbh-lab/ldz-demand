@@ -52,16 +52,17 @@ def ldz_colours(las: pd.DataFrame) -> dict[str, str]:
 
 
 METHODS = {"authority": "Local authority (town votes)", "voronoi": "Voronoi (original method)",
-           "hybrid": "Hybrid (authorities + Voronoi inside splits)"}
+           "hybrid": "Hybrid (authorities + Voronoi inside splits)",
+           "sampled": "Sampled (authorities + postcode sample inside splits)"}
 GAP_RANGE = 3.0  # percentage points either side of zero on the gap view
 
 
 def allocation(las: pd.DataFrame, method: str = "authority") -> pd.DataFrame:
     """Share of each local authority (rows: lad24cd) allocated to each LDZ (columns), per method."""
-    if method in ("voronoi", "hybrid"):
-        from ldz_demand.geo import hybrid, voronoi
+    if method in ("voronoi", "hybrid", "sampled"):
+        from ldz_demand.geo import hybrid, postcode_sample, voronoi
 
-        shares = (voronoi if method == "voronoi" else hybrid).authority_shares()
+        shares = {"voronoi": voronoi, "hybrid": hybrid, "sampled": postcode_sample}[method].authority_shares()
         return shares.rename(index=dict(zip(las["lad23cd"], las["lad24cd"])))
     rows = {}
     for r in las.itertuples():
@@ -88,6 +89,9 @@ def ldz_map(las: pd.DataFrame, towns: pd.DataFrame | None = None, view: str = "l
 
     if method in ("voronoi", "hybrid"):
         _polygon_layer(fig, method, view, colours, gap)
+    elif method == "sampled":
+        _authority_layer(fig, sampled_authorities(las), view, colours, gap)
+        _sample_layer(fig, colours)
     else:
         _authority_layer(fig, las, view, colours, gap)
 
@@ -172,6 +176,45 @@ def _authority_layer(fig, las, view, colours, gap) -> None:
                                     marker=dict(symbol="square-open", size=12, color=colour, line=dict(width=2))))
 
 
+def sampled_authorities(las: pd.DataFrame) -> pd.DataFrame:
+    """Authorities as the sampled method sees them: measured authorities take their sampled LDZ split."""
+    from ldz_demand.geo import ldz_membership, postcode_sample
+
+    out = las.copy()
+    sample = postcode_sample.load()
+    for code, s in postcode_sample.sampled_shares().items():
+        main, share = max(s.items(), key=lambda kv: kv[1])
+        n = int(sample.loc[sample["lad23cd"] == code, "result"].notna().sum())
+        mask = out["lad23cd"] == code
+        single = share >= ldz_membership.SPLIT_SHARE
+        out.loc[mask, ["ldz", "main_ldz", "share", "method"]] = [main if single else "split", main, round(share, 3),
+                                                                  "sampled" if single else "split"]
+        out.loc[mask, "review"] = "sample: " + ", ".join(f"{z} {w:.0%}" for z, w in sorted(s.items(), key=lambda kv: -kv[1])) + f" (n={n})"
+    return out
+
+
+def _sample_layer(fig, colours) -> None:
+    """The sampled postcodes, coloured by the LDZ the operator checkers put them in."""
+    from ldz_demand.geo import postcode_sample
+
+    t = active()
+    s = postcode_sample.load()
+    if s.empty:
+        return
+    def ldz_of(r):
+        if r.result in colours:
+            return r.result
+        rest = [z for z in r.candidates.split("/") if postcode_sample.OPERATOR[z] not in postcode_sample.CHECKERS]
+        return rest[0] if r.result == "other" and len(rest) == 1 else None
+    ldz = [ldz_of(r) for r in s.itertuples()]
+    answers = s["sgn"].map({True: "SGN yes", False: "SGN no"}).fillna("") + " " + s["wwu"].map({True: "WWU yes", False: "WWU no"}).fillna("")
+    fig.add_trace(go.Scattergeo(
+        lon=s["lon"], lat=s["lat"], mode="markers", name="Sampled postcodes (colour: operator's LDZ)",
+        marker=dict(size=6, color=[colours[z] if z else t.ink_2 for z in ldz], line=dict(width=1, color=t.surface)),
+        text=s["postcode"] + " · " + s["lad23nm"] + "<br>" + [z or "unresolved" for z in ldz] + " · " + answers.str.strip(),
+        hovertemplate="%{text}<extra></extra>"))
+
+
 def _polygon_layer(fig, method, view, colours, gap) -> None:
     from ldz_demand.geo import hybrid, voronoi
 
@@ -204,7 +247,7 @@ def _slots(ldz: pd.Series, colours: dict[str, str]):
 
 
 def membership_check(las: pd.DataFrame, gas_use: pd.DataFrame, energy: pd.DataFrame | None,
-                     methods=("authority", "voronoi", "hybrid")) -> pd.DataFrame:
+                     methods=tuple(METHODS)) -> pd.DataFrame:
     """
     Each LDZ's share of DESNZ annual gas use under each membership method (authorities split by vote
     share or by Voronoi area share), vs its share of measured National Gas demand (mean of the last
