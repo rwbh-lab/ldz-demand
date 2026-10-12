@@ -17,7 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 weather = ["xarray", "netCDF4", "cfgrib", "cdsapi", "ecmwf-opendata"]
-geo = ["geopandas", "shapely", "scipy"]
+geo = ["geopandas", "shapely", "scipy", "openpyxl"]
 models = ["scikit-learn", "statsmodels", "optuna"]
 plot = ["matplotlib", "cartopy"]
 db = ["sqlalchemy>=2.0", "pymysql", "cryptography", "python-dotenv"]
@@ -30,6 +30,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "ldz_demand.charts" = ["data/*.json"]
+"ldz_demand.geo" = ["data/*.csv"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

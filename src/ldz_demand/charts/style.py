@@ -152,6 +152,7 @@ body, #App {{ background: {theme.page} !important; color: {theme.ink}; }}
 .markdown a, a {{ color: {theme.accent}; }}
 .markdown h1, .markdown h2, .markdown h3 {{ color: {theme.ink}; font-weight: 600; letter-spacing: -0.01em; }}
 .markdown p, .markdown li {{ color: {theme.ink_2}; }}
+.markdown table th, .markdown table td {{ text-align: left !important; }}
 """
 
 

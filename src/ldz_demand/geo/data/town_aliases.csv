@@ -1,0 +1,23 @@
+# Broker town name -> name to look up in the ONS Index of Place Names (our own mapping).
+# Used where the broker lists use a common name, an area name or a variant spelling.
+ldz,town,ipn_name
+NE,Hull,Kingston upon Hull
+EA,Dunmow,Great Dunmow
+NT,Benfleet,South Benfleet
+NW,Thornton-cleveleys,Thornton
+SC,Isle Of Bute,Rothesay
+SC,Isle Of Lewis,Stornoway
+SC,Shetland,Lerwick
+SC,South Queensferry,Queensferry
+SE,Saint Leonards-on-sea,St Leonards
+SE,Romney Marsh,New Romney
+SO,Abingdon,Abingdon-on-Thames
+SO,Wimborne,Wimborne Minster
+SO,Totland Bay,Totland
+SW,Saint Columb,St Columb Major
+SW,Torrington,Great Torrington
+WM,Droitwich,Droitwich Spa
+WN,Deeside,Connah's Quay
+EM,Hope Valley,Hope
+EM,Barnetby,Barnetby le Wold
+EA,Stansted,Stansted Mountfitchet

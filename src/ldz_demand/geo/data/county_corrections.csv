@@ -1,0 +1,6 @@
+# Counties listed on the broker LDZ pages that are wrong for that LDZ (our own corrections).
+# Dropped before matching so they can't pull a same-named town into the wrong LDZ.
+ldz,county,reason
+EM,Hampshire,Hampshire is SO; listing it put EM's Ripley (Derbyshire) in the New Forest
+EM,Buckinghamshire,Buckinghamshire is NT/SO
+EA,Kent,Kent is SE; listing it put EA's Stansted (Essex) in Kent

@@ -17,3 +17,4 @@ body, #App { background: #1f1e1d !important; color: #faf9f5; }
 .markdown a, a { color: #d97757; }
 .markdown h1, .markdown h2, .markdown h3 { color: #faf9f5; font-weight: 600; letter-spacing: -0.01em; }
 .markdown p, .markdown li { color: #c2c0b6; }
+.markdown table th, .markdown table td { text-align: left !important; }
