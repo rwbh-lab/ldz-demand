@@ -70,11 +70,34 @@ def test_assign_authorities_unanimous_split_and_nearest():
     overrides = pd.DataFrame([{"lad23cd": "L2", "ldz": "SE", "reason": "checked"}])
     assert m.assign_authorities(towns, lads, overrides).set_index("lad23cd").loc["L2", "ldz"] == "SE"
 
+    # "split" forces a split (keeping the votes) where one LDZ's share would make the authority single
+    forced = pd.DataFrame([{"lad23cd": "L1", "ldz": "split", "reason": "postcodes in two LDZs"}])
+    l1 = m.assign_authorities(towns, lads, forced).set_index("lad23cd").loc["L1"]
+    assert l1[["ldz", "main_ldz", "method", "review"]].tolist() == ["split", "NT", "split", "postcodes in two LDZs"]
+
+
+def test_correct_towns_moves_listed_towns_and_keeps_the_source_ldz():
+    towns = pd.DataFrame([
+        {"ldz": "NE", "town": "Sheffield", "method": "county"},
+        {"ldz": "EM", "town": "Sheffield", "method": "county"},
+        {"ldz": "NE", "town": "Leeds", "method": "county"},
+    ])
+    out = m.correct_towns(towns, {("NE", "Sheffield"): "EM"})
+    assert len(out) == 2  # Sheffield now listed once, under EM
+    assert out.set_index("town").loc["Leeds", ["ldz", "listed_ldz"]].tolist() == ["NE", "NE"]
+    assert set(out["ldz"]) == {"EM", "NE"}
+
 
 def test_committed_tables_cover_all_ldzs():
     las = m.read_table("ldz_local_authority.csv")
     assert len(las) == 350
     assert set(las["main_ldz"]) == set(m.LDZS)
     towns = m.read_table("ldz_towns.csv")
-    assert towns["method"].isin(["county", "footprint", "county+alias", "footprint+alias", "outlier", "outlier+alias",
-                                 "ambiguous", "not_in_ipn", "ambiguous+alias", "not_in_ipn+alias"]).all()
+    assert towns["method"].str.replace("+corrected", "").isin(
+        ["county", "footprint", "county+alias", "footprint+alias", "outlier", "outlier+alias",
+         "ambiguous", "not_in_ipn", "ambiguous+alias", "not_in_ipn+alias"]).all()
+    # every town correction found its town, and the corrected towns carry their source LDZ
+    corrections = m.load_town_corrections()
+    fixed = towns[towns["method"].str.contains("corrected")]
+    assert set(zip(fixed["listed_ldz"], fixed["town"])) == set(corrections)
+    assert (fixed["ldz"] != fixed["listed_ldz"]).all()

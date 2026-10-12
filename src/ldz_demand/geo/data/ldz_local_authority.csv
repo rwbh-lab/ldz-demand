@@ -1,354 +1,355 @@
 # Derived by ldz-demand (python -m ldz_demand.geo.ldz_membership build). Sources: town lists per LDZ from
 # energybrokers.co.uk (used as evidence, not republished verbatim); place locations and local authorities from
-# the ONS Index of Place Names, July 2024 (Open Government Licence v3.0). Not an official LDZ boundary.
-lad23cd,lad24cd,lad23nm,country,ldz,main_ldz,share,votes,n_towns,method
-E07000223,E07000223,Adur,England,SE,SE,1.0,"{""SE"": 2.33}",2.33,unanimous
-E07000032,E07000032,Amber Valley,England,EM,EM,1.0,"{""EM"": 3.42}",3.42,unanimous
-E07000224,E07000224,Arun,England,split,SE,0.7,"{""SE"": 2.33, ""SO"": 1.0}",3.33,split
-E07000170,E07000170,Ashfield,England,EM,EM,1.0,"{""EM"": 0.58}",0.58,unanimous
-E07000105,E07000105,Ashford,England,SE,SE,1.0,"{""SE"": 1.0}",1.0,unanimous
-E07000200,E07000200,Babergh,England,EA,EA,1.0,"{""EA"": 1.58}",1.58,unanimous
-E09000002,E09000002,Barking and Dagenham,England,NT,NT,1.0,"{""NT"": 2.0}",2.0,unanimous
-E09000003,E09000003,Barnet,England,split,EA,0.55,"{""EA"": 0.79, ""NT"": 0.64}",1.43,split
-E08000016,E08000038,Barnsley,England,NE,NE,1.0,"{""NE"": 1.0}",1.0,unanimous
-E07000066,E07000066,Basildon,England,NT,NT,1.0,"{""NT"": 1.83}",1.83,unanimous
-E07000084,E07000084,Basingstoke and Deane,England,SO,SO,1.0,"{""SO"": 1.5}",1.5,unanimous
-E07000171,E07000171,Bassetlaw,England,EM,EM,1.0,"{""EM"": 2.0}",2.0,unanimous
-E06000022,E06000022,Bath and North East Somerset,England,SW,SW,1.0,"{""SW"": 1.75}",1.75,unanimous
-E06000055,E06000055,Bedford,England,split,EA,0.75,"{""EA"": 1.5, ""EM"": 0.5}",2.0,split
-E09000004,E09000004,Bexley,England,SE,SE,1.0,"{""SE"": 5.85}",5.85,unanimous
-E08000025,E08000025,Birmingham,England,WM,WM,1.0,"{""WM"": 2.48}",2.48,unanimous
-E07000129,E07000129,Blaby,England,EM,EM,1.0,"{""EM"": 0.33}",0.33,unanimous
-E06000008,E06000008,Blackburn with Darwen,England,NW,NW,1.0,"{""NW"": 2.0}",2.0,unanimous
-E06000009,E06000009,Blackpool,England,NW,NW,1.0,"{""NW"": 0.33}",0.33,unanimous
-E07000033,E07000033,Bolsover,England,EM,EM,1.0,"{""EM"": 0.67}",0.67,unanimous
-E08000001,E08000001,Bolton,England,NW,NW,1.0,"{""NW"": 1.0}",1.0,unanimous
-E07000136,E07000136,Boston,England,EM,EM,1.0,"{""EM"": 1.0}",1.0,unanimous
-E06000058,E06000058,"Bournemouth, Christchurch an",England,SO,SO,1.0,"{""SO"": 3.0}",3.0,unanimous
-E06000036,E06000036,Bracknell Forest,England,SO,SO,1.0,"{""NT"": 1.58, ""SO"": 1.5}",3.08,override: Bracknell Forest — split NT/SO; demand check says SO (provisional)
-E08000032,E08000032,Bradford,England,NE,NE,1.0,"{""NE"": 5.53}",5.53,unanimous
-E07000067,E07000067,Braintree,England,EA,EA,1.0,"{""EA"": 3.5}",3.5,unanimous
-E07000143,E07000143,Breckland,England,EA,EA,1.0,"{""EA"": 4.0}",4.0,unanimous
-E09000005,E09000005,Brent,England,NT,NT,0.889,"{""NT"": 1.14, ""EA"": 0.14}",1.29,majority
-E07000068,E07000068,Brentwood,England,NT,NT,1.0,"{""NT"": 2.17}",2.17,unanimous
-E06000043,E06000043,Brighton and Hove,England,SE,SE,1.0,"{""SE"": 1.0}",1.0,unanimous
-E06000023,E06000023,"Bristol, City of",England,SW,SW,1.0,"{""SW"": 0.25}",0.25,unanimous
-E07000144,E07000144,Broadland,England,EA,EA,1.0,"{""EA"": 1.33}",1.33,unanimous
-E09000006,E09000006,Bromley,England,SE,SE,1.0,"{""SE"": 5.66}",5.66,unanimous
-E07000234,E07000234,Bromsgrove,England,WM,WM,1.0,"{""WM"": 2.31}",2.31,unanimous
-E07000095,E07000095,Broxbourne,England,EA,EA,1.0,"{""EA"": 1.81}",1.81,unanimous
-E07000172,E07000172,Broxtowe,England,EM,EM,1.0,"{""EM"": 1.08}",1.08,unanimous
-E06000060,E06000060,Buckinghamshire,England,split,NT,0.71,"{""NT"": 9.17, ""SO"": 2.0, ""EA"": 1.75}",12.92,split
-E07000117,E07000117,Burnley,England,split,NE,0.5,"{""NE"": 0.33, ""NW"": 0.33}",0.67,split
-E08000002,E08000002,Bury,England,NW,NW,1.0,"{""NW"": 1.88}",1.88,unanimous
-E08000033,E08000033,Calderdale,England,NE,NE,0.898,"{""NE"": 5.87, ""NW"": 0.67}",6.53,majority
-E07000008,E07000008,Cambridge,England,EA,EA,,{},0.0,nearest_town_19km
-E09000007,E09000007,Camden,England,EA,EA,1.0,"{""EA"": 0.14}",0.14,unanimous
-E07000192,E07000192,Cannock Chase,England,WM,WM,1.0,"{""WM"": 0.83}",0.83,unanimous
-E07000106,E07000106,Canterbury,England,SE,SE,1.0,"{""SE"": 2.5}",2.5,unanimous
-E07000069,E07000069,Castle Point,England,NT,NT,1.0,"{""NT"": 2.0}",2.0,unanimous
-E06000056,E06000056,Central Bedfordshire,England,EA,EA,1.0,"{""EA"": 8.08}",8.08,unanimous
-E07000130,E07000130,Charnwood,England,EM,EM,1.0,"{""EM"": 1.0}",1.0,unanimous
-E07000070,E07000070,Chelmsford,England,split,EA,0.692,"{""EA"": 1.5, ""NT"": 0.67}",2.17,split
-E07000078,E07000078,Cheltenham,England,SW,SW,1.0,"{""SW"": 0.5}",0.5,unanimous
-E07000177,E07000177,Cherwell,England,SO,SO,1.0,"{""SO"": 3.25}",3.25,unanimous
-E06000049,E06000049,Cheshire East,England,NW,NW,0.878,"{""NW"": 7.17, ""WM"": 1.0}",8.17,majority
-E06000050,E06000050,Cheshire West and Chester,England,split,NW,0.765,"{""NW"": 6.5, ""WN"": 2.0}",8.5,split
-E07000034,E07000034,Chesterfield,England,EM,EM,1.0,"{""EM"": 0.5}",0.5,unanimous
-E07000225,E07000225,Chichester,England,split,SO,0.778,"{""SO"": 3.5, ""SE"": 1.0}",4.5,split
-E07000118,E07000118,Chorley,England,NW,NW,1.0,"{""NW"": 1.5}",1.5,unanimous
-E09000001,E09000001,City of London,England,NT,NT,,{},0.0,nearest_town_3km
-E07000071,E07000071,Colchester,England,EA,EA,1.0,"{""EA"": 0.33}",0.33,unanimous
-E06000052,E06000052,Cornwall,England,SW,SW,1.0,"{""SW"": 30.0}",30.0,unanimous
-E07000079,E07000079,Cotswold,England,SW,SW,1.0,"{""SW"": 4.83}",4.83,unanimous
-E06000047,E06000047,County Durham,England,NO,NO,1.0,"{""NO"": 13.17}",13.17,unanimous
-E08000026,E08000026,Coventry,England,WM,WM,1.0,"{""WM"": 0.5}",0.5,unanimous
-E07000226,E07000226,Crawley,England,SE,SE,1.0,"{""SE"": 1.0}",1.0,unanimous
-E09000008,E09000008,Croydon,England,SE,SE,1.0,"{""SE"": 5.24}",5.24,unanimous
-E06000063,E06000063,Cumberland,England,NO,NO,0.919,"{""NO"": 17.0, ""NW"": 1.0, ""SC"": 0.5}",18.5,majority
-E07000096,E07000096,Dacorum,England,EA,EA,0.818,"{""EA"": 3.0, ""NT"": 0.67}",3.67,majority
-E06000005,E06000005,Darlington,England,NO,NO,1.0,"{""NO"": 1.5}",1.5,unanimous
-E07000107,E07000107,Dartford,England,SE,SE,1.0,"{""SE"": 3.58}",3.58,unanimous
-E06000015,E06000015,Derby,England,EM,EM,1.0,"{""EM"": 0.25}",0.25,unanimous
-E07000035,E07000035,Derbyshire Dales,England,split,EM,0.783,"{""EM"": 3.0, ""WM"": 0.5, ""NW"": 0.33}",3.83,split
-E08000017,E08000017,Doncaster,England,split,NE,0.667,"{""NE"": 1.0, ""EM"": 0.5}",1.5,split
-E06000059,E06000059,Dorset,England,SO,SO,0.857,"{""SO"": 15.0, ""SW"": 2.5}",17.5,majority
-E07000108,E07000108,Dover,England,SE,SE,1.0,"{""SE"": 3.0}",3.0,unanimous
-E08000027,E08000027,Dudley,England,WM,WM,1.0,"{""WM"": 4.31}",4.31,unanimous
-E09000009,E09000009,Ealing,England,NT,NT,1.0,"{""NT"": 3.31}",3.31,unanimous
-E07000009,E07000009,East Cambridgeshire,England,EA,EA,1.0,"{""EA"": 1.5}",1.5,unanimous
-E07000040,E07000040,East Devon,England,SW,SW,0.94,"{""SW"": 7.83, ""SO"": 0.5}",8.33,majority
-E07000085,E07000085,East Hampshire,England,SO,SO,1.0,"{""SO"": 5.5}",5.5,unanimous
-E07000242,E07000242,East Hertfordshire,England,EA,EA,1.0,"{""EA"": 6.5}",6.5,unanimous
-E07000137,E07000137,East Lindsey,England,EM,EM,1.0,"{""EM"": 6.5}",6.5,unanimous
-E06000011,E06000011,East Riding of Yorkshire,England,NE,NE,1.0,"{""NE"": 9.0}",9.0,unanimous
-E07000193,E07000193,East Staffordshire,England,split,EM,0.5,"{""EM"": 0.5, ""WM"": 0.5}",1.0,split
-E07000244,E07000244,East Suffolk,England,EA,EA,1.0,"{""EA"": 9.25}",9.25,unanimous
-E07000061,E07000061,Eastbourne,England,SE,SE,1.0,"{""SE"": 1.0}",1.0,unanimous
-E07000086,E07000086,Eastleigh,England,SO,SO,1.0,"{""SO"": 0.58}",0.58,unanimous
-E07000207,E07000207,Elmbridge,England,split,SE,0.728,"{""SE"": 2.83, ""NT"": 1.06}",3.89,split
-E09000010,E09000010,Enfield,England,EA,EA,1.0,"{""EA"": 0.62}",0.62,unanimous
-E07000072,E07000072,Epping Forest,England,split,EA,0.699,"{""EA"": 4.64, ""NT"": 2.0}",6.64,split
-E07000208,E07000208,Epsom and Ewell,England,SE,SE,0.913,"{""SE"": 1.5, ""NT"": 0.14}",1.64,majority
-E07000036,E07000036,Erewash,England,EM,EM,1.0,"{""EM"": 0.58}",0.58,unanimous
-E07000041,E07000041,Exeter,England,SW,SW,1.0,"{""SW"": 0.33}",0.33,unanimous
-E07000087,E07000087,Fareham,England,SO,SO,1.0,"{""SO"": 1.42}",1.42,unanimous
-E07000010,E07000010,Fenland,England,EA,EA,1.0,"{""EA"": 2.5}",2.5,unanimous
-E07000112,E07000112,Folkestone and Hythe,England,SE,SE,1.0,"{""SE"": 4.0}",4.0,unanimous
-E07000080,E07000080,Forest of Dean,England,SW,SW,1.0,"{""SW"": 4.0}",4.0,unanimous
-E07000119,E07000119,Fylde,England,NW,NW,1.0,"{""NW"": 1.83}",1.83,unanimous
-E08000037,E08000037,Gateshead,England,NO,NO,1.0,"{""NO"": 4.53}",4.53,unanimous
-E07000173,E07000173,Gedling,England,EM,EM,1.0,"{""EM"": 0.25}",0.25,unanimous
-E07000081,E07000081,Gloucester,England,SW,SW,1.0,"{""SW"": 0.33}",0.33,unanimous
-E07000088,E07000088,Gosport,England,SO,SO,1.0,"{""SO"": 1.17}",1.17,unanimous
-E07000109,E07000109,Gravesham,England,SE,SE,1.0,"{""SE"": 1.83}",1.83,unanimous
-E07000145,E07000145,Great Yarmouth,England,EA,EA,1.0,"{""EA"": 1.0}",1.0,unanimous
-E09000011,E09000011,Greenwich,England,SE,SE,1.0,"{""SE"": 0.35}",0.35,unanimous
-E07000209,E07000209,Guildford,England,split,SE,0.621,"{""SE"": 1.5, ""SO"": 0.58, ""NT"": 0.33}",2.42,split
-E09000012,E09000012,Hackney,England,NT,NT,,{},0.0,nearest_town_7km
-E06000006,E06000006,Halton,England,NW,NW,1.0,"{""NW"": 1.0}",1.0,unanimous
-E09000013,E09000013,Hammersmith and Fulham,England,NT,NT,1.0,"{""NT"": 0.17}",0.17,unanimous
-E07000131,E07000131,Harborough,England,EM,EM,1.0,"{""EM"": 0.83}",0.83,unanimous
-E09000014,E09000014,Haringey,England,EA,EA,1.0,"{""EA"": 0.29}",0.29,unanimous
-E07000073,E07000073,Harlow,England,EA,EA,1.0,"{""EA"": 0.33}",0.33,unanimous
-E09000015,E09000015,Harrow,England,NT,NT,0.847,"{""NT"": 2.64, ""EA"": 0.48}",3.12,majority
-E07000089,E07000089,Hart,England,split,SO,0.789,"{""SO"": 1.25, ""NT"": 0.33}",1.58,split
-E06000001,E06000001,Hartlepool,England,NO,NO,1.0,"{""NO"": 1.33}",1.33,unanimous
-E07000062,E07000062,Hastings,England,SE,SE,1.0,"{""SE"": 1.5}",1.5,unanimous
-E07000090,E07000090,Havant,England,SO,SO,1.0,"{""SO"": 2.58}",2.58,unanimous
-E09000016,E09000016,Havering,England,NT,NT,1.0,"{""NT"": 4.0}",4.0,unanimous
-E06000019,E06000019,"Herefordshire, County of",England,split,WM,0.462,"{""WM"": 3.0, ""SW"": 2.0, ""WS"": 1.0, ""WN"": 0.5}",6.5,split
-E07000098,E07000098,Hertsmere,England,EA,EA,0.937,"{""EA"": 2.12, ""NT"": 0.14}",2.26,majority
-E07000037,E07000037,High Peak,England,split,NW,0.571,"{""NW"": 1.33, ""EM"": 1.0}",2.33,split
-E09000017,E09000017,Hillingdon,England,NT,NT,0.946,"{""NT"": 5.81, ""EA"": 0.33}",6.14,majority
-E07000132,E07000132,Hinckley and Bosworth,England,WM,WM,1.0,"{""WM"": 1.33}",1.33,unanimous
-E07000227,E07000227,Horsham,England,SE,SE,1.0,"{""SE"": 5.0}",5.0,unanimous
-E09000018,E09000018,Hounslow,England,NT,NT,1.0,"{""NT"": 3.42}",3.42,unanimous
-E07000011,E07000011,Huntingdonshire,England,EA,EA,1.0,"{""EA"": 3.0}",3.0,unanimous
-E07000120,E07000120,Hyndburn,England,NW,NW,1.0,"{""NW"": 0.5}",0.5,unanimous
-E07000202,E07000202,Ipswich,England,EA,EA,1.0,"{""EA"": 0.25}",0.25,unanimous
-E06000046,E06000046,Isle of Wight,England,SO,SO,1.0,"{""SO"": 11.0}",11.0,unanimous
-E06000053,E06000053,Isles of Scilly,England,SW,SW,,{},0.0,nearest_town_59km
-E09000019,E09000019,Islington,England,NT,NT,,{},0.0,nearest_town_4km
-E09000020,E09000020,Kensington and Chelsea,England,NT,NT,,{},0.0,nearest_town_4km
-E07000146,E07000146,King's Lynn and West Norfolk,England,EA,EA,1.0,"{""EA"": 3.5}",3.5,unanimous
-E06000010,E06000010,"Kingston upon Hull, City of",England,NE,NE,1.0,"{""NE"": 1.0}",1.0,unanimous
-E09000021,E09000021,Kingston upon Thames,England,SE,SE,0.959,"{""SE"": 3.33, ""NT"": 0.14}",3.48,majority
-E08000034,E08000034,Kirklees,England,NE,NE,1.0,"{""NE"": 6.37}",6.37,unanimous
-E08000011,E08000011,Knowsley,England,NW,NW,1.0,"{""NW"": 1.0}",1.0,unanimous
-E09000022,E09000022,Lambeth,England,SE,SE,1.0,"{""SE"": 0.24}",0.24,unanimous
-E07000121,E07000121,Lancaster,England,split,NW,0.667,"{""NW"": 2.0, ""NE"": 1.0}",3.0,split
-E08000035,E08000035,Leeds,England,NE,NE,1.0,"{""NE"": 4.53}",4.53,unanimous
-E06000016,E06000016,Leicester,England,EM,EM,1.0,"{""EM"": 0.33}",0.33,unanimous
-E07000063,E07000063,Lewes,England,SE,SE,1.0,"{""SE"": 4.83}",4.83,unanimous
-E09000023,E09000023,Lewisham,England,SE,SE,1.0,"{""SE"": 0.1}",0.1,unanimous
-E07000194,E07000194,Lichfield,England,WM,WM,1.0,"{""WM"": 2.17}",2.17,unanimous
-E07000138,E07000138,Lincoln,England,EM,EM,1.0,"{""EM"": 0.33}",0.33,unanimous
-E08000012,E08000012,Liverpool,England,NW,NW,1.0,"{""NW"": 0.25}",0.25,unanimous
-E06000032,E06000032,Luton,England,EA,EA,1.0,"{""EA"": 0.33}",0.33,unanimous
-E07000110,E07000110,Maidstone,England,SE,SE,1.0,"{""SE"": 0.67}",0.67,unanimous
-E07000074,E07000074,Maldon,England,EA,EA,1.0,"{""EA"": 2.0}",2.0,unanimous
-E07000235,E07000235,Malvern Hills,England,WM,WM,0.846,"{""WM"": 1.83, ""SW"": 0.33}",2.17,majority
-E08000003,E08000003,Manchester,England,NW,NW,1.0,"{""NW"": 1.88}",1.88,unanimous
-E07000174,E07000174,Mansfield,England,EM,EM,1.0,"{""EM"": 0.33}",0.33,unanimous
-E06000035,E06000035,Medway,England,SE,SE,0.882,"{""SE"": 2.5, ""NT"": 0.33}",2.83,majority
-E07000133,E07000133,Melton,England,EM,EM,1.0,"{""EM"": 1.0}",1.0,unanimous
-E09000024,E09000024,Merton,England,SE,SE,0.938,"{""SE"": 2.14, ""NT"": 0.14}",2.29,majority
-E07000042,E07000042,Mid Devon,England,SW,SW,1.0,"{""SW"": 4.0}",4.0,unanimous
-E07000203,E07000203,Mid Suffolk,England,EA,EA,1.0,"{""EA"": 2.75}",2.75,unanimous
-E07000228,E07000228,Mid Sussex,England,SE,SE,1.0,"{""SE"": 2.17}",2.17,unanimous
-E06000002,E06000002,Middlesbrough,England,NO,NO,1.0,"{""NO"": 0.67}",0.67,unanimous
-E06000042,E06000042,Milton Keynes,England,EM,EM,0.889,"{""EM"": 2.0, ""EA"": 0.25}",2.25,majority
-E07000210,E07000210,Mole Valley,England,SE,SE,1.0,"{""SE"": 4.5}",4.5,unanimous
-E07000091,E07000091,New Forest,England,SO,SO,1.0,"{""SO"": 6.25}",6.25,unanimous
-E07000175,E07000175,Newark and Sherwood,England,EM,EM,1.0,"{""EM"": 2.0}",2.0,unanimous
-E08000021,E08000021,Newcastle upon Tyne,England,NO,NO,1.0,"{""NO"": 1.2}",1.2,unanimous
-E07000195,E07000195,Newcastle-under-Lyme,England,WM,WM,1.0,"{""WM"": 1.08}",1.08,unanimous
-E09000025,E09000025,Newham,England,NT,NT,,{},0.0,nearest_town_3km
-E07000043,E07000043,North Devon,England,SW,SW,1.0,"{""SW"": 5.5}",5.5,unanimous
-E07000038,E07000038,North East Derbyshire,England,EM,EM,0.846,"{""EM"": 1.83, ""NE"": 0.33}",2.17,majority
-E06000012,E06000012,North East Lincolnshire,England,EM,EM,1.0,"{""EM"": 2.5}",2.5,unanimous
-E07000099,E07000099,North Hertfordshire,England,EA,EA,1.0,"{""EA"": 4.67}",4.67,unanimous
-E07000139,E07000139,North Kesteven,England,EM,EM,1.0,"{""EM"": 1.83}",1.83,unanimous
-E06000013,E06000013,North Lincolnshire,England,EM,EM,1.0,"{""EM"": 6.0}",6.0,unanimous
-E07000147,E07000147,North Norfolk,England,EA,EA,1.0,"{""EA"": 8.0}",8.0,unanimous
-E06000061,E06000061,North Northamptonshire,England,EM,EM,1.0,"{""EM"": 3.33}",3.33,unanimous
-E06000024,E06000024,North Somerset,England,SW,SW,1.0,"{""SW"": 3.25}",3.25,unanimous
-E08000022,E08000022,North Tyneside,England,NO,NO,1.0,"{""NO"": 3.5}",3.5,unanimous
-E07000218,E07000218,North Warwickshire,England,WM,WM,1.0,"{""WM"": 1.81}",1.81,unanimous
-E07000134,E07000134,North West Leicestershire,England,EM,EM,1.0,"{""EM"": 2.5}",2.5,unanimous
-E06000065,E06000065,North Yorkshire,England,split,NE,0.721,"{""NE"": 14.2, ""NO"": 5.5}",19.7,split
-E06000057,E06000057,Northumberland,England,NO,NO,0.949,"{""NO"": 18.7, ""SC"": 1.0}",19.7,majority
-E07000148,E07000148,Norwich,England,EA,EA,1.0,"{""EA"": 0.33}",0.33,unanimous
-E06000018,E06000018,Nottingham,England,EM,EM,1.0,"{""EM"": 0.25}",0.25,unanimous
-E07000219,E07000219,Nuneaton and Bedworth,England,WM,WM,1.0,"{""WM"": 0.83}",0.83,unanimous
-E07000135,E07000135,Oadby and Wigston,England,EM,EM,1.0,"{""EM"": 0.33}",0.33,unanimous
-E08000004,E08000004,Oldham,England,split,NE,0.615,"{""NE"": 1.0, ""NW"": 0.62}",1.62,split
-E07000178,E07000178,Oxford,England,SO,SO,1.0,"{""SO"": 0.25}",0.25,unanimous
-E07000122,E07000122,Pendle,England,NW,NW,1.0,"{""NW"": 3.33}",3.33,unanimous
-E06000031,E06000031,Peterborough,England,split,EA,0.6,"{""EA"": 0.5, ""EM"": 0.33}",0.83,split
-E06000026,E06000026,Plymouth,England,SW,SW,1.0,"{""SW"": 1.5}",1.5,unanimous
-E06000044,E06000044,Portsmouth,England,SO,SO,1.0,"{""SO"": 1.92}",1.92,unanimous
-E07000123,E07000123,Preston,England,NW,NW,1.0,"{""NW"": 0.5}",0.5,unanimous
-E06000038,E06000038,Reading,England,SO,SO,1.0,"{""NT"": 0.25}",0.25,override: Reading — listed NT; demand check says SO (provisional)
-E09000026,E09000026,Redbridge,England,NT,NT,1.0,"{""NT"": 3.0}",3.0,unanimous
-E06000003,E06000003,Redcar and Cleveland,England,NO,NO,1.0,"{""NO"": 3.33}",3.33,unanimous
-E07000236,E07000236,Redditch,England,WM,WM,1.0,"{""WM"": 0.33}",0.33,unanimous
-E07000211,E07000211,Reigate and Banstead,England,SE,SE,1.0,"{""SE"": 4.14}",4.14,unanimous
-E07000124,E07000124,Ribble Valley,England,NW,NW,1.0,"{""NW"": 1.0}",1.0,unanimous
-E09000027,E09000027,Richmond upon Thames,England,NT,NT,0.932,"{""NT"": 4.56, ""SE"": 0.33}",4.89,majority
-E08000005,E08000005,Rochdale,England,NW,NW,0.855,"{""NW"": 1.96, ""NE"": 0.33}",2.29,majority
-E07000075,E07000075,Rochford,England,NT,NT,1.0,"{""NT"": 2.5}",2.5,unanimous
-E07000125,E07000125,Rossendale,England,NW,NW,1.0,"{""NW"": 2.83}",2.83,unanimous
-E07000064,E07000064,Rother,England,SE,SE,1.0,"{""SE"": 6.5}",6.5,unanimous
-E08000018,E08000018,Rotherham,England,split,EM,0.75,"{""EM"": 1.0, ""NE"": 0.33}",1.33,split
-E07000220,E07000220,Rugby,England,split,WM,0.7,"{""WM"": 1.17, ""EM"": 0.5}",1.67,split
-E07000212,E07000212,Runnymede,England,NT,NT,1.0,"{""NT"": 4.42}",4.42,unanimous
-E07000176,E07000176,Rushcliffe,England,EM,EM,,{},0.0,nearest_town_14km
-E07000092,E07000092,Rushmoor,England,SO,SO,1.0,"{""SO"": 1.08}",1.08,unanimous
-E06000017,E06000017,Rutland,England,EM,EM,1.0,"{""EM"": 1.33}",1.33,unanimous
-E08000006,E08000006,Salford,England,NW,NW,1.0,"{""NW"": 0.38}",0.38,unanimous
-E08000028,E08000028,Sandwell,England,WM,WM,1.0,"{""WM"": 4.06}",4.06,unanimous
-E08000014,E08000014,Sefton,England,NW,NW,1.0,"{""NW"": 1.75}",1.75,unanimous
-E07000111,E07000111,Sevenoaks,England,SE,SE,1.0,"{""SE"": 2.27}",2.27,unanimous
-E08000019,E08000039,Sheffield,England,split,EM,0.6,"{""EM"": 0.5, ""NE"": 0.33}",0.83,split
-E06000051,E06000051,Shropshire,England,split,WM,0.63,"{""WM"": 8.5, ""WN"": 5.0}",13.5,split
-E06000039,E06000039,Slough,England,SO,SO,1.0,"{""NT"": 0.33}",0.33,override: Slough — listed NT; demand check says SO (provisional)
-E08000029,E08000029,Solihull,England,WM,WM,1.0,"{""WM"": 1.06}",1.06,unanimous
-E06000066,E06000066,Somerset,England,SW,SW,1.0,"{""SW"": 28.0}",28.0,unanimous
-E07000012,E07000012,South Cambridgeshire,England,EA,EA,,{},0.0,nearest_town_15km
-E07000039,E07000039,South Derbyshire,England,EM,EM,1.0,"{""EM"": 1.25}",1.25,unanimous
-E06000025,E06000025,South Gloucestershire,England,SW,SW,1.0,"{""SW"": 0.25}",0.25,unanimous
-E07000044,E07000044,South Hams,England,SW,SW,1.0,"{""SW"": 8.0}",8.0,unanimous
-E07000140,E07000140,South Holland,England,EM,EM,1.0,"{""EM"": 1.0}",1.0,unanimous
-E07000141,E07000141,South Kesteven,England,EM,EM,1.0,"{""EM"": 2.33}",2.33,unanimous
-E07000149,E07000149,South Norfolk,England,EA,EA,1.0,"{""EA"": 3.83}",3.83,unanimous
-E07000179,E07000179,South Oxfordshire,England,SO,SO,0.875,"{""SO"": 5.25, ""NT"": 0.75}",6.0,majority
-E07000126,E07000126,South Ribble,England,NW,NW,1.0,"{""NW"": 0.5}",0.5,unanimous
-E07000196,E07000196,South Staffordshire,England,WM,WM,1.0,"{""WM"": 2.25}",2.25,unanimous
-E08000023,E08000023,South Tyneside,England,NO,NO,1.0,"{""NO"": 5.03}",5.03,unanimous
-E06000045,E06000045,Southampton,England,SO,SO,1.0,"{""SO"": 0.25}",0.25,unanimous
-E06000033,E06000033,Southend-on-Sea,England,NT,NT,1.0,"{""NT"": 2.83}",2.83,unanimous
-E09000028,E09000028,Southwark,England,SE,SE,1.0,"{""SE"": 0.1}",0.1,unanimous
-E07000213,E07000213,Spelthorne,England,split,NT,0.673,"{""NT"": 3.08, ""EA"": 1.0, ""SE"": 0.5}",4.58,split
-E07000240,E07000240,St Albans,England,EA,EA,0.882,"{""EA"": 2.5, ""NT"": 0.33}",2.83,majority
-E08000013,E08000013,St. Helens,England,NW,NW,1.0,"{""NW"": 3.25}",3.25,unanimous
-E07000197,E07000197,Stafford,England,WM,WM,1.0,"{""WM"": 1.75}",1.75,unanimous
-E07000198,E07000198,Staffordshire Moorlands,England,WM,WM,1.0,"{""WM"": 1.25}",1.25,unanimous
-E07000243,E07000243,Stevenage,England,EA,EA,1.0,"{""EA"": 0.33}",0.33,unanimous
-E08000007,E08000007,Stockport,England,NW,NW,1.0,"{""NW"": 1.62}",1.62,unanimous
-E06000004,E06000004,Stockton-on-Tees,England,NO,NO,1.0,"{""NO"": 1.67}",1.67,unanimous
-E06000021,E06000021,Stoke-on-Trent,England,WM,WM,1.0,"{""WM"": 0.92}",0.92,unanimous
-E07000221,E07000221,Stratford-on-Avon,England,WM,WM,0.854,"{""WM"": 5.83, ""SW"": 1.0}",6.83,majority
-E07000082,E07000082,Stroud,England,SW,SW,1.0,"{""SW"": 4.33}",4.33,unanimous
-E08000024,E08000024,Sunderland,England,NO,NO,1.0,"{""NO"": 1.87}",1.87,unanimous
-E07000214,E07000214,Surrey Heath,England,NT,NT,0.932,"{""NT"": 3.42, ""SO"": 0.25}",3.67,majority
-E09000029,E09000029,Sutton,England,SE,SE,0.967,"{""SE"": 4.14, ""NT"": 0.14}",4.29,majority
-E07000113,E07000113,Swale,England,SE,SE,1.0,"{""SE"": 4.5}",4.5,unanimous
-E06000030,E06000030,Swindon,England,SO,SO,1.0,"{""SW"": 1.0}",1.0,override: Swindon — listed SW; demand check says SO (provisional)
-E08000008,E08000008,Tameside,England,NW,NW,1.0,"{""NW"": 3.62}",3.62,unanimous
-E07000199,E07000199,Tamworth,England,WM,WM,1.0,"{""WM"": 0.33}",0.33,unanimous
-E07000215,E07000215,Tandridge,England,SE,SE,1.0,"{""SE"": 4.91}",4.91,unanimous
-E07000045,E07000045,Teignbridge,England,SW,SW,1.0,"{""SW"": 4.33}",4.33,unanimous
-E06000020,E06000020,Telford and Wrekin,England,WM,WM,1.0,"{""WM"": 2.5}",2.5,unanimous
-E07000076,E07000076,Tendring,England,EA,EA,1.0,"{""EA"": 5.33}",5.33,unanimous
-E07000093,E07000093,Test Valley,England,SO,SO,1.0,"{""SO"": 3.58}",3.58,unanimous
-E07000083,E07000083,Tewkesbury,England,SW,SW,1.0,"{""SW"": 1.17}",1.17,unanimous
-E07000114,E07000114,Thanet,England,SE,SE,1.0,"{""SE"": 5.0}",5.0,unanimous
-E07000102,E07000102,Three Rivers,England,split,EA,0.737,"{""EA"": 1.33, ""NT"": 0.48}",1.81,split
-E06000034,E06000034,Thurrock,England,NT,NT,1.0,"{""NT"": 5.67}",5.67,unanimous
-E07000115,E07000115,Tonbridge and Malling,England,SE,SE,1.0,"{""SE"": 4.0}",4.0,unanimous
-E06000027,E06000027,Torbay,England,SW,SW,1.0,"{""SW"": 1.5}",1.5,unanimous
-E07000046,E07000046,Torridge,England,SW,SW,1.0,"{""SW"": 4.0}",4.0,unanimous
-E09000030,E09000030,Tower Hamlets,England,SE,SE,1.0,"{""SE"": 0.1}",0.1,unanimous
-E08000009,E08000009,Trafford,England,NW,NW,1.0,"{""NW"": 1.71}",1.71,unanimous
-E07000116,E07000116,Tunbridge Wells,England,SE,SE,1.0,"{""SE"": 2.0}",2.0,unanimous
-E07000077,E07000077,Uttlesford,England,EA,EA,1.0,"{""EA"": 3.5}",3.5,unanimous
-E07000180,E07000180,Vale of White Horse,England,split,SO,0.692,"{""SO"": 2.25, ""SW"": 1.0}",3.25,split
-E08000036,E08000036,Wakefield,England,NE,NE,1.0,"{""NE"": 4.83}",4.83,unanimous
-E08000030,E08000030,Walsall,England,WM,WM,1.0,"{""WM"": 2.06}",2.06,unanimous
-E09000031,E09000031,Waltham Forest,England,EA,EA,1.0,"{""EA"": 0.14}",0.14,unanimous
-E09000032,E09000032,Wandsworth,England,NT,NT,1.0,"{""NT"": 0.14}",0.14,unanimous
-E06000007,E06000007,Warrington,England,NW,NW,1.0,"{""NW"": 1.58}",1.58,unanimous
-E07000222,E07000222,Warwick,England,WM,WM,1.0,"{""WM"": 2.42}",2.42,unanimous
-E07000103,E07000103,Watford,England,EA,EA,1.0,"{""EA"": 1.67}",1.67,unanimous
-E07000216,E07000216,Waverley,England,split,SO,0.609,"{""SO"": 2.33, ""SE"": 1.5}",3.83,split
-E07000065,E07000065,Wealden,England,SE,SE,1.0,"{""SE"": 11.17}",11.17,unanimous
-E07000241,E07000241,Welwyn Hatfield,England,EA,EA,1.0,"{""EA"": 3.0}",3.0,unanimous
-E06000037,E06000037,West Berkshire,England,split,SO,0.667,"{""SO"": 2.5, ""SW"": 1.0, ""NT"": 0.25}",3.75,split
-E07000047,E07000047,West Devon,England,SW,SW,1.0,"{""SW"": 3.0}",3.0,unanimous
-E07000127,E07000127,West Lancashire,England,NW,NW,1.0,"{""NW"": 2.5}",2.5,unanimous
-E07000142,E07000142,West Lindsey,England,EM,EM,1.0,"{""EM"": 2.83}",2.83,unanimous
-E06000062,E06000062,West Northamptonshire,England,split,EM,0.754,"{""EM"": 3.83, ""SO"": 0.5, ""WM"": 0.5, ""EA"": 0.25}",5.08,split
-E07000181,E07000181,West Oxfordshire,England,split,SO,0.714,"{""SO"": 2.5, ""SW"": 1.0}",3.5,split
-E07000245,E07000245,West Suffolk,England,EA,EA,1.0,"{""EA"": 2.5}",2.5,unanimous
-E09000033,E09000033,Westminster,England,NT,NT,1.0,"{""NT"": 1.0}",1.0,unanimous
-E06000064,E06000064,Westmorland and Furness,England,split,NW,0.765,"{""NW"": 13.0, ""NO"": 4.0}",17.0,split
-E08000010,E08000010,Wigan,England,NW,NW,1.0,"{""NW"": 1.5}",1.5,unanimous
-E06000054,E06000054,Wiltshire,England,SO,SO,1.0,"{""SW"": 11.0, ""SO"": 2.5}",13.5,override: Wiltshire — listed SW; demand check says SO (provisional)
-E07000094,E07000094,Winchester,England,SO,SO,1.0,"{""SO"": 3.25}",3.25,unanimous
-E06000040,E06000040,Windsor and Maidenhead,England,SO,SO,1.0,"{""NT"": 3.92}",3.92,override: Windsor and Maidenhead — listed NT; demand check says SO (provisional)
-E08000015,E08000015,Wirral,England,NW,NW,1.0,"{""NW"": 4.5}",4.5,unanimous
-E07000217,E07000217,Woking,England,NT,NT,1.0,"{""NT"": 1.33}",1.33,unanimous
-E06000041,E06000041,Wokingham,England,SO,SO,1.0,"{""NT"": 2.75}",2.75,override: Wokingham — listed NT; demand check says SO (provisional)
-E08000031,E08000031,Wolverhampton,England,WM,WM,1.0,"{""WM"": 1.92}",1.92,unanimous
-E07000237,E07000237,Worcester,England,SW,SW,1.0,"{""SW"": 0.33}",0.33,unanimous
-E07000229,E07000229,Worthing,England,SE,SE,1.0,"{""SE"": 0.33}",0.33,unanimous
-E07000238,E07000238,Wychavon,England,split,SW,0.704,"{""SW"": 3.17, ""WM"": 1.33}",4.5,split
-E07000128,E07000128,Wyre,England,NW,NW,1.0,"{""NW"": 3.33}",3.33,unanimous
-E07000239,E07000239,Wyre Forest,England,WM,WM,1.0,"{""WM"": 2.33}",2.33,unanimous
-E06000014,E06000014,York,England,NE,NE,1.0,"{""NE"": 1.0}",1.0,unanimous
-S12000033,S12000033,Aberdeen City,Scotland,SC,SC,1.0,"{""SC"": 2.5}",2.5,unanimous
-S12000034,S12000034,Aberdeenshire,Scotland,SC,SC,1.0,"{""SC"": 16.0}",16.0,unanimous
-S12000041,S12000041,Angus,Scotland,SC,SC,1.0,"{""SC"": 4.83}",4.83,unanimous
-S12000035,S12000035,Argyll and Bute,Scotland,SC,SC,1.0,"{""SC"": 6.83}",6.83,unanimous
-S12000036,S12000036,City of Edinburgh,Scotland,SC,SC,1.0,"{""SC"": 3.92}",3.92,unanimous
-S12000005,S12000005,Clackmannanshire,Scotland,SC,SC,1.0,"{""SC"": 4.0}",4.0,unanimous
-S12000006,S12000006,Dumfries and Galloway,Scotland,SC,SC,1.0,"{""SC"": 9.5}",9.5,unanimous
-S12000042,S12000042,Dundee City,Scotland,SC,SC,1.0,"{""SC"": 0.33}",0.33,unanimous
-S12000008,S12000008,East Ayrshire,Scotland,SC,SC,1.0,"{""SC"": 6.25}",6.25,unanimous
-S12000045,S12000045,East Dunbartonshire,Scotland,SC,SC,1.0,"{""SC"": 0.48}",0.48,unanimous
-S12000010,S12000010,East Lothian,Scotland,SC,SC,1.0,"{""SC"": 8.33}",8.33,unanimous
-S12000011,S12000011,East Renfrewshire,Scotland,SC,SC,1.0,"{""SC"": 0.98}",0.98,unanimous
-S12000014,S12000014,Falkirk,Scotland,SC,SC,1.0,"{""SC"": 4.83}",4.83,unanimous
-S12000047,S12000047,Fife,Scotland,SC,SC,1.0,"{""SC"": 10.5}",10.5,unanimous
-S12000049,S12000049,Glasgow City,Scotland,SC,SC,1.0,"{""SC"": 1.14}",1.14,unanimous
-S12000017,S12000017,Highland,Scotland,SC,SC,1.0,"{""SC"": 9.0}",9.0,unanimous
-S12000018,S12000018,Inverclyde,Scotland,SC,SC,1.0,"{""SC"": 5.92}",5.92,unanimous
-S12000019,S12000019,Midlothian,Scotland,SC,SC,1.0,"{""SC"": 8.92}",8.92,unanimous
-S12000020,S12000020,Moray,Scotland,SC,SC,1.0,"{""SC"": 7.0}",7.0,unanimous
-S12000013,S12000013,Na h-Eileanan Siar,Scotland,SC,SC,1.0,"{""SC"": 2.0}",2.0,unanimous
-S12000021,S12000021,North Ayrshire,Scotland,SC,SC,1.0,"{""SC"": 8.67}",8.67,unanimous
-S12000050,S12000050,North Lanarkshire,Scotland,SC,SC,1.0,"{""SC"": 8.31}",8.31,unanimous
-S12000023,S12000023,Orkney Islands,Scotland,SC,SC,,{},0.0,nearest_town_53km
-S12000048,S12000048,Perth and Kinross,Scotland,SC,SC,1.0,"{""SC"": 9.33}",9.33,unanimous
-S12000038,S12000038,Renfrewshire,Scotland,SC,SC,1.0,"{""SC"": 5.98}",5.98,unanimous
-S12000026,S12000026,Scottish Borders,Scotland,SC,SC,1.0,"{""SC"": 13.08}",13.08,unanimous
-S12000027,S12000027,Shetland Islands,Scotland,SC,SC,1.0,"{""SC"": 1.0}",1.0,unanimous
-S12000028,S12000028,South Ayrshire,Scotland,SC,SC,1.0,"{""SC"": 4.5}",4.5,unanimous
-S12000029,S12000029,South Lanarkshire,Scotland,SC,SC,1.0,"{""SC"": 5.98}",5.98,unanimous
-S12000030,S12000030,Stirling,Scotland,SC,SC,1.0,"{""SC"": 6.17}",6.17,unanimous
-S12000039,S12000039,West Dunbartonshire,Scotland,SC,SC,1.0,"{""SC"": 1.14}",1.14,unanimous
-S12000040,S12000040,West Lothian,Scotland,SC,SC,1.0,"{""SC"": 3.08}",3.08,unanimous
-W06000019,W06000019,Blaenau Gwent,Wales,WS,WS,1.0,"{""WS"": 2.75}",2.75,unanimous
-W06000013,W06000013,Bridgend,Wales,WS,WS,1.0,"{""WS"": 2.5}",2.5,unanimous
-W06000018,W06000018,Caerphilly,Wales,WS,WS,1.0,"{""WS"": 5.58}",5.58,unanimous
-W06000015,W06000015,Cardiff,Wales,WS,WS,1.0,"{""WS"": 1.08}",1.08,unanimous
-W06000010,W06000010,Carmarthenshire,Wales,WS,WS,1.0,"{""WS"": 9.5}",9.5,unanimous
-W06000008,W06000008,Ceredigion,Wales,split,WS,0.583,"{""WS"": 3.5, ""WN"": 2.5}",6.0,split
-W06000003,W06000003,Conwy,Wales,WN,WN,1.0,"{""WN"": 8.0}",8.0,unanimous
-W06000004,W06000004,Denbighshire,Wales,WN,WN,1.0,"{""WN"": 6.5}",6.5,unanimous
-W06000005,W06000005,Flintshire,Wales,WN,WN,1.0,"{""WN"": 4.5}",4.5,unanimous
-W06000002,W06000002,Gwynedd,Wales,WN,WN,1.0,"{""WN"": 15.0}",15.0,unanimous
-W06000001,W06000001,Isle of Anglesey,Wales,WN,WN,1.0,"{""WN"": 15.0}",15.0,unanimous
-W06000024,W06000024,Merthyr Tydfil,Wales,WS,WS,1.0,"{""WS"": 0.83}",0.83,unanimous
-W06000021,W06000021,Monmouthshire,Wales,WS,WS,1.0,"{""WS"": 5.5}",5.5,unanimous
-W06000012,W06000012,Neath Port Talbot,Wales,WS,WS,1.0,"{""WS"": 2.0}",2.0,unanimous
-W06000022,W06000022,Newport,Wales,WS,WS,1.0,"{""WS"": 0.83}",0.83,unanimous
-W06000009,W06000009,Pembrokeshire,Wales,WS,WS,1.0,"{""WS"": 13.0}",13.0,unanimous
-W06000023,W06000023,Powys,Wales,WN,WN,0.846,"{""WN"": 11.0, ""WS"": 2.0}",13.0,majority
-W06000016,W06000016,Rhondda Cynon Taf,Wales,WS,WS,1.0,"{""WS"": 8.58}",8.58,unanimous
-W06000011,W06000011,Swansea,Wales,WS,WS,1.0,"{""WS"": 1.0}",1.0,unanimous
-W06000020,W06000020,Torfaen,Wales,WS,WS,1.0,"{""WS"": 2.0}",2.0,unanimous
-W06000014,W06000014,Vale of Glamorgan,Wales,WS,WS,1.0,"{""WS"": 4.33}",4.33,unanimous
-W06000006,W06000006,Wrexham,Wales,WN,WN,1.0,"{""WN"": 1.0}",1.0,unanimous
+# the ONS Index of Place Names, July 2024 (Open Government Licence v3.0). Reviewed against the same site's postcode
+# search (town_corrections.csv, la_overrides.csv). Not an official LDZ boundary.
+lad23cd,lad24cd,lad23nm,country,ldz,main_ldz,share,votes,n_towns,method,review
+E07000223,E07000223,Adur,England,SE,SE,1.0,"{""SE"": 2.33}",2.33,unanimous,
+E07000032,E07000032,Amber Valley,England,EM,EM,1.0,"{""EM"": 3.42}",3.42,unanimous,
+E07000224,E07000224,Arun,England,split,SE,0.7,"{""SE"": 2.33, ""SO"": 1.0}",3.33,split,
+E07000170,E07000170,Ashfield,England,EM,EM,1.0,"{""EM"": 0.58}",0.58,unanimous,
+E07000105,E07000105,Ashford,England,SE,SE,1.0,"{""SE"": 1.0}",1.0,unanimous,
+E07000200,E07000200,Babergh,England,EA,EA,1.0,"{""EA"": 1.58}",1.58,unanimous,
+E09000002,E09000002,Barking and Dagenham,England,NT,NT,1.0,"{""NT"": 2.0}",2.0,unanimous,
+E09000003,E09000003,Barnet,England,split,EA,0.55,"{""EA"": 0.79, ""NT"": 0.64}",1.43,split,
+E08000016,E08000038,Barnsley,England,EM,EM,1.0,"{""EM"": 1.0}",1.0,unanimous,
+E07000066,E07000066,Basildon,England,NT,NT,1.0,"{""NT"": 1.83}",1.83,unanimous,
+E07000084,E07000084,Basingstoke and Deane,England,SO,SO,1.0,"{""SO"": 1.5}",1.5,unanimous,
+E07000171,E07000171,Bassetlaw,England,EM,EM,1.0,"{""EM"": 2.0}",2.0,unanimous,
+E06000022,E06000022,Bath and North East Somerset,England,SW,SW,1.0,"{""SW"": 1.75}",1.75,unanimous,
+E06000055,E06000055,Bedford,England,split,EA,0.75,"{""EA"": 1.5, ""EM"": 0.5}",2.0,split,
+E09000004,E09000004,Bexley,England,SE,SE,1.0,"{""SE"": 5.85}",5.85,unanimous,
+E08000025,E08000025,Birmingham,England,WM,WM,1.0,"{""WM"": 2.48}",2.48,unanimous,
+E07000129,E07000129,Blaby,England,EM,EM,1.0,"{""EM"": 0.33}",0.33,unanimous,
+E06000008,E06000008,Blackburn with Darwen,England,NW,NW,1.0,"{""NW"": 2.0}",2.0,unanimous,
+E06000009,E06000009,Blackpool,England,NW,NW,1.0,"{""NW"": 0.33}",0.33,unanimous,
+E07000033,E07000033,Bolsover,England,EM,EM,1.0,"{""EM"": 0.67}",0.67,unanimous,
+E08000001,E08000001,Bolton,England,NW,NW,1.0,"{""NW"": 1.0}",1.0,unanimous,
+E07000136,E07000136,Boston,England,EM,EM,1.0,"{""EM"": 1.0}",1.0,unanimous,
+E06000058,E06000058,"Bournemouth, Christchurch an",England,SO,SO,1.0,"{""SO"": 3.0}",3.0,unanimous,
+E06000036,E06000036,Bracknell Forest,England,split,NT,0.514,"{""NT"": 1.58, ""SO"": 1.5}",3.08,split,
+E08000032,E08000032,Bradford,England,NE,NE,1.0,"{""NE"": 5.53}",5.53,unanimous,
+E07000067,E07000067,Braintree,England,EA,EA,1.0,"{""EA"": 3.5}",3.5,unanimous,
+E07000143,E07000143,Breckland,England,EA,EA,1.0,"{""EA"": 4.0}",4.0,unanimous,
+E09000005,E09000005,Brent,England,NT,NT,0.889,"{""NT"": 1.14, ""EA"": 0.14}",1.29,majority,
+E07000068,E07000068,Brentwood,England,NT,NT,1.0,"{""NT"": 2.17}",2.17,unanimous,
+E06000043,E06000043,Brighton and Hove,England,SE,SE,1.0,"{""SE"": 1.0}",1.0,unanimous,
+E06000023,E06000023,"Bristol, City of",England,SW,SW,1.0,"{""SW"": 0.25}",0.25,unanimous,
+E07000144,E07000144,Broadland,England,EA,EA,1.0,"{""EA"": 1.33}",1.33,unanimous,
+E09000006,E09000006,Bromley,England,SE,SE,1.0,"{""SE"": 5.66}",5.66,unanimous,
+E07000234,E07000234,Bromsgrove,England,WM,WM,1.0,"{""WM"": 2.31}",2.31,unanimous,
+E07000095,E07000095,Broxbourne,England,EA,EA,1.0,"{""EA"": 1.81}",1.81,unanimous,
+E07000172,E07000172,Broxtowe,England,EM,EM,1.0,"{""EM"": 1.08}",1.08,unanimous,
+E06000060,E06000060,Buckinghamshire,England,split,NT,0.71,"{""NT"": 9.17, ""SO"": 2.0, ""EA"": 1.75}",12.92,split,
+E07000117,E07000117,Burnley,England,split,NE,0.5,"{""NE"": 0.33, ""NW"": 0.33}",0.67,split,
+E08000002,E08000002,Bury,England,NW,NW,1.0,"{""NW"": 1.88}",1.88,unanimous,
+E08000033,E08000033,Calderdale,England,NE,NE,0.898,"{""NE"": 5.87, ""NW"": 0.67}",6.53,majority,
+E07000008,E07000008,Cambridge,England,EA,EA,,{},0.0,nearest_town_19km,
+E09000007,E09000007,Camden,England,EA,EA,1.0,"{""EA"": 0.14}",0.14,unanimous,
+E07000192,E07000192,Cannock Chase,England,WM,WM,1.0,"{""WM"": 0.83}",0.83,unanimous,
+E07000106,E07000106,Canterbury,England,SE,SE,1.0,"{""SE"": 2.5}",2.5,unanimous,
+E07000069,E07000069,Castle Point,England,NT,NT,1.0,"{""NT"": 2.0}",2.0,unanimous,
+E06000056,E06000056,Central Bedfordshire,England,EA,EA,1.0,"{""EA"": 8.08}",8.08,unanimous,
+E07000130,E07000130,Charnwood,England,EM,EM,1.0,"{""EM"": 1.0}",1.0,unanimous,
+E07000070,E07000070,Chelmsford,England,split,EA,0.692,"{""EA"": 1.5, ""NT"": 0.67}",2.17,split,
+E07000078,E07000078,Cheltenham,England,SW,SW,1.0,"{""SW"": 0.5}",0.5,unanimous,
+E07000177,E07000177,Cherwell,England,SO,SO,1.0,"{""SO"": 3.25}",3.25,unanimous,
+E06000049,E06000049,Cheshire East,England,NW,NW,0.878,"{""NW"": 7.17, ""WM"": 1.0}",8.17,majority,
+E06000050,E06000050,Cheshire West and Chester,England,NW,NW,0.941,"{""NW"": 8.0, ""WN"": 0.5}",8.5,majority,
+E07000034,E07000034,Chesterfield,England,EM,EM,1.0,"{""EM"": 0.5}",0.5,unanimous,
+E07000225,E07000225,Chichester,England,split,SO,0.778,"{""SO"": 3.5, ""SE"": 1.0}",4.5,split,
+E07000118,E07000118,Chorley,England,NW,NW,1.0,"{""NW"": 1.5}",1.5,unanimous,
+E09000001,E09000001,City of London,England,NT,NT,,{},0.0,nearest_town_3km,
+E07000071,E07000071,Colchester,England,EA,EA,1.0,"{""EA"": 0.33}",0.33,unanimous,
+E06000052,E06000052,Cornwall,England,SW,SW,1.0,"{""SW"": 30.0}",30.0,unanimous,
+E07000079,E07000079,Cotswold,England,SW,SW,1.0,"{""SW"": 4.83}",4.83,unanimous,
+E06000047,E06000047,County Durham,England,NO,NO,1.0,"{""NO"": 13.17}",13.17,unanimous,
+E08000026,E08000026,Coventry,England,WM,WM,1.0,"{""WM"": 0.5}",0.5,unanimous,
+E07000226,E07000226,Crawley,England,SE,SE,1.0,"{""SE"": 1.0}",1.0,unanimous,
+E09000008,E09000008,Croydon,England,SE,SE,1.0,"{""SE"": 5.24}",5.24,unanimous,
+E06000063,E06000063,Cumberland,England,NO,NO,0.919,"{""NO"": 17.0, ""NW"": 1.0, ""SC"": 0.5}",18.5,majority,
+E07000096,E07000096,Dacorum,England,EA,EA,0.818,"{""EA"": 3.0, ""NT"": 0.67}",3.67,majority,
+E06000005,E06000005,Darlington,England,NO,NO,1.0,"{""NO"": 1.5}",1.5,unanimous,
+E07000107,E07000107,Dartford,England,SE,SE,1.0,"{""SE"": 3.58}",3.58,unanimous,
+E06000015,E06000015,Derby,England,EM,EM,1.0,"{""EM"": 0.25}",0.25,unanimous,
+E07000035,E07000035,Derbyshire Dales,England,split,EM,0.783,"{""EM"": 3.0, ""WM"": 0.5, ""NW"": 0.33}",3.83,split,
+E08000017,E08000017,Doncaster,England,EM,EM,1.0,"{""EM"": 1.5}",1.5,unanimous,
+E06000059,E06000059,Dorset,England,SO,SO,0.857,"{""SO"": 15.0, ""SW"": 2.5}",17.5,majority,
+E07000108,E07000108,Dover,England,SE,SE,1.0,"{""SE"": 3.0}",3.0,unanimous,
+E08000027,E08000027,Dudley,England,WM,WM,1.0,"{""WM"": 4.31}",4.31,unanimous,
+E09000009,E09000009,Ealing,England,NT,NT,1.0,"{""NT"": 3.31}",3.31,unanimous,
+E07000009,E07000009,East Cambridgeshire,England,EA,EA,1.0,"{""EA"": 1.5}",1.5,unanimous,
+E07000040,E07000040,East Devon,England,SW,SW,0.94,"{""SW"": 7.83, ""SO"": 0.5}",8.33,majority,
+E07000085,E07000085,East Hampshire,England,SO,SO,1.0,"{""SO"": 5.5}",5.5,unanimous,
+E07000242,E07000242,East Hertfordshire,England,EA,EA,1.0,"{""EA"": 6.5}",6.5,unanimous,
+E07000137,E07000137,East Lindsey,England,EM,EM,1.0,"{""EM"": 6.5}",6.5,unanimous,
+E06000011,E06000011,East Riding of Yorkshire,England,NE,NE,1.0,"{""NE"": 9.0}",9.0,unanimous,
+E07000193,E07000193,East Staffordshire,England,split,EM,0.5,"{""EM"": 0.5, ""WM"": 0.5}",1.0,split,
+E07000244,E07000244,East Suffolk,England,EA,EA,1.0,"{""EA"": 9.25}",9.25,unanimous,
+E07000061,E07000061,Eastbourne,England,SE,SE,1.0,"{""SE"": 1.0}",1.0,unanimous,
+E07000086,E07000086,Eastleigh,England,SO,SO,1.0,"{""SO"": 0.58}",0.58,unanimous,
+E07000207,E07000207,Elmbridge,England,split,SE,0.728,"{""SE"": 2.83, ""NT"": 1.06}",3.89,split,
+E09000010,E09000010,Enfield,England,EA,EA,1.0,"{""EA"": 0.62}",0.62,unanimous,
+E07000072,E07000072,Epping Forest,England,split,EA,0.699,"{""EA"": 4.64, ""NT"": 2.0}",6.64,split,
+E07000208,E07000208,Epsom and Ewell,England,SE,SE,0.913,"{""SE"": 1.5, ""NT"": 0.14}",1.64,majority,
+E07000036,E07000036,Erewash,England,EM,EM,1.0,"{""EM"": 0.58}",0.58,unanimous,
+E07000041,E07000041,Exeter,England,SW,SW,1.0,"{""SW"": 0.33}",0.33,unanimous,
+E07000087,E07000087,Fareham,England,SO,SO,1.0,"{""SO"": 1.42}",1.42,unanimous,
+E07000010,E07000010,Fenland,England,EA,EA,1.0,"{""EA"": 2.5}",2.5,unanimous,
+E07000112,E07000112,Folkestone and Hythe,England,SE,SE,1.0,"{""SE"": 4.0}",4.0,unanimous,
+E07000080,E07000080,Forest of Dean,England,SW,SW,1.0,"{""SW"": 4.0}",4.0,unanimous,
+E07000119,E07000119,Fylde,England,NW,NW,1.0,"{""NW"": 1.83}",1.83,unanimous,
+E08000037,E08000037,Gateshead,England,NO,NO,1.0,"{""NO"": 4.53}",4.53,unanimous,
+E07000173,E07000173,Gedling,England,EM,EM,1.0,"{""EM"": 0.25}",0.25,unanimous,
+E07000081,E07000081,Gloucester,England,SW,SW,1.0,"{""SW"": 0.33}",0.33,unanimous,
+E07000088,E07000088,Gosport,England,SO,SO,1.0,"{""SO"": 1.17}",1.17,unanimous,
+E07000109,E07000109,Gravesham,England,SE,SE,1.0,"{""SE"": 1.83}",1.83,unanimous,
+E07000145,E07000145,Great Yarmouth,England,EA,EA,1.0,"{""EA"": 1.0}",1.0,unanimous,
+E09000011,E09000011,Greenwich,England,SE,SE,1.0,"{""SE"": 0.35}",0.35,unanimous,
+E07000209,E07000209,Guildford,England,split,SE,0.621,"{""SE"": 1.5, ""SO"": 0.58, ""NT"": 0.33}",2.42,split,
+E09000012,E09000012,Hackney,England,NT,NT,,{},0.0,nearest_town_7km,
+E06000006,E06000006,Halton,England,NW,NW,1.0,"{""NW"": 1.0}",1.0,unanimous,
+E09000013,E09000013,Hammersmith and Fulham,England,NT,NT,1.0,"{""NT"": 0.17}",0.17,unanimous,
+E07000131,E07000131,Harborough,England,EM,EM,1.0,"{""EM"": 0.83}",0.83,unanimous,
+E09000014,E09000014,Haringey,England,EA,EA,1.0,"{""EA"": 0.29}",0.29,unanimous,
+E07000073,E07000073,Harlow,England,EA,EA,1.0,"{""EA"": 0.33}",0.33,unanimous,
+E09000015,E09000015,Harrow,England,NT,NT,0.847,"{""NT"": 2.64, ""EA"": 0.48}",3.12,majority,
+E07000089,E07000089,Hart,England,split,SO,0.789,"{""SO"": 1.25, ""NT"": 0.33}",1.58,split,
+E06000001,E06000001,Hartlepool,England,NO,NO,1.0,"{""NO"": 1.33}",1.33,unanimous,
+E07000062,E07000062,Hastings,England,SE,SE,1.0,"{""SE"": 1.5}",1.5,unanimous,
+E07000090,E07000090,Havant,England,SO,SO,1.0,"{""SO"": 2.58}",2.58,unanimous,
+E09000016,E09000016,Havering,England,NT,NT,1.0,"{""NT"": 4.0}",4.0,unanimous,
+E06000019,E06000019,"Herefordshire, County of",England,split,WM,0.462,"{""WM"": 3.0, ""SW"": 2.0, ""WS"": 1.0, ""WN"": 0.5}",6.5,split,
+E07000098,E07000098,Hertsmere,England,EA,EA,0.937,"{""EA"": 2.12, ""NT"": 0.14}",2.26,majority,
+E07000037,E07000037,High Peak,England,NW,NW,1.0,"{""NW"": 2.33}",2.33,unanimous,
+E09000017,E09000017,Hillingdon,England,NT,NT,0.946,"{""NT"": 5.81, ""EA"": 0.33}",6.14,majority,
+E07000132,E07000132,Hinckley and Bosworth,England,WM,WM,1.0,"{""WM"": 1.33}",1.33,unanimous,
+E07000227,E07000227,Horsham,England,SE,SE,1.0,"{""SE"": 5.0}",5.0,unanimous,
+E09000018,E09000018,Hounslow,England,NT,NT,1.0,"{""NT"": 3.42}",3.42,unanimous,
+E07000011,E07000011,Huntingdonshire,England,EA,EA,1.0,"{""EA"": 3.0}",3.0,unanimous,
+E07000120,E07000120,Hyndburn,England,NW,NW,1.0,"{""NW"": 0.5}",0.5,unanimous,
+E07000202,E07000202,Ipswich,England,EA,EA,1.0,"{""EA"": 0.25}",0.25,unanimous,
+E06000046,E06000046,Isle of Wight,England,SO,SO,1.0,"{""SO"": 11.0}",11.0,unanimous,
+E06000053,E06000053,Isles of Scilly,England,SW,SW,,{},0.0,nearest_town_59km,
+E09000019,E09000019,Islington,England,NT,NT,,{},0.0,nearest_town_4km,
+E09000020,E09000020,Kensington and Chelsea,England,NT,NT,,{},0.0,nearest_town_4km,
+E07000146,E07000146,King's Lynn and West Norfolk,England,EA,EA,1.0,"{""EA"": 3.5}",3.5,unanimous,
+E06000010,E06000010,"Kingston upon Hull, City of",England,NE,NE,1.0,"{""NE"": 1.0}",1.0,unanimous,
+E09000021,E09000021,Kingston upon Thames,England,SE,SE,0.959,"{""SE"": 3.33, ""NT"": 0.14}",3.48,majority,
+E08000034,E08000034,Kirklees,England,NE,NE,1.0,"{""NE"": 6.37}",6.37,unanimous,
+E08000011,E08000011,Knowsley,England,NW,NW,1.0,"{""NW"": 1.0}",1.0,unanimous,
+E09000022,E09000022,Lambeth,England,SE,SE,1.0,"{""SE"": 0.24}",0.24,unanimous,
+E07000121,E07000121,Lancaster,England,split,NW,0.667,"{""NW"": 2.0, ""NE"": 1.0}",3.0,split,
+E08000035,E08000035,Leeds,England,NE,NE,1.0,"{""NE"": 4.53}",4.53,unanimous,
+E06000016,E06000016,Leicester,England,EM,EM,1.0,"{""EM"": 0.33}",0.33,unanimous,
+E07000063,E07000063,Lewes,England,SE,SE,1.0,"{""SE"": 4.83}",4.83,unanimous,
+E09000023,E09000023,Lewisham,England,SE,SE,1.0,"{""SE"": 0.1}",0.1,unanimous,
+E07000194,E07000194,Lichfield,England,WM,WM,1.0,"{""WM"": 2.17}",2.17,unanimous,
+E07000138,E07000138,Lincoln,England,EM,EM,1.0,"{""EM"": 0.33}",0.33,unanimous,
+E08000012,E08000012,Liverpool,England,NW,NW,1.0,"{""NW"": 0.25}",0.25,unanimous,
+E06000032,E06000032,Luton,England,EA,EA,1.0,"{""EA"": 0.33}",0.33,unanimous,
+E07000110,E07000110,Maidstone,England,SE,SE,1.0,"{""SE"": 0.67}",0.67,unanimous,
+E07000074,E07000074,Maldon,England,EA,EA,1.0,"{""EA"": 2.0}",2.0,unanimous,
+E07000235,E07000235,Malvern Hills,England,WM,WM,0.846,"{""WM"": 1.83, ""SW"": 0.33}",2.17,majority,
+E08000003,E08000003,Manchester,England,NW,NW,1.0,"{""NW"": 1.88}",1.88,unanimous,
+E07000174,E07000174,Mansfield,England,EM,EM,1.0,"{""EM"": 0.33}",0.33,unanimous,
+E06000035,E06000035,Medway,England,SE,SE,0.882,"{""SE"": 2.5, ""NT"": 0.33}",2.83,majority,
+E07000133,E07000133,Melton,England,EM,EM,1.0,"{""EM"": 1.0}",1.0,unanimous,
+E09000024,E09000024,Merton,England,SE,SE,0.938,"{""SE"": 2.14, ""NT"": 0.14}",2.29,majority,
+E07000042,E07000042,Mid Devon,England,SW,SW,1.0,"{""SW"": 4.0}",4.0,unanimous,
+E07000203,E07000203,Mid Suffolk,England,EA,EA,1.0,"{""EA"": 2.75}",2.75,unanimous,
+E07000228,E07000228,Mid Sussex,England,SE,SE,1.0,"{""SE"": 2.17}",2.17,unanimous,
+E06000002,E06000002,Middlesbrough,England,NO,NO,1.0,"{""NO"": 0.67}",0.67,unanimous,
+E06000042,E06000042,Milton Keynes,England,EM,EM,0.889,"{""EM"": 2.0, ""EA"": 0.25}",2.25,majority,
+E07000210,E07000210,Mole Valley,England,SE,SE,1.0,"{""SE"": 4.5}",4.5,unanimous,
+E07000091,E07000091,New Forest,England,SO,SO,1.0,"{""SO"": 6.25}",6.25,unanimous,
+E07000175,E07000175,Newark and Sherwood,England,EM,EM,1.0,"{""EM"": 2.0}",2.0,unanimous,
+E08000021,E08000021,Newcastle upon Tyne,England,NO,NO,1.0,"{""NO"": 1.2}",1.2,unanimous,
+E07000195,E07000195,Newcastle-under-Lyme,England,WM,WM,1.0,"{""WM"": 1.08}",1.08,unanimous,
+E09000025,E09000025,Newham,England,NT,NT,,{},0.0,nearest_town_3km,
+E07000043,E07000043,North Devon,England,SW,SW,1.0,"{""SW"": 5.5}",5.5,unanimous,
+E07000038,E07000038,North East Derbyshire,England,EM,EM,1.0,"{""EM"": 2.17}",2.17,unanimous,
+E06000012,E06000012,North East Lincolnshire,England,EM,EM,1.0,"{""EM"": 2.5}",2.5,unanimous,
+E07000099,E07000099,North Hertfordshire,England,EA,EA,1.0,"{""EA"": 4.67}",4.67,unanimous,
+E07000139,E07000139,North Kesteven,England,EM,EM,1.0,"{""EM"": 1.83}",1.83,unanimous,
+E06000013,E06000013,North Lincolnshire,England,EM,EM,1.0,"{""EM"": 6.0}",6.0,unanimous,
+E07000147,E07000147,North Norfolk,England,EA,EA,1.0,"{""EA"": 8.0}",8.0,unanimous,
+E06000061,E06000061,North Northamptonshire,England,EM,EM,1.0,"{""EM"": 3.33}",3.33,unanimous,
+E06000024,E06000024,North Somerset,England,SW,SW,1.0,"{""SW"": 3.25}",3.25,unanimous,
+E08000022,E08000022,North Tyneside,England,NO,NO,1.0,"{""NO"": 3.5}",3.5,unanimous,
+E07000218,E07000218,North Warwickshire,England,WM,WM,1.0,"{""WM"": 1.81}",1.81,unanimous,
+E07000134,E07000134,North West Leicestershire,England,EM,EM,1.0,"{""EM"": 2.5}",2.5,unanimous,
+E06000065,E06000065,North Yorkshire,England,split,NE,0.721,"{""NE"": 14.2, ""NO"": 5.5}",19.7,split,
+E06000057,E06000057,Northumberland,England,NO,NO,0.949,"{""NO"": 18.7, ""SC"": 1.0}",19.7,majority,
+E07000148,E07000148,Norwich,England,EA,EA,1.0,"{""EA"": 0.33}",0.33,unanimous,
+E06000018,E06000018,Nottingham,England,EM,EM,1.0,"{""EM"": 0.25}",0.25,unanimous,
+E07000219,E07000219,Nuneaton and Bedworth,England,WM,WM,1.0,"{""WM"": 0.83}",0.83,unanimous,
+E07000135,E07000135,Oadby and Wigston,England,EM,EM,1.0,"{""EM"": 0.33}",0.33,unanimous,
+E08000004,E08000004,Oldham,England,NW,NW,1.0,"{""NW"": 1.62}",1.62,unanimous,
+E07000178,E07000178,Oxford,England,SO,SO,1.0,"{""SO"": 0.25}",0.25,unanimous,
+E07000122,E07000122,Pendle,England,NW,NW,1.0,"{""NW"": 3.33}",3.33,unanimous,
+E06000031,E06000031,Peterborough,England,split,EA,0.6,"{""EA"": 0.5, ""EM"": 0.33}",0.83,split,
+E06000026,E06000026,Plymouth,England,SW,SW,1.0,"{""SW"": 1.5}",1.5,unanimous,
+E06000044,E06000044,Portsmouth,England,SO,SO,1.0,"{""SO"": 1.92}",1.92,unanimous,
+E07000123,E07000123,Preston,England,NW,NW,1.0,"{""NW"": 0.5}",0.5,unanimous,
+E06000038,E06000038,Reading,England,SO,SO,1.0,"{""SO"": 0.25}",0.25,unanimous,
+E09000026,E09000026,Redbridge,England,NT,NT,1.0,"{""NT"": 3.0}",3.0,unanimous,
+E06000003,E06000003,Redcar and Cleveland,England,NO,NO,1.0,"{""NO"": 3.33}",3.33,unanimous,
+E07000236,E07000236,Redditch,England,WM,WM,1.0,"{""WM"": 0.33}",0.33,unanimous,
+E07000211,E07000211,Reigate and Banstead,England,SE,SE,1.0,"{""SE"": 4.14}",4.14,unanimous,
+E07000124,E07000124,Ribble Valley,England,NW,NW,1.0,"{""NW"": 1.0}",1.0,unanimous,
+E09000027,E09000027,Richmond upon Thames,England,NT,NT,0.932,"{""NT"": 4.56, ""SE"": 0.33}",4.89,majority,
+E08000005,E08000005,Rochdale,England,NW,NW,0.855,"{""NW"": 1.96, ""NE"": 0.33}",2.29,majority,
+E07000075,E07000075,Rochford,England,NT,NT,1.0,"{""NT"": 2.5}",2.5,unanimous,
+E07000125,E07000125,Rossendale,England,NW,NW,1.0,"{""NW"": 2.83}",2.83,unanimous,
+E07000064,E07000064,Rother,England,SE,SE,1.0,"{""SE"": 6.5}",6.5,unanimous,
+E08000018,E08000018,Rotherham,England,EM,EM,1.0,"{""EM"": 1.33}",1.33,unanimous,
+E07000220,E07000220,Rugby,England,split,WM,0.7,"{""WM"": 1.17, ""EM"": 0.5}",1.67,split,
+E07000212,E07000212,Runnymede,England,NT,NT,1.0,"{""NT"": 4.42}",4.42,unanimous,
+E07000176,E07000176,Rushcliffe,England,EM,EM,,{},0.0,nearest_town_14km,
+E07000092,E07000092,Rushmoor,England,SO,SO,1.0,"{""SO"": 1.08}",1.08,unanimous,
+E06000017,E06000017,Rutland,England,EM,EM,1.0,"{""EM"": 1.33}",1.33,unanimous,
+E08000006,E08000006,Salford,England,NW,NW,1.0,"{""NW"": 0.38}",0.38,unanimous,
+E08000028,E08000028,Sandwell,England,WM,WM,1.0,"{""WM"": 4.06}",4.06,unanimous,
+E08000014,E08000014,Sefton,England,NW,NW,1.0,"{""NW"": 1.75}",1.75,unanimous,
+E07000111,E07000111,Sevenoaks,England,SE,SE,1.0,"{""SE"": 2.27}",2.27,unanimous,
+E08000019,E08000039,Sheffield,England,EM,EM,1.0,"{""EM"": 0.83}",0.83,unanimous,
+E06000051,E06000051,Shropshire,England,split,WM,0.63,"{""WM"": 8.5, ""WN"": 5.0}",13.5,split,
+E06000039,E06000039,Slough,England,NT,NT,1.0,"{""NT"": 0.33}",0.33,unanimous,
+E08000029,E08000029,Solihull,England,WM,WM,1.0,"{""WM"": 1.06}",1.06,unanimous,
+E06000066,E06000066,Somerset,England,SW,SW,1.0,"{""SW"": 28.0}",28.0,unanimous,
+E07000012,E07000012,South Cambridgeshire,England,EA,EA,,{},0.0,nearest_town_15km,
+E07000039,E07000039,South Derbyshire,England,EM,EM,1.0,"{""EM"": 1.25}",1.25,unanimous,
+E06000025,E06000025,South Gloucestershire,England,SW,SW,1.0,"{""SW"": 0.25}",0.25,unanimous,
+E07000044,E07000044,South Hams,England,SW,SW,1.0,"{""SW"": 8.0}",8.0,unanimous,
+E07000140,E07000140,South Holland,England,EM,EM,1.0,"{""EM"": 1.0}",1.0,unanimous,
+E07000141,E07000141,South Kesteven,England,EM,EM,1.0,"{""EM"": 2.33}",2.33,unanimous,
+E07000149,E07000149,South Norfolk,England,EA,EA,1.0,"{""EA"": 3.83}",3.83,unanimous,
+E07000179,E07000179,South Oxfordshire,England,SO,SO,0.917,"{""SO"": 5.5, ""NT"": 0.5}",6.0,majority,
+E07000126,E07000126,South Ribble,England,NW,NW,1.0,"{""NW"": 0.5}",0.5,unanimous,
+E07000196,E07000196,South Staffordshire,England,WM,WM,1.0,"{""WM"": 2.25}",2.25,unanimous,
+E08000023,E08000023,South Tyneside,England,NO,NO,1.0,"{""NO"": 5.03}",5.03,unanimous,
+E06000045,E06000045,Southampton,England,SO,SO,1.0,"{""SO"": 0.25}",0.25,unanimous,
+E06000033,E06000033,Southend-on-Sea,England,NT,NT,1.0,"{""NT"": 2.83}",2.83,unanimous,
+E09000028,E09000028,Southwark,England,SE,SE,1.0,"{""SE"": 0.1}",0.1,unanimous,
+E07000213,E07000213,Spelthorne,England,split,NT,0.673,"{""NT"": 3.08, ""EA"": 1.0, ""SE"": 0.5}",4.58,split,
+E07000240,E07000240,St Albans,England,EA,EA,0.882,"{""EA"": 2.5, ""NT"": 0.33}",2.83,majority,
+E08000013,E08000013,St. Helens,England,NW,NW,1.0,"{""NW"": 3.25}",3.25,unanimous,
+E07000197,E07000197,Stafford,England,WM,WM,1.0,"{""WM"": 1.75}",1.75,unanimous,
+E07000198,E07000198,Staffordshire Moorlands,England,WM,WM,1.0,"{""WM"": 1.25}",1.25,unanimous,
+E07000243,E07000243,Stevenage,England,EA,EA,1.0,"{""EA"": 0.33}",0.33,unanimous,
+E08000007,E08000007,Stockport,England,NW,NW,1.0,"{""NW"": 1.62}",1.62,unanimous,
+E06000004,E06000004,Stockton-on-Tees,England,NO,NO,1.0,"{""NO"": 1.67}",1.67,unanimous,
+E06000021,E06000021,Stoke-on-Trent,England,WM,WM,1.0,"{""WM"": 0.92}",0.92,unanimous,
+E07000221,E07000221,Stratford-on-Avon,England,WM,WM,0.854,"{""WM"": 5.83, ""SW"": 1.0}",6.83,majority,
+E07000082,E07000082,Stroud,England,SW,SW,1.0,"{""SW"": 4.33}",4.33,unanimous,
+E08000024,E08000024,Sunderland,England,NO,NO,1.0,"{""NO"": 1.87}",1.87,unanimous,
+E07000214,E07000214,Surrey Heath,England,NT,NT,0.932,"{""NT"": 3.42, ""SO"": 0.25}",3.67,majority,
+E09000029,E09000029,Sutton,England,SE,SE,0.967,"{""SE"": 4.14, ""NT"": 0.14}",4.29,majority,
+E07000113,E07000113,Swale,England,SE,SE,1.0,"{""SE"": 4.5}",4.5,unanimous,
+E06000030,E06000030,Swindon,England,SW,SW,1.0,"{""SW"": 1.0}",1.0,unanimous,
+E08000008,E08000008,Tameside,England,NW,NW,1.0,"{""NW"": 3.62}",3.62,unanimous,
+E07000199,E07000199,Tamworth,England,WM,WM,1.0,"{""WM"": 0.33}",0.33,unanimous,
+E07000215,E07000215,Tandridge,England,SE,SE,1.0,"{""SE"": 4.91}",4.91,unanimous,
+E07000045,E07000045,Teignbridge,England,SW,SW,1.0,"{""SW"": 4.33}",4.33,unanimous,
+E06000020,E06000020,Telford and Wrekin,England,WM,WM,1.0,"{""WM"": 2.5}",2.5,unanimous,
+E07000076,E07000076,Tendring,England,EA,EA,1.0,"{""EA"": 5.33}",5.33,unanimous,
+E07000093,E07000093,Test Valley,England,SO,SO,1.0,"{""SO"": 3.58}",3.58,unanimous,
+E07000083,E07000083,Tewkesbury,England,SW,SW,1.0,"{""SW"": 1.17}",1.17,unanimous,
+E07000114,E07000114,Thanet,England,SE,SE,1.0,"{""SE"": 5.0}",5.0,unanimous,
+E07000102,E07000102,Three Rivers,England,split,EA,0.737,"{""EA"": 1.33, ""NT"": 0.48}",1.81,split,
+E06000034,E06000034,Thurrock,England,NT,NT,1.0,"{""NT"": 5.67}",5.67,unanimous,
+E07000115,E07000115,Tonbridge and Malling,England,SE,SE,1.0,"{""SE"": 4.0}",4.0,unanimous,
+E06000027,E06000027,Torbay,England,SW,SW,1.0,"{""SW"": 1.5}",1.5,unanimous,
+E07000046,E07000046,Torridge,England,SW,SW,1.0,"{""SW"": 4.0}",4.0,unanimous,
+E09000030,E09000030,Tower Hamlets,England,SE,SE,1.0,"{""SE"": 0.1}",0.1,unanimous,
+E08000009,E08000009,Trafford,England,NW,NW,1.0,"{""NW"": 1.71}",1.71,unanimous,
+E07000116,E07000116,Tunbridge Wells,England,SE,SE,1.0,"{""SE"": 2.0}",2.0,unanimous,
+E07000077,E07000077,Uttlesford,England,EA,EA,1.0,"{""EA"": 3.5}",3.5,unanimous,
+E07000180,E07000180,Vale of White Horse,England,split,SO,0.692,"{""SO"": 2.25, ""SW"": 1.0}",3.25,split,
+E08000036,E08000036,Wakefield,England,NE,NE,1.0,"{""NE"": 4.83}",4.83,unanimous,
+E08000030,E08000030,Walsall,England,WM,WM,1.0,"{""WM"": 2.06}",2.06,unanimous,
+E09000031,E09000031,Waltham Forest,England,EA,EA,1.0,"{""EA"": 0.14}",0.14,unanimous,
+E09000032,E09000032,Wandsworth,England,NT,NT,1.0,"{""NT"": 0.14}",0.14,unanimous,
+E06000007,E06000007,Warrington,England,NW,NW,1.0,"{""NW"": 1.58}",1.58,unanimous,
+E07000222,E07000222,Warwick,England,WM,WM,1.0,"{""WM"": 2.42}",2.42,unanimous,
+E07000103,E07000103,Watford,England,EA,EA,1.0,"{""EA"": 1.67}",1.67,unanimous,
+E07000216,E07000216,Waverley,England,split,SO,0.609,"{""SO"": 2.33, ""SE"": 1.5}",3.83,split,
+E07000065,E07000065,Wealden,England,SE,SE,1.0,"{""SE"": 11.17}",11.17,unanimous,
+E07000241,E07000241,Welwyn Hatfield,England,EA,EA,1.0,"{""EA"": 3.0}",3.0,unanimous,
+E06000037,E06000037,West Berkshire,England,split,SO,0.733,"{""SO"": 2.75, ""SW"": 1.0}",3.75,split,
+E07000047,E07000047,West Devon,England,SW,SW,1.0,"{""SW"": 3.0}",3.0,unanimous,
+E07000127,E07000127,West Lancashire,England,NW,NW,1.0,"{""NW"": 2.5}",2.5,unanimous,
+E07000142,E07000142,West Lindsey,England,EM,EM,1.0,"{""EM"": 2.83}",2.83,unanimous,
+E06000062,E06000062,West Northamptonshire,England,split,EM,0.557,"{""EM"": 2.83, ""SO"": 1.5, ""WM"": 0.5, ""EA"": 0.25}",5.08,split,
+E07000181,E07000181,West Oxfordshire,England,split,SO,0.714,"{""SO"": 2.5, ""SW"": 1.0}",3.5,split,
+E07000245,E07000245,West Suffolk,England,EA,EA,1.0,"{""EA"": 2.5}",2.5,unanimous,
+E09000033,E09000033,Westminster,England,NT,NT,1.0,"{""NT"": 1.0}",1.0,unanimous,
+E06000064,E06000064,Westmorland and Furness,England,split,NW,0.765,"{""NW"": 13.0, ""NO"": 4.0}",17.0,split,
+E08000010,E08000010,Wigan,England,NW,NW,1.0,"{""NW"": 1.5}",1.5,unanimous,
+E06000054,E06000054,Wiltshire,England,split,SW,0.815,"{""SW"": 11.0, ""SO"": 2.5}",13.5,split,Wiltshire — Salisbury SP1 1EX -> SO2; Chippenham SN15 2RB -> SW2
+E07000094,E07000094,Winchester,England,SO,SO,1.0,"{""SO"": 3.25}",3.25,unanimous,
+E06000040,E06000040,Windsor and Maidenhead,England,NT,NT,1.0,"{""NT"": 3.92}",3.92,unanimous,
+E08000015,E08000015,Wirral,England,NW,NW,1.0,"{""NW"": 4.5}",4.5,unanimous,
+E07000217,E07000217,Woking,England,NT,NT,1.0,"{""NT"": 1.33}",1.33,unanimous,
+E06000041,E06000041,Wokingham,England,SO,SO,1.0,"{""NT"": 1.5, ""SO"": 1.25}",2.75,override: Wokingham — RG40 1SF -> SO1; its NT votes are Bracknell/Crowthorne/Henley built-up areas crossing the boundary,Wokingham — RG40 1SF -> SO1; its NT votes are Bracknell/Crowthorne/Henley built-up areas crossing the boundary
+E08000031,E08000031,Wolverhampton,England,WM,WM,1.0,"{""WM"": 1.92}",1.92,unanimous,
+E07000237,E07000237,Worcester,England,SW,SW,1.0,"{""SW"": 0.33}",0.33,unanimous,
+E07000229,E07000229,Worthing,England,SE,SE,1.0,"{""SE"": 0.33}",0.33,unanimous,
+E07000238,E07000238,Wychavon,England,split,SW,0.704,"{""SW"": 3.17, ""WM"": 1.33}",4.5,split,
+E07000128,E07000128,Wyre,England,NW,NW,1.0,"{""NW"": 3.33}",3.33,unanimous,
+E07000239,E07000239,Wyre Forest,England,WM,WM,1.0,"{""WM"": 2.33}",2.33,unanimous,
+E06000014,E06000014,York,England,NE,NE,1.0,"{""NE"": 1.0}",1.0,unanimous,
+S12000033,S12000033,Aberdeen City,Scotland,SC,SC,1.0,"{""SC"": 2.5}",2.5,unanimous,
+S12000034,S12000034,Aberdeenshire,Scotland,SC,SC,1.0,"{""SC"": 16.0}",16.0,unanimous,
+S12000041,S12000041,Angus,Scotland,SC,SC,1.0,"{""SC"": 4.83}",4.83,unanimous,
+S12000035,S12000035,Argyll and Bute,Scotland,SC,SC,1.0,"{""SC"": 6.83}",6.83,unanimous,
+S12000036,S12000036,City of Edinburgh,Scotland,SC,SC,1.0,"{""SC"": 3.92}",3.92,unanimous,
+S12000005,S12000005,Clackmannanshire,Scotland,SC,SC,1.0,"{""SC"": 4.0}",4.0,unanimous,
+S12000006,S12000006,Dumfries and Galloway,Scotland,SC,SC,1.0,"{""SC"": 9.5}",9.5,unanimous,
+S12000042,S12000042,Dundee City,Scotland,SC,SC,1.0,"{""SC"": 0.33}",0.33,unanimous,
+S12000008,S12000008,East Ayrshire,Scotland,SC,SC,1.0,"{""SC"": 6.25}",6.25,unanimous,
+S12000045,S12000045,East Dunbartonshire,Scotland,SC,SC,1.0,"{""SC"": 0.48}",0.48,unanimous,
+S12000010,S12000010,East Lothian,Scotland,SC,SC,1.0,"{""SC"": 8.33}",8.33,unanimous,
+S12000011,S12000011,East Renfrewshire,Scotland,SC,SC,1.0,"{""SC"": 0.98}",0.98,unanimous,
+S12000014,S12000014,Falkirk,Scotland,SC,SC,1.0,"{""SC"": 4.83}",4.83,unanimous,
+S12000047,S12000047,Fife,Scotland,SC,SC,1.0,"{""SC"": 10.5}",10.5,unanimous,
+S12000049,S12000049,Glasgow City,Scotland,SC,SC,1.0,"{""SC"": 1.14}",1.14,unanimous,
+S12000017,S12000017,Highland,Scotland,SC,SC,1.0,"{""SC"": 9.0}",9.0,unanimous,
+S12000018,S12000018,Inverclyde,Scotland,SC,SC,1.0,"{""SC"": 5.92}",5.92,unanimous,
+S12000019,S12000019,Midlothian,Scotland,SC,SC,1.0,"{""SC"": 8.92}",8.92,unanimous,
+S12000020,S12000020,Moray,Scotland,SC,SC,1.0,"{""SC"": 7.0}",7.0,unanimous,
+S12000013,S12000013,Na h-Eileanan Siar,Scotland,SC,SC,1.0,"{""SC"": 2.0}",2.0,unanimous,
+S12000021,S12000021,North Ayrshire,Scotland,SC,SC,1.0,"{""SC"": 8.67}",8.67,unanimous,
+S12000050,S12000050,North Lanarkshire,Scotland,SC,SC,1.0,"{""SC"": 8.31}",8.31,unanimous,
+S12000023,S12000023,Orkney Islands,Scotland,SC,SC,,{},0.0,nearest_town_53km,
+S12000048,S12000048,Perth and Kinross,Scotland,SC,SC,1.0,"{""SC"": 9.33}",9.33,unanimous,
+S12000038,S12000038,Renfrewshire,Scotland,SC,SC,1.0,"{""SC"": 5.98}",5.98,unanimous,
+S12000026,S12000026,Scottish Borders,Scotland,SC,SC,1.0,"{""SC"": 13.08}",13.08,unanimous,
+S12000027,S12000027,Shetland Islands,Scotland,SC,SC,1.0,"{""SC"": 1.0}",1.0,unanimous,
+S12000028,S12000028,South Ayrshire,Scotland,SC,SC,1.0,"{""SC"": 4.5}",4.5,unanimous,
+S12000029,S12000029,South Lanarkshire,Scotland,SC,SC,1.0,"{""SC"": 5.98}",5.98,unanimous,
+S12000030,S12000030,Stirling,Scotland,SC,SC,1.0,"{""SC"": 6.17}",6.17,unanimous,
+S12000039,S12000039,West Dunbartonshire,Scotland,SC,SC,1.0,"{""SC"": 1.14}",1.14,unanimous,
+S12000040,S12000040,West Lothian,Scotland,SC,SC,1.0,"{""SC"": 3.08}",3.08,unanimous,
+W06000019,W06000019,Blaenau Gwent,Wales,WS,WS,1.0,"{""WS"": 2.75}",2.75,unanimous,
+W06000013,W06000013,Bridgend,Wales,WS,WS,1.0,"{""WS"": 2.5}",2.5,unanimous,
+W06000018,W06000018,Caerphilly,Wales,WS,WS,1.0,"{""WS"": 5.58}",5.58,unanimous,
+W06000015,W06000015,Cardiff,Wales,WS,WS,1.0,"{""WS"": 1.08}",1.08,unanimous,
+W06000010,W06000010,Carmarthenshire,Wales,WS,WS,1.0,"{""WS"": 9.5}",9.5,unanimous,
+W06000008,W06000008,Ceredigion,Wales,split,WS,0.583,"{""WS"": 3.5, ""WN"": 2.5}",6.0,split,
+W06000003,W06000003,Conwy,Wales,WN,WN,1.0,"{""WN"": 8.0}",8.0,unanimous,
+W06000004,W06000004,Denbighshire,Wales,WN,WN,1.0,"{""WN"": 6.5}",6.5,unanimous,
+W06000005,W06000005,Flintshire,Wales,WN,WN,0.889,"{""WN"": 4.0, ""NW"": 0.5}",4.5,majority,
+W06000002,W06000002,Gwynedd,Wales,WN,WN,1.0,"{""WN"": 15.0}",15.0,unanimous,
+W06000001,W06000001,Isle of Anglesey,Wales,WN,WN,1.0,"{""WN"": 15.0}",15.0,unanimous,
+W06000024,W06000024,Merthyr Tydfil,Wales,WS,WS,1.0,"{""WS"": 0.83}",0.83,unanimous,
+W06000021,W06000021,Monmouthshire,Wales,WS,WS,1.0,"{""WS"": 5.5}",5.5,unanimous,
+W06000012,W06000012,Neath Port Talbot,Wales,WS,WS,1.0,"{""WS"": 2.0}",2.0,unanimous,
+W06000022,W06000022,Newport,Wales,WS,WS,1.0,"{""WS"": 0.83}",0.83,unanimous,
+W06000009,W06000009,Pembrokeshire,Wales,WS,WS,1.0,"{""WS"": 13.0}",13.0,unanimous,
+W06000023,W06000023,Powys,Wales,WN,WN,0.846,"{""WN"": 11.0, ""WS"": 2.0}",13.0,majority,
+W06000016,W06000016,Rhondda Cynon Taf,Wales,WS,WS,1.0,"{""WS"": 8.58}",8.58,unanimous,
+W06000011,W06000011,Swansea,Wales,WS,WS,1.0,"{""WS"": 1.0}",1.0,unanimous,
+W06000020,W06000020,Torfaen,Wales,WS,WS,1.0,"{""WS"": 2.0}",2.0,unanimous,
+W06000014,W06000014,Vale of Glamorgan,Wales,WS,WS,1.0,"{""WS"": 4.33}",4.33,unanimous,
+W06000006,W06000006,Wrexham,Wales,WN,WN,1.0,"{""WN"": 1.0}",1.0,unanimous,

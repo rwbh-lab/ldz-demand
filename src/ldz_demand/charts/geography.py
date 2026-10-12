@@ -135,6 +135,9 @@ def _authority_layer(fig, las, view, colours, gap) -> None:
                            ["split", "fallback", "override"], "single")
     hover = (df["lad23nm"] + "<br>LDZ: " + df["ldz"] + " (main " + df["main_ldz"] + ")<br>" + df["method"]
              + "<br>votes: " + df["votes"].str.replace('"', ""))
+    if "review" in df:  # postcode-checked decisions, e.g. a forced split
+        review = df["review"].fillna("").astype(str)
+        hover = hover + np.where((review != "") & (df["kind"] != "override"), "<br>review: " + review, "")
     line_colour = np.select([df["kind"] == "split", df["kind"] == "fallback", df["kind"] == "override"],
                             [t.serious, t.accent, t.ink], t.surface)
     line_width = np.where(df["kind"] == "single", 0.4, 1.6)
@@ -164,7 +167,7 @@ def _authority_layer(fig, las, view, colours, gap) -> None:
         name="LDZ", showlegend=False))
     # legend entries for the outline meanings (labels on the map carry LDZ identity)
     for name, colour in (("Split between LDZs (faded)", t.serious), ("No listed town — nearest town's LDZ", t.accent),
-                         ("Manual override (provisional)", t.ink)):
+                         ("Manual override (postcode-checked)", t.ink)):
         fig.add_trace(go.Scattergeo(lon=[None], lat=[None], mode="markers", name=name,
                                     marker=dict(symbol="square-open", size=12, color=colour, line=dict(width=2))))
 

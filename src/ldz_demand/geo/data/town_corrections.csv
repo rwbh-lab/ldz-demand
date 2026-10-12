@@ -1,0 +1,15 @@
+# Towns listed under the wrong LDZ on the broker LDZ pages (our own review). Evidence: the same site's postcode
+# search (energybrokers.co.uk/gas/ldz-search, 2026-10-12) at a postcode in the town; the full log is
+# docs/review/ldz_postcode_checks.csv. Applied after matching, so every membership method (authority votes,
+# Voronoi cells, hybrid) uses the corrected LDZ.
+ldz,town,correct_ldz,evidence
+NE,Barnsley,EM,S70 1SH -> EM1
+NE,Doncaster,EM,DN4 5ES -> EM1; Thorne DN8 5NP -> EM1
+NE,Sheffield,EM,S10 1NQ -> EM3; Stocksbridge S36 2GQ -> EM3
+NE,Oldham,NW,OL8 1SD -> NW1
+EM,Buxton,NW,SK17 9RP -> NW2
+WN,Chester,NW,CH1 2SA -> NW2
+WN,Malpas,NW,SY14 8NP -> NW2
+EM,Brackley,SO,NN13 6EJ -> SO1
+NT,Reading,SO,RG2 7LE -> SO1
+NT,Wokingham,SO,RG40 1SF -> SO1

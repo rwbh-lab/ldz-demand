@@ -115,7 +115,7 @@ def _(energy, mo):
 
         - **Local authority** — each authority takes the LDZ its towns vote for (this page's method).
           **Split** authorities are faded with a red outline; authorities with no listed town have an
-          orange outline; **manual overrides** (provisional, see §3) have a white outline. *Confidence*
+          orange outline; **manual overrides** (from postcode checks, see §3) have a white outline. *Confidence*
           shows how decisive each vote was (local authority method only).
         - **Voronoi** — the original quant-lib method: every town gets the area closer to it than to any
           other town, smoothed and merged into LDZs. Boundaries follow the towns rather than
@@ -166,25 +166,40 @@ def _(check, demand_note, energy, geo_charts, mo, show_authority, show_demand, s
         Agreement to within ~1 percentage point is about as close as these sources allow: DESNZ
         leaves out some very large industrial sites and its "years" don't match gas years.
 
-        The two pure methods are about equally accurate overall but **wrong in different places**.
-        Voronoi handles the northern and SO/SW edges better; the local-authority method handles
-        **London** far better — London's boroughs aren't listed as towns, so Voronoi lets surrounding
-        towns' cells carve the city up and gives much of it to SE. The **hybrid** keeps London right and
-        takes Voronoi's gains in the split areas, and is the closest of the three to measured demand —
-        so it is the map used from here on, with the other two kept for comparison.
+        **The source lists were checked postcode by postcode.** For each doubtful authority, a postcode
+        in a test town was looked up on the broker's own postcode search
+        (`docs/review/ldz_postcode_checks.csv`). Ten towns turned out to be listed under the wrong LDZ
+        and are corrected for all three methods (`town_corrections.csv`):
 
-        **SO was short by ~2 pp** (about 10 TWh a year) under all three methods. Two groups of authorities
-        were moved to SO with **provisional overrides**, against the source lists:
+        - all of **South Yorkshire** (Sheffield, Barnsley, Doncaster) is **EM**, not NE;
+        - **Oldham** and **Buxton** are **NW**, as are **Chester** and **Malpas** (listed WN);
+        - **Reading**, **Wokingham** and **Brackley** are **SO**.
 
-        - **Wiltshire and Swindon** (listed SW): SW's +0.9 pp excess disappears and SO's gap halves — a
-          clean improvement.
-        - **Berkshire** — Reading, Wokingham, Windsor & Maidenhead, Slough, Bracknell (listed NT): closes
-          SO but opens a −0.7 pp gap in NT, so perhaps only some of them are SO.
+        **Wiltshire** is genuinely split, with Salisbury in SO and Chippenham in SW, so it is marked split
+        even though 81% of its towns vote SW.
 
-        With both, the hybrid's mean gap falls from 0.63 to **0.45 pp**. These overrides were chosen *from*
-        this check, so it can no longer treat them as independent evidence; they stay provisional until
-        an authoritative source (e.g. a gas network postcode lookup) confirms them. Voronoi ignores
-        authority labels, so overrides can't improve it — one argument for the label-based methods.
+        **A lesson in not fitting to the check.** Before the postcode checks, SO was about 2 pp short, so
+        seven authorities around it were moved to SO, chosen *from* this check. That cut the gap almost
+        as much as the postcode checks did, but the postcode search says four of the seven were wrong:
+        Swindon, north Wiltshire, Windsor & Maidenhead and Slough are not SO. The checked map scores about
+        the same overall, and every change is now backed by evidence. NE's +1.3 pp excess and NW's
+        −0.7 pp shortfall have gone.
+
+        | Local authority method | Source lists only | Provisional overrides | Postcode-checked |
+        |---|---|---|---|
+        | Mean absolute gap (pp) | 0.75 | 0.55 | 0.52 |
+        | RMS gap (pp) | 0.93 | 0.66 | 0.67 |
+
+        **Still open:** under the local-authority and hybrid methods, SO is still 1.2–1.5 pp short, SW is
+        0.6–0.8 pp over and EA is 1.0–1.3 pp over. Candidates are where Wiltshire's SO/SW line runs,
+        West Berkshire, and London's EA/NT edge. The unfinished checks are listed in the review file
+        (the broker site's search limit stopped this round).
+
+        **Methods compared:** Voronoi still breaks **London** (NT −2.4, SE +2.6 pp). London's boroughs
+        aren't listed as towns, so the cells of surrounding towns carve the city up. It is better on EA and EM,
+        though. The **hybrid** keeps London right and has the smallest RMS gap (0.61 pp vs 0.67 local
+        authority, 1.08 Voronoi): its worst errors are the smallest. It is the map used from here on, with
+        the other two kept for comparison.
         """),
         mo.hstack([show_demand, show_authority, show_voronoi, show_hybrid], justify="start", gap=2),
         geo_charts.membership_check_chart(check, methods=_methods, show_demand=show_demand.value and energy is not None)
@@ -211,7 +226,9 @@ def _(las, mo, towns):
         "How this was built": mo.md(r"""
         - Rebuild: `python -m ldz_demand.geo fetch` then `python -m ldz_demand.geo build`.
         - Tables: `ldz_demand/geo/data/ldz_local_authority.csv` and `ldz_towns.csv`; manual decisions go in
-          `la_overrides.csv`, town name fixes in `town_aliases.csv`, wrong source counties in `county_corrections.csv`.
+          `la_overrides.csv`, towns listed under the wrong LDZ in `town_corrections.csv`, town name fixes in
+          `town_aliases.csv`, wrong source counties in `county_corrections.csv`. Postcode evidence:
+          `docs/review/ldz_postcode_checks.csv`.
         - An authority is single-LDZ if one LDZ has ≥ 80% of its town votes; a town spanning several
           authorities votes for each in equal parts.
         - Code: `ldz_demand.geo.ldz_membership`, `ldz_demand.charts.geography`.

@@ -1,11 +1,7 @@
 # Manual LDZ decisions for local authorities after review (applied last). Our own.
-# PROVISIONAL: set from the demand check (DESNZ gas use vs National Gas LDZ demand), against the broker
-# lists. To confirm with an authoritative source (e.g. a gas network postcode lookup) before relying on them.
+# ldz is an LDZ code, or "split" to mark an authority split when one LDZ's vote share hides a confirmed split.
+# Evidence: broker postcode search, 2026-10-12 (docs/review/ldz_postcode_checks.csv). Town-level fixes are in
+# town_corrections.csv; these are only the decisions town votes can't make.
 lad23cd,ldz,reason
-E06000054,SO,Wiltshire — listed SW; demand check says SO (provisional)
-E06000030,SO,Swindon — listed SW; demand check says SO (provisional)
-E06000038,SO,Reading — listed NT; demand check says SO (provisional)
-E06000041,SO,Wokingham — listed NT; demand check says SO (provisional)
-E06000040,SO,Windsor and Maidenhead — listed NT; demand check says SO (provisional)
-E06000039,SO,Slough — listed NT; demand check says SO (provisional)
-E06000036,SO,Bracknell Forest — split NT/SO; demand check says SO (provisional)
+E06000054,split,Wiltshire — Salisbury SP1 1EX -> SO2; Chippenham SN15 2RB -> SW2
+E06000041,SO,Wokingham — RG40 1SF -> SO1; its NT votes are Bracknell/Crowthorne/Henley built-up areas crossing the boundary

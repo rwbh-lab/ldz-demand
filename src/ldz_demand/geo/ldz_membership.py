@@ -12,11 +12,15 @@ There is no public official LDZ boundary file, so membership is derived:
    one LDZ are marked split; inside them, places take the LDZ of the nearest labelled town (the old
    Voronoi idea, confined to the authority). Authorities with no listed town take the LDZ of the
    nearest labelled town to their centroid.
+4. Review: towns the lists put in the wrong LDZ are corrected (town_corrections.csv), and a few
+   authority decisions town votes can't make are set by hand (la_overrides.csv), both from the broker's
+   own postcode search.
 
 Outputs (committed, in geo/data/):
 - ldz_towns.csv: each matched town — name, LDZ, IPN location, local authority, match method
 - ldz_local_authority.csv: each local authority — LDZ (or split), vote shares, method, flags
-- la_overrides.csv: manual decisions after review (applied last)
+- town_corrections.csv: towns listed under the wrong LDZ (applied after matching)
+- la_overrides.csv: manual decisions for authorities after review (applied last)
 
 Run:
     python -m ldz_demand.geo.ldz_membership fetch     # sources -> raw_dir/reference/
@@ -135,6 +139,12 @@ def load_ipn(raw_dir: Path) -> pd.DataFrame:
 def load_county_corrections(path: Path = DATA_DIR / "county_corrections.csv") -> set[tuple[str, str]]:
     lines = [line for line in path.read_text().splitlines() if line and not line.startswith("#")]
     return {(r["ldz"], r["county"]) for r in csv.DictReader(lines)}
+
+
+def load_town_corrections(path: Path = DATA_DIR / "town_corrections.csv") -> dict[tuple[str, str], str]:
+    """{(listed ldz, town): correct ldz}."""
+    lines = [line for line in path.read_text().splitlines() if line and not line.startswith("#")]
+    return {(r["ldz"], r["town"]): r["correct_ldz"] for r in csv.DictReader(lines)}
 
 
 def load_aliases(path: Path = DATA_DIR / "town_aliases.csv") -> dict[tuple[str, str], str]:
@@ -289,6 +299,19 @@ def _outliers(centres: dict[tuple[str, str], tuple[float, float]]) -> set[tuple[
     return out
 
 
+def correct_towns(towns: pd.DataFrame, corrections: dict[tuple[str, str], str]) -> pd.DataFrame:
+    """Move towns listed under the wrong LDZ to the right one (listed_ldz keeps the source's LDZ)."""
+    out = towns.copy()
+    out.insert(1, "listed_ldz", out["ldz"])
+    keys = list(zip(out["ldz"], out["town"]))
+    fix = [corrections.get(k) for k in keys]
+    hit = [f is not None for f in fix]
+    out.loc[hit, "ldz"] = [f for f in fix if f is not None]
+    out.loc[hit, "method"] = out.loc[hit, "method"] + "+corrected"
+    # a town already listed under its correct LDZ would otherwise vote twice
+    return out.drop_duplicates(subset=["ldz", "town"]).reset_index(drop=True)
+
+
 # --- local authorities --------------------------------------------------------------------------
 
 def local_authorities(ipn: pd.DataFrame) -> pd.DataFrame:
@@ -332,10 +355,15 @@ def assign_authorities(towns: pd.DataFrame, lads: pd.DataFrame, overrides: pd.Da
                          "ldz": ldz, "main_ldz": ldz, "share": None, "votes": "{}", "n_towns": 0,
                          "method": f"nearest_town_{d:.0f}km"})
     out = pd.DataFrame(rows).sort_values(["country", "lad23nm"]).reset_index(drop=True)
+    out["review"] = ""
     if overrides is not None and len(overrides):
         for o in overrides.itertuples():
             mask = out["lad23cd"] == o.lad23cd
-            out.loc[mask, ["ldz", "main_ldz", "share", "method"]] = [o.ldz, o.ldz, 1.0, f"override: {o.reason}"]
+            if o.ldz == "split":  # a confirmed split hidden by one LDZ's vote share: split by the votes
+                out.loc[mask, ["ldz", "method"]] = ["split", "split"]
+            else:
+                out.loc[mask, ["ldz", "main_ldz", "share", "method"]] = [o.ldz, o.ldz, 1.0, f"override: {o.reason}"]
+            out.loc[mask, "review"] = o.reason
     return out
 
 
@@ -351,18 +379,19 @@ def load_overrides(path: Path = DATA_DIR / "la_overrides.csv") -> pd.DataFrame:
 HEADER = (
     "# Derived by ldz-demand (python -m ldz_demand.geo.ldz_membership build). Sources: town lists per LDZ from\n"
     "# energybrokers.co.uk (used as evidence, not republished verbatim); place locations and local authorities from\n"
-    "# the ONS Index of Place Names, July 2024 (Open Government Licence v3.0). Not an official LDZ boundary.\n"
+    "# the ONS Index of Place Names, July 2024 (Open Government Licence v3.0). Reviewed against the same site's postcode\n"
+    "# search (town_corrections.csv, la_overrides.csv). Not an official LDZ boundary.\n"
 )
 
 
 def build(raw_dir: Path, out_dir: Path = DATA_DIR) -> tuple[pd.DataFrame, pd.DataFrame]:
     lists = load_broker_lists(raw_dir)
     ipn = load_ipn(raw_dir)
-    towns = match_towns(lists, ipn, load_aliases(), load_county_corrections())
+    towns = correct_towns(match_towns(lists, ipn, load_aliases(), load_county_corrections()), load_town_corrections())
     las = assign_authorities(towns, local_authorities(ipn), load_overrides())
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    town_cols = ["ldz", "town", "ipn_name", "lat", "lon", "lad23cd", "lad23nm", "method", "footprint_km"]
+    town_cols = ["ldz", "listed_ldz", "town", "ipn_name", "lat", "lon", "lad23cd", "lad23nm", "method", "footprint_km"]
     for name, df, cols in (("ldz_towns.csv", towns, town_cols), ("ldz_local_authority.csv", las, list(las.columns))):
         with open(out_dir / name, "w", newline="") as f:
             f.write(HEADER)
@@ -373,7 +402,7 @@ def build(raw_dir: Path, out_dir: Path = DATA_DIR) -> tuple[pd.DataFrame, pd.Dat
 
 def _log_summary(towns: pd.DataFrame, las: pd.DataFrame) -> None:
     methods = towns["method"].str.split("+").str[0].value_counts().to_dict()
-    logger.info(f"Towns: {len(towns)} — {methods}")
+    logger.info(f"Towns: {len(towns)} — {methods}; {int(towns['method'].str.contains('corrected').sum())} corrected")
     la_methods = las["method"].str.replace(r"_\d+km$", "", regex=True).str.replace(r"^override:.*", "override", regex=True)
     la_methods = la_methods.value_counts().to_dict()
     logger.info(f"Local authorities: {len(las)} — {la_methods}")
