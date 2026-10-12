@@ -46,7 +46,7 @@ def _():
 
 @app.cell(hide_code=True)
 def _(las, mo, towns):
-    _m = las["method"].str.replace(r"_\d+km$", "", regex=True).value_counts()
+    _m = las["method"].str.replace(r"_\d+km$", "", regex=True).str.replace(r"^override:.*", "override", regex=True).value_counts()
     _t = towns["method"].str.split("+").str[0].value_counts()
     _placed = int(_t.get("county", 0) + _t.get("footprint", 0))
     mo.vstack([
@@ -67,8 +67,8 @@ def _(las, mo, towns):
         """),
         mo.hstack([
             mo.stat(f"{_placed:,} / {len(towns):,}", label="Towns placed", caption=f"{int(_t.get('outlier', 0))} outliers excluded"),
-            mo.stat(f"{int(_m.get('unanimous', 0) + _m.get('majority', 0))}", label="Single-LDZ authorities",
-                    caption=f"{int(_m.get('unanimous', 0))} unanimous · {int(_m.get('majority', 0))} majority"),
+            mo.stat(f"{int(_m.get('unanimous', 0) + _m.get('majority', 0) + _m.get('override', 0))}", label="Single-LDZ authorities",
+                    caption=f"{int(_m.get('unanimous', 0))} unanimous · {int(_m.get('majority', 0))} majority · {int(_m.get('override', 0))} override"),
             mo.stat(f"{int(_m.get('split', 0))}", label="Split authorities", caption="boundary areas"),
             mo.stat(f"{int(_m.get('nearest_town', 0))}", label="No listed town", caption="nearest town's LDZ"),
         ], widths="equal", gap=1),
@@ -115,7 +115,8 @@ def _(energy, mo):
 
         - **Local authority** — each authority takes the LDZ its towns vote for (this page's method).
           **Split** authorities are faded with a red outline; authorities with no listed town have an
-          orange outline. *Confidence* shows how decisive each vote was (local authority method only).
+          orange outline; **manual overrides** (provisional, see §3) have a white outline. *Confidence*
+          shows how decisive each vote was (local authority method only).
         - **Voronoi** — the original quant-lib method: every town gets the area closer to it than to any
           other town, smoothed and merged into LDZs. Boundaries follow the towns rather than
           administrative lines, so they are noisier — but they can cut through an authority.
@@ -162,11 +163,18 @@ def _(check, demand_note, energy, geo_charts, mo):
         takes Voronoi's gains in the split areas, and is the closest of the three to measured demand —
         so it is the map used from here on, with the other two kept for comparison.
 
-        **SO is short under all three** — by ~2 pp, about 10 TWh a year. The strongest lead is **Wiltshire and
-        Swindon**, listed under SW: worth ~0.9 pp, almost exactly SW's excess. The **Berkshire**
-        authorities the lists put in NT (Reading, Wokingham, Windsor & Maidenhead, Slough, Bracknell)
-        are the next candidates. Both contradict the source lists, so they need an authoritative check
-        before going into `la_overrides.csv`.
+        **SO was short by ~2 pp** (about 10 TWh a year) under all three methods. Two groups of authorities
+        were moved to SO with **provisional overrides**, against the source lists:
+
+        - **Wiltshire and Swindon** (listed SW): SW's +0.9 pp excess disappears and SO's gap halves — a
+          clean improvement.
+        - **Berkshire** — Reading, Wokingham, Windsor & Maidenhead, Slough, Bracknell (listed NT): closes
+          SO but opens a −0.7 pp gap in NT, so perhaps only some of them are SO.
+
+        With both, the hybrid's mean gap falls from 0.63 to **0.45 pp**. These overrides were chosen *from*
+        this check, so it can no longer treat them as independent evidence; they stay provisional until
+        an authoritative source (e.g. a gas network postcode lookup) confirms them. Voronoi ignores
+        authority labels, so overrides can't improve it — one argument for the label-based methods.
         """),
         geo_charts.membership_check_chart(check) if energy is not None else mo.callout(mo.md(
             f"National Gas demand not loaded, so only our map's shares are available. `{demand_note}`"), kind="info"),

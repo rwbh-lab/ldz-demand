@@ -25,7 +25,7 @@ E07000033,E07000033,Bolsover,England,EM,EM,1.0,"{""EM"": 0.67}",0.67,unanimous
 E08000001,E08000001,Bolton,England,NW,NW,1.0,"{""NW"": 1.0}",1.0,unanimous
 E07000136,E07000136,Boston,England,EM,EM,1.0,"{""EM"": 1.0}",1.0,unanimous
 E06000058,E06000058,"Bournemouth, Christchurch an",England,SO,SO,1.0,"{""SO"": 3.0}",3.0,unanimous
-E06000036,E06000036,Bracknell Forest,England,split,NT,0.514,"{""NT"": 1.58, ""SO"": 1.5}",3.08,split
+E06000036,E06000036,Bracknell Forest,England,SO,SO,1.0,"{""NT"": 1.58, ""SO"": 1.5}",3.08,override: Bracknell Forest — split NT/SO; demand check says SO (provisional)
 E08000032,E08000032,Bradford,England,NE,NE,1.0,"{""NE"": 5.53}",5.53,unanimous
 E07000067,E07000067,Braintree,England,EA,EA,1.0,"{""EA"": 3.5}",3.5,unanimous
 E07000143,E07000143,Breckland,England,EA,EA,1.0,"{""EA"": 4.0}",4.0,unanimous
@@ -190,7 +190,7 @@ E06000031,E06000031,Peterborough,England,split,EA,0.6,"{""EA"": 0.5, ""EM"": 0.3
 E06000026,E06000026,Plymouth,England,SW,SW,1.0,"{""SW"": 1.5}",1.5,unanimous
 E06000044,E06000044,Portsmouth,England,SO,SO,1.0,"{""SO"": 1.92}",1.92,unanimous
 E07000123,E07000123,Preston,England,NW,NW,1.0,"{""NW"": 0.5}",0.5,unanimous
-E06000038,E06000038,Reading,England,NT,NT,1.0,"{""NT"": 0.25}",0.25,unanimous
+E06000038,E06000038,Reading,England,SO,SO,1.0,"{""NT"": 0.25}",0.25,override: Reading — listed NT; demand check says SO (provisional)
 E09000026,E09000026,Redbridge,England,NT,NT,1.0,"{""NT"": 3.0}",3.0,unanimous
 E06000003,E06000003,Redcar and Cleveland,England,NO,NO,1.0,"{""NO"": 3.33}",3.33,unanimous
 E07000236,E07000236,Redditch,England,WM,WM,1.0,"{""WM"": 0.33}",0.33,unanimous
@@ -213,7 +213,7 @@ E08000014,E08000014,Sefton,England,NW,NW,1.0,"{""NW"": 1.75}",1.75,unanimous
 E07000111,E07000111,Sevenoaks,England,SE,SE,1.0,"{""SE"": 2.27}",2.27,unanimous
 E08000019,E08000039,Sheffield,England,split,EM,0.6,"{""EM"": 0.5, ""NE"": 0.33}",0.83,split
 E06000051,E06000051,Shropshire,England,split,WM,0.63,"{""WM"": 8.5, ""WN"": 5.0}",13.5,split
-E06000039,E06000039,Slough,England,NT,NT,1.0,"{""NT"": 0.33}",0.33,unanimous
+E06000039,E06000039,Slough,England,SO,SO,1.0,"{""NT"": 0.33}",0.33,override: Slough — listed NT; demand check says SO (provisional)
 E08000029,E08000029,Solihull,England,WM,WM,1.0,"{""WM"": 1.06}",1.06,unanimous
 E06000066,E06000066,Somerset,England,SW,SW,1.0,"{""SW"": 28.0}",28.0,unanimous
 E07000012,E07000012,South Cambridgeshire,England,EA,EA,,{},0.0,nearest_town_15km
@@ -245,7 +245,7 @@ E08000024,E08000024,Sunderland,England,NO,NO,1.0,"{""NO"": 1.87}",1.87,unanimous
 E07000214,E07000214,Surrey Heath,England,NT,NT,0.932,"{""NT"": 3.42, ""SO"": 0.25}",3.67,majority
 E09000029,E09000029,Sutton,England,SE,SE,0.967,"{""SE"": 4.14, ""NT"": 0.14}",4.29,majority
 E07000113,E07000113,Swale,England,SE,SE,1.0,"{""SE"": 4.5}",4.5,unanimous
-E06000030,E06000030,Swindon,England,SW,SW,1.0,"{""SW"": 1.0}",1.0,unanimous
+E06000030,E06000030,Swindon,England,SO,SO,1.0,"{""SW"": 1.0}",1.0,override: Swindon — listed SW; demand check says SO (provisional)
 E08000008,E08000008,Tameside,England,NW,NW,1.0,"{""NW"": 3.62}",3.62,unanimous
 E07000199,E07000199,Tamworth,England,WM,WM,1.0,"{""WM"": 0.33}",0.33,unanimous
 E07000215,E07000215,Tandridge,England,SE,SE,1.0,"{""SE"": 4.91}",4.91,unanimous
@@ -285,12 +285,12 @@ E07000245,E07000245,West Suffolk,England,EA,EA,1.0,"{""EA"": 2.5}",2.5,unanimous
 E09000033,E09000033,Westminster,England,NT,NT,1.0,"{""NT"": 1.0}",1.0,unanimous
 E06000064,E06000064,Westmorland and Furness,England,split,NW,0.765,"{""NW"": 13.0, ""NO"": 4.0}",17.0,split
 E08000010,E08000010,Wigan,England,NW,NW,1.0,"{""NW"": 1.5}",1.5,unanimous
-E06000054,E06000054,Wiltshire,England,SW,SW,0.815,"{""SW"": 11.0, ""SO"": 2.5}",13.5,majority
+E06000054,E06000054,Wiltshire,England,SO,SO,1.0,"{""SW"": 11.0, ""SO"": 2.5}",13.5,override: Wiltshire — listed SW; demand check says SO (provisional)
 E07000094,E07000094,Winchester,England,SO,SO,1.0,"{""SO"": 3.25}",3.25,unanimous
-E06000040,E06000040,Windsor and Maidenhead,England,NT,NT,1.0,"{""NT"": 3.92}",3.92,unanimous
+E06000040,E06000040,Windsor and Maidenhead,England,SO,SO,1.0,"{""NT"": 3.92}",3.92,override: Windsor and Maidenhead — listed NT; demand check says SO (provisional)
 E08000015,E08000015,Wirral,England,NW,NW,1.0,"{""NW"": 4.5}",4.5,unanimous
 E07000217,E07000217,Woking,England,NT,NT,1.0,"{""NT"": 1.33}",1.33,unanimous
-E06000041,E06000041,Wokingham,England,NT,NT,1.0,"{""NT"": 2.75}",2.75,unanimous
+E06000041,E06000041,Wokingham,England,SO,SO,1.0,"{""NT"": 2.75}",2.75,override: Wokingham — listed NT; demand check says SO (provisional)
 E08000031,E08000031,Wolverhampton,England,WM,WM,1.0,"{""WM"": 1.92}",1.92,unanimous
 E07000237,E07000237,Worcester,England,SW,SW,1.0,"{""SW"": 0.33}",0.33,unanimous
 E07000229,E07000229,Worthing,England,SE,SE,1.0,"{""SE"": 0.33}",0.33,unanimous

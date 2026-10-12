@@ -1,2 +1,11 @@
 # Manual LDZ decisions for local authorities after review (applied last). Our own.
+# PROVISIONAL: set from the demand check (DESNZ gas use vs National Gas LDZ demand), against the broker
+# lists. To confirm with an authoritative source (e.g. a gas network postcode lookup) before relying on them.
 lad23cd,ldz,reason
+E06000054,SO,Wiltshire — listed SW; demand check says SO (provisional)
+E06000030,SO,Swindon — listed SW; demand check says SO (provisional)
+E06000038,SO,Reading — listed NT; demand check says SO (provisional)
+E06000041,SO,Wokingham — listed NT; demand check says SO (provisional)
+E06000040,SO,Windsor and Maidenhead — listed NT; demand check says SO (provisional)
+E06000039,SO,Slough — listed NT; demand check says SO (provisional)
+E06000036,SO,Bracknell Forest — split NT/SO; demand check says SO (provisional)

@@ -335,7 +335,7 @@ def assign_authorities(towns: pd.DataFrame, lads: pd.DataFrame, overrides: pd.Da
     if overrides is not None and len(overrides):
         for o in overrides.itertuples():
             mask = out["lad23cd"] == o.lad23cd
-            out.loc[mask, ["ldz", "method"]] = [o.ldz, f"override: {o.reason}"]
+            out.loc[mask, ["ldz", "main_ldz", "share", "method"]] = [o.ldz, o.ldz, 1.0, f"override: {o.reason}"]
     return out
 
 
@@ -374,7 +374,8 @@ def build(raw_dir: Path, out_dir: Path = DATA_DIR) -> tuple[pd.DataFrame, pd.Dat
 def _log_summary(towns: pd.DataFrame, las: pd.DataFrame) -> None:
     methods = towns["method"].str.split("+").str[0].value_counts().to_dict()
     logger.info(f"Towns: {len(towns)} — {methods}")
-    la_methods = las["method"].str.replace(r"_\d+km$", "", regex=True).value_counts().to_dict()
+    la_methods = las["method"].str.replace(r"_\d+km$", "", regex=True).str.replace(r"^override:.*", "override", regex=True)
+    la_methods = la_methods.value_counts().to_dict()
     logger.info(f"Local authorities: {len(las)} — {la_methods}")
 
 

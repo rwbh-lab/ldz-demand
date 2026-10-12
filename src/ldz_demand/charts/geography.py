@@ -131,10 +131,12 @@ def _authority_layer(fig, las, view, colours, gap) -> None:
     t = active()
     geo = boundaries.load()
     df = las.copy()
-    df["kind"] = np.select([df["method"] == "split", df["method"].str.startswith("nearest_town")], ["split", "fallback"], "single")
+    df["kind"] = np.select([df["method"] == "split", df["method"].str.startswith("nearest_town"), df["method"].str.startswith("override")],
+                           ["split", "fallback", "override"], "single")
     hover = (df["lad23nm"] + "<br>LDZ: " + df["ldz"] + " (main " + df["main_ldz"] + ")<br>" + df["method"]
              + "<br>votes: " + df["votes"].str.replace('"', ""))
-    line_colour = np.select([df["kind"] == "split", df["kind"] == "fallback"], [t.serious, t.accent], t.surface)
+    line_colour = np.select([df["kind"] == "split", df["kind"] == "fallback", df["kind"] == "override"],
+                            [t.serious, t.accent, t.ink], t.surface)
     line_width = np.where(df["kind"] == "single", 0.4, 1.6)
     common = dict(geojson=geo, featureidkey="id", locations=df["lad23cd"], hovertemplate="%{text}<extra></extra>")
 
@@ -161,7 +163,8 @@ def _authority_layer(fig, las, view, colours, gap) -> None:
                     line=dict(color=line_colour.tolist(), width=line_width.tolist())),
         name="LDZ", showlegend=False))
     # legend entries for the outline meanings (labels on the map carry LDZ identity)
-    for name, colour in (("Split between LDZs (faded)", t.serious), ("No listed town — nearest town's LDZ", t.accent)):
+    for name, colour in (("Split between LDZs (faded)", t.serious), ("No listed town — nearest town's LDZ", t.accent),
+                         ("Manual override (provisional)", t.ink)):
         fig.add_trace(go.Scattergeo(lon=[None], lat=[None], mode="markers", name=name,
                                     marker=dict(symbol="square-open", size=12, color=colour, line=dict(width=2))))
 
