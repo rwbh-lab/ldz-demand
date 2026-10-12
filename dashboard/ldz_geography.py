@@ -78,31 +78,6 @@ def _(las, mo, towns):
 
 @app.cell(hide_code=True)
 def _(mo):
-    view_picker = mo.ui.radio(options={"LDZ": "ldz", "Confidence": "confidence"}, value="LDZ", label="Colour by", inline=True)
-    towns_toggle = mo.ui.switch(value=False, label="Show listed towns")
-    mo.vstack([
-        mo.md(r"""
-        ## 2 · The map
-
-        Each local authority coloured by its LDZ. Neighbouring LDZs always get different colours and
-        every LDZ is labelled, so colour separates and the label identifies. **Split** authorities are
-        faded with a red outline; authorities with no listed town have an orange outline. Switch to
-        *Confidence* to see how decisive each authority's vote was. Hover for the evidence.
-        """),
-        mo.hstack([view_picker, towns_toggle], justify="start", gap=2),
-    ])
-    return towns_toggle, view_picker
-
-
-@app.cell(hide_code=True)
-def _(geo_charts, las, mo, towns, towns_toggle, view_picker):
-    mo.ui.plotly(geo_charts.ldz_map(las, towns if towns_toggle.value else None, view=view_picker.value),
-                 config={"scrollZoom": False})
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
     from ldz_demand.config import create_config
     from ldz_demand.data import ldz_energy as le
     from ldz_demand.data.datasets import NG_LDZ_DAILY, NG_OFFTAKE_DAILY
@@ -118,9 +93,53 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(demand_note, energy, geo_charts, las, mo, use):
+def _(energy, geo_charts, las, use):
     check = geo_charts.membership_check(las, use, energy)
-    _worst = check.loc[check["difference_pp"].abs().idxmax()] if energy is not None else None
+    return (check,)
+
+
+@app.cell(hide_code=True)
+def _(energy, mo):
+    method_picker = mo.ui.radio(options={"Local authority": "authority", "Voronoi (original)": "voronoi"},
+                                value="Local authority", label="Method", inline=True)
+    _views = {"LDZ": "ldz", "Confidence": "confidence"}
+    if energy is not None:
+        _views["Gap vs demand"] = "gap"
+    view_picker = mo.ui.radio(options=_views, value="LDZ", label="Colour by", inline=True)
+    towns_toggle = mo.ui.switch(value=False, label="Show listed towns")
+    mo.vstack([
+        mo.md(r"""
+        ## 2 · The map
+
+        Two ways to turn the town lists into a map:
+
+        - **Local authority** — each authority takes the LDZ its towns vote for (this page's method).
+          **Split** authorities are faded with a red outline; authorities with no listed town have an
+          orange outline. *Confidence* shows how decisive each vote was (local authority method only).
+        - **Voronoi** — the original quant-lib method: every town gets the area closer to it than to any
+          other town, smoothed and merged into LDZs. Boundaries follow the towns rather than
+          administrative lines, so they are noisier — but they can cut through an authority.
+
+        **Gap vs National Gas demand** colours each LDZ by how far its share of GB gas use (under that
+        method) is from its share of measured demand — see §3. Neighbouring LDZs always get different
+        colours and every LDZ is labelled; hover for the evidence.
+        """),
+        mo.hstack([method_picker, view_picker], justify="start", gap=2),
+        towns_toggle,
+    ])
+    return method_picker, towns_toggle, view_picker
+
+
+@app.cell(hide_code=True)
+def _(check, geo_charts, las, method_picker, mo, towns, towns_toggle, view_picker):
+    _view = "ldz" if (view_picker.value == "confidence" and method_picker.value == "voronoi") else view_picker.value
+    mo.ui.plotly(geo_charts.ldz_map(las, towns if towns_toggle.value else None, view=_view,
+                                    method=method_picker.value, check=check), config={"scrollZoom": False})
+    return
+
+
+@app.cell(hide_code=True)
+def _(check, demand_note, energy, geo_charts, mo):
     mo.vstack([
         mo.md(r"""
         ## 3 · Does the map add up?
@@ -132,12 +151,21 @@ def _(demand_note, energy, geo_charts, las, mo, use):
 
         Agreement to within ~1 percentage point is about as close as these sources allow: DESNZ
         leaves out some very large industrial sites and its "years" don't match gas years.
+
+        The two methods are about equally accurate overall but **wrong in different places**. Voronoi
+        handles the SO/SW and EA edges better; the local-authority method handles **London** far
+        better — London's boroughs aren't listed as towns, so Voronoi lets surrounding towns' cells
+        carve the city up and gives much of it to SE.
+
+        **SO is short under both** — by ~2 pp, about 10 TWh a year. The strongest lead is **Wiltshire and
+        Swindon**, listed under SW: worth ~0.9 pp, almost exactly SW's excess. The **Berkshire**
+        authorities the lists put in NT (Reading, Wokingham, Windsor & Maidenhead, Slough, Bracknell)
+        are the next candidates. Both contradict the source lists, so they need an authoritative check
+        before going into `la_overrides.csv`.
         """),
         geo_charts.membership_check_chart(check) if energy is not None else mo.callout(mo.md(
             f"National Gas demand not loaded, so only our map's shares are available. `{demand_note}`"), kind="info"),
-        mo.md(f"Mean gap **{check['difference_pp'].abs().mean():.2f} pp**; largest **{_worst['ldz']} "
-              f"({_worst['difference_pp']:+.2f} pp)** — the first place to look when reviewing split authorities.")
-        if energy is not None else mo.md(""),
+        mo.md(""),
     ])
     return
 
