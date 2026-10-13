@@ -109,18 +109,16 @@ def _(ens, mo, variables):
 
 
 @app.cell(hide_code=True)
-def _(cube, ens, ldz_picker, members_switch, mo, run_date, station_switch, store, variable_picker):
-    from ldz_demand.data.datasets import WEATHER_LDZ_DAILY
-
+def _(cube, ens, ldz_picker, members_switch, mo, run_date, station_switch, variable_picker):
     _ldz, _variable = ldz_picker.value, variable_picker.value
     _compare = ("station", "point") if station_switch.value and _ldz != ens.GB else None
     _note = mo.md("")
     if station_switch.value and _ldz == ens.GB:
         _note = mo.md("*The station comparison is per LDZ — there is no single GB station.*")
     elif _compare is not None:
-        # ERA5 history for this LDZ and variable: the usual station gap in this month
-        _history = store.read(WEATHER_LDZ_DAILY, ldz=_ldz, variable=_variable)
-        _note = mo.callout(mo.md(ens.station_gap_note(ens.station_gap(cube, _ldz, _variable), _history,
+        # the usual station gap for this LDZ and month (ERA5; every LDZ read once, then kept)
+        _note = mo.callout(mo.md(ens.station_gap_note(ens.station_gap(cube, _ldz, _variable),
+                                                      ens.usual_station_gaps(_variable),
                                                       run_date, _ldz, _variable)), kind="neutral")
     mo.vstack([
         mo.ui.plotly(ens.fan_chart(cube, run_date, _ldz, _variable, compare=_compare, show_members=members_switch.value)),

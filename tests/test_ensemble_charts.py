@@ -65,7 +65,10 @@ def test_station_gap_note_puts_the_run_in_context():
     history = pd.DataFrame(
         [{"gas_day": d, "ldz": "WS", "membership": m, "weighting": w, "variable": "t2m", "value": v}
          for d in days for m, w, v in (("station", "point", 10.8), ("sampled", "gas", 10.0))])
-    usual = ens.station_gap_note(gap, history, "2026-10-13", "WS", "t2m")
+    from ldz_demand.charts.weather_ldz import station_offsets
+
+    offsets = station_offsets(history, "t2m")
+    usual = ens.station_gap_note(gap, offsets, "2026-10-13", "WS", "t2m")
     assert "+0.85 °C" in usual and "+0.80 °C" in usual and "where the station is" in usual
-    odd = ens.station_gap_note(gap + 1.0, history, "2026-10-13", "WS", "t2m")
+    odd = ens.station_gap_note(gap + 1.0, offsets, "2026-10-13", "WS", "t2m")
     assert "larger than usual" in odd

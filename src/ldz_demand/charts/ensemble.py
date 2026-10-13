@@ -172,7 +172,7 @@ def asymmetry_chart(da: xr.DataArray, run_date, ldz: str, variable: str, variant
     fig.add_trace(go.Bar(y=a.index, x=upper, orientation="h", name=f"{high_name.title()} side ({centre} to P90)",
                          marker=dict(color=warm), customdata=np.stack([upper, a["kelly"], days, raw_upper], axis=1),
                          hovertemplate=(f"%{{customdata[2]}}: {high_name} side {fmt}"
-                                        "<br>Kelly skewness %{customdata[1]:+.2f}<extra></extra>")))
+                                        "<br>Kelly skewness %{customdata[1]:.2f}<extra></extra>")))
     top = float(np.nanmax(np.r_[lower.to_numpy(), upper.to_numpy(), NORMAL_ARM if scale == "sd" else 0.1])) * 1.1
     if scale == "sd":
         for x in (-NORMAL_ARM, NORMAL_ARM):
@@ -235,10 +235,12 @@ def spread_heatmap(da: xr.DataArray, run_date, variable: str, measure: str = "iq
         z_kw = dict(zmin=0)
         title = f"Spread (P25–P75) by LDZ and lead day — {label.lower()}"
         bar = unit
+    values = table.to_numpy(dtype=float)
+    hover = np.array([[f"{z}, day {k} ({d}): {'no data' if np.isnan(v) else f'{v:+.2f}' if measure == 'kelly' else f'{v:.2f} {unit}'}"
+                       for k, d, v in zip(leads, days, row)] for z, row in zip(table.index, values)], dtype=object)
     fig = go.Figure(go.Heatmap(
-        z=table.to_numpy(), x=leads, y=table.index, colorscale=scale, **z_kw, xgap=2, ygap=2,
-        customdata=np.tile(np.array(days, dtype=object), (len(table), 1)),
-        hovertemplate="%{y}, day %{x} (%{customdata}): %{z:.2f}<extra></extra>",
+        z=values, x=leads, y=table.index, colorscale=scale, **z_kw, xgap=2, ygap=2,
+        customdata=hover, hovertemplate="%{customdata}<extra></extra>",
         colorbar=dict(title=dict(text=bar), outlinewidth=0, thickness=10, len=0.7)))
     fig.update_layout(title=title, height=520, margin=dict(t=64, b=48),
                       xaxis=dict(title="Lead day", tickmode="array", tickvals=leads),
@@ -253,17 +255,31 @@ def station_gap(da: xr.DataArray, ldz: str, variable: str, reference=REFERENCE) 
     return (station - ours).to_series()
 
 
-def station_gap_note(forecast_gap: pd.Series, history, run_date, ldz: str, variable: str) -> str:
+@lru_cache(maxsize=8)
+def usual_station_gaps(variable: str) -> pd.DataFrame:
+    """
+    ERA5's station-minus-reference gap by LDZ and month (weather_ldz_daily): one read for every LDZ,
+    the first time it is needed, then kept. Only the station and sampled variants are read.
+    """
+    from ldz_demand.charts.weather_ldz import station_offsets
+    from ldz_demand.config import create_config
+    from ldz_demand.data.datasets import WEATHER_LDZ_DAILY
+    from ldz_demand.data.store import get_store
+
+    rows = get_store(create_config()).read(WEATHER_LDZ_DAILY, variable=variable, membership=["station", "sampled"])
+    return station_offsets(rows, variable)
+
+
+def station_gap_note(forecast_gap: pd.Series, offsets: pd.DataFrame, run_date, ldz: str, variable: str) -> str:
     """
     One line putting this run's station gap in context: the forecast's average gap over the lead days,
-    against the typical gap for this LDZ and month in ERA5 (history: weather_ldz_daily rows or wide frames).
+    against the typical gap for this LDZ and month in ERA5 (offsets: weather_ldz.station_offsets output).
     """
-    from ldz_demand.charts.weather_ldz import MONTH_NAMES, station_offsets
+    from ldz_demand.charts.weather_ldz import MONTH_NAMES
 
     unit = VARIABLES[variable][1]
     month = pd.Timestamp(run_date).month
-    usual = station_offsets(history, variable)
-    usual = usual[(usual["ldz"] == ldz) & (usual["month"] == month)]
+    usual = offsets[(offsets["ldz"] == ldz) & (offsets["month"] == month)] if len(offsets) else offsets
     gap = float(forecast_gap.mean())
     if usual.empty:
         return f"This run: the station reads {gap:+.2f} {unit} against our gas-weighted {ldz} on average."

@@ -45,3 +45,14 @@ def test_charts_build():
                 ng.cwv_scatter(e, "SE", "2025/26", target="target_repaired"), ng.feed_check(e, "SE"),
                 ng.offtake_share(e)):
         assert fig.data
+
+
+def test_no_plotly_formats_with_a_plus_sign():
+    """Plotly.js 3 (as shipped with marimo) ignores d3 formats with a '+' flag in hover / text templates,
+    showing the raw number; format in Python instead (e.g. f"{v:+.2f}") when a sign is wanted."""
+    import re
+    from pathlib import Path
+
+    charts = Path(__file__).parent.parent / "src" / "ldz_demand" / "charts"
+    hits = [f"{p.name}: {m}" for p in charts.glob("*.py") for m in re.findall(r"%\{\{?[^}]*:\+[^}]*\}", p.read_text())]
+    assert not hits, hits

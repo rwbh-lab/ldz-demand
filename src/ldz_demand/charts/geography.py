@@ -293,7 +293,7 @@ def membership_check_chart(check: pd.DataFrame, methods=("authority",), show_dem
             x=check[f"share_{m}"], y=check["ldz"], mode="markers", name=label,
             marker=dict(size=10, color=t.series[slot], line=dict(width=2, color=t.surface)),
             customdata=check.get(f"gap_{m}", check[f"share_{m}"] * 0),
-            hovertemplate="%{y}: %{x:.2f}% (%{customdata:+.2f} pp)<extra></extra>"))
+            hovertemplate="%{y}: %{x:.2f}% (%{customdata:.2f} pp)<extra></extra>"))
     fig.update_layout(
         title="Each LDZ's share of GB gas: membership methods vs measured demand", xaxis_title="% of GB",
         height=560, hovermode="closest", yaxis=dict(showgrid=False), margin=dict(t=72, b=110),

@@ -100,7 +100,7 @@ def spread_chart(stats: pd.DataFrame, variable: str = "t2m", metric: str = "sd_d
         fig.add_trace(go.Scatter(
             x=s[metric], y=order, mode="markers", name=label(v), marker=_marker(v),
             customdata=s[["mean_diff", "sd_diff", "max_abs_diff", "corr"]].to_numpy(),
-            hovertemplate=(f"%{{y}} · {label(v)}<br>mean offset %{{customdata[0]:+.2f}} {UNITS[variable]}"
+            hovertemplate=(f"%{{y}} · {label(v)}<br>mean offset %{{customdata[0]:.2f}} {UNITS[variable]}"
                            f"<br>SD of daily difference %{{customdata[1]:.2f}}<br>largest %{{customdata[2]:.2f}}"
                            "<br>correlation %{customdata[3]:.4f}<extra></extra>")))
     unit = UNITS[variable]
@@ -127,7 +127,7 @@ def difference_chart(weather: pd.DataFrame, ldz: str, variants: list[tuple[str, 
         fig.add_trace(go.Scatter(x=diff.index, y=diff, mode="lines", name=label(v),
                                  line=dict(color=_colour(v[0]), width=2 if v[1] == "gas" else 1.5,
                                            dash="solid" if v[1] != "area" else "dot"),
-                                 hovertemplate=f"%{{x|%d %b %Y}}: %{{y:+.2f}} {UNITS[variable]}<extra>{label(v)}</extra>"))
+                                 hovertemplate=f"%{{x|%d %b %Y}}: %{{y:.2f}} {UNITS[variable]}<extra>{label(v)}</extra>"))
     fig.update_layout(title=f"{ldz}: daily difference from {label(reference)} ({UNITS[variable]})",
                       yaxis_title=UNITS[variable], height=480, hovermode="x unified", margin=dict(t=64, b=40),
                       xaxis=dict(rangeslider=dict(visible=True, thickness=0.06)),
@@ -226,13 +226,16 @@ def station_offset_chart(offsets: pd.DataFrame, variable: str = "t2m", reference
     mean, sd = mean.loc[order], sd.loc[order]
     limit = max(0.5, float(np.nanmax(np.abs(mean.to_numpy()))))
     stops = t.diverging
+    # labels and hover text formatted here: the page's Plotly doesn't apply number formats to heatmap values
+    cells = np.vectorize(lambda v: "" if np.isnan(v) else f"{v:+.1f}")(mean.to_numpy(dtype=float))
+    hover = np.vectorize(lambda m, d: "no data" if np.isnan(m) else
+                         f"station {m:+.2f} {unit} vs {label(reference)} (day to day ±{d:.2f})")(
+        mean.to_numpy(dtype=float), sd.to_numpy(dtype=float))
     fig = go.Figure(go.Heatmap(
         z=mean.to_numpy(), x=[MONTH_NAMES[m] for m in mean.columns], y=mean.index, zmin=-limit, zmax=limit, zmid=0,
         colorscale=[[i / (len(stops) - 1), c] for i, c in enumerate(stops)], xgap=2, ygap=2,
-        text=mean.to_numpy(), texttemplate="%{text:+.1f}", textfont=dict(size=11),
-        customdata=sd.to_numpy(),
-        hovertemplate=f"%{{y}}, %{{x}}: station %{{z:+.2f}} {unit} vs {label(reference)} "
-                      f"(day to day ±%{{customdata:.2f}})<extra></extra>",
+        text=cells, texttemplate="%{text}", textfont=dict(size=11),
+        customdata=hover, hovertemplate="%{y}, %{x}: %{customdata}<extra></extra>",
         colorbar=dict(title=dict(text=unit), outlinewidth=0, thickness=10, len=0.7)))
     fig.update_layout(title=f"Official station minus {label(reference)}, average by month ({unit})",
                       height=520, margin=dict(t=64, b=48), yaxis=dict(autorange="reversed"),
