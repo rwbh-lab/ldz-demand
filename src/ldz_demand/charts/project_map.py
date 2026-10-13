@@ -233,7 +233,9 @@ function light(nodeIds, edgeIds) {
   });
 }
 
+let moved = false;  // once dragged, the panel stays where it was put
 function place(x) {  // open the panel on the side away from what was clicked
+  if (moved) return;
   const left = x > svg.viewBox.baseVal.width / 2;
   panel.style.left = left ? '8px' : 'auto';
   panel.style.right = left ? 'auto' : '8px';
@@ -300,6 +302,23 @@ body.addEventListener('click', ev => {
 });
 document.getElementById('close').addEventListener('click', clear);
 
+// drag the panel by its top strip, kept inside the map
+const handle = document.getElementById('handle'), MIN_PANEL = 160;
+handle.addEventListener('pointerdown', ev => {
+  ev.preventDefault();
+  const wrap = panel.offsetParent.getBoundingClientRect(), r = panel.getBoundingClientRect();
+  const dx = ev.clientX - r.left, dy = ev.clientY - r.top;
+  handle.setPointerCapture(ev.pointerId);
+  handle.onpointermove = e => {
+    const x = Math.min(Math.max(0, e.clientX - wrap.left - dx), wrap.width - r.width);
+    const y = Math.min(Math.max(0, e.clientY - wrap.top - dy), Math.max(0, wrap.height - MIN_PANEL));
+    // lower down, the panel shrinks to the space left and scrolls inside
+    Object.assign(panel.style, {left: x + 'px', top: y + 'px', right: 'auto', maxHeight: (wrap.height - y - 8) + 'px'});
+    moved = true;
+  };
+  handle.onpointerup = () => { handle.onpointermove = null; };
+});
+
 // the map scales to the frame's width, so the frame follows the page's height
 function fit() {
   try { const f = window.frameElement; if (f) f.style.height = Math.ceil(document.body.getBoundingClientRect().height) + 'px'; } catch (e) {}
@@ -334,7 +353,7 @@ svg.focus .node.on .box {{ stroke: {theme.accent}; stroke-width: 1.5; }}
 svg.focus .edge.on .line {{ stroke: {theme.accent}; stroke-width: 2.5; }}
 #panel {{ position: absolute; top: 8px; right: 8px; width: min(380px, calc(100% - 16px)); max-height: calc(100% - 16px);
   overflow: auto; box-sizing: border-box; background: {theme.surface}; border: 1px solid {theme.axis};
-  border-radius: 8px; padding: 14px 16px; box-shadow: 0 8px 28px rgba(0,0,0,.35); font-size: 13px; line-height: 1.45; }}
+  border-radius: 8px; padding: 18px 16px 14px; box-shadow: 0 8px 28px rgba(0,0,0,.35); font-size: 13px; line-height: 1.45; }}
 #panel h2 {{ margin: 2px 0 6px; font-size: 16px; }}
 #panel h3 {{ margin: 12px 0 4px; font-size: 11px; color: {theme.muted}; text-transform: uppercase; letter-spacing: .05em; }}
 #panel p {{ margin: 4px 0; color: {theme.ink_2}; }}
@@ -347,6 +366,10 @@ svg.focus .edge.on .line {{ stroke: {theme.accent}; stroke-width: 2.5; }}
 #panel pre {{ background: {theme.page}; border: 1px solid {theme.grid}; border-radius: 6px; padding: 8px; overflow-x: auto;
   white-space: pre; margin: 4px 0; }}
 #panel a {{ color: {theme.accent}; }}
+#handle {{ position: absolute; top: 0; left: 0; right: 32px; height: 14px; cursor: move; touch-action: none; }}
+#handle::after {{ content: ""; position: absolute; left: 50%; top: 5px; width: 36px; height: 4px; margin-left: -18px;
+  border-radius: 2px; background: {theme.axis}; }}
+#handle:hover::after {{ background: {theme.muted}; }}
 #close {{ position: absolute; top: 8px; right: 10px; background: none; border: 0; color: {theme.muted}; font-size: 18px;
   cursor: pointer; line-height: 1; }}
 #close:hover {{ color: {theme.ink}; }}
@@ -366,7 +389,8 @@ def html_page(theme: style.Theme | None = None) -> str:
             f'<p class="hint">Click a box for what\'s in it and everything it feeds or is fed by; click an arrow for '
             f'the process behind it. Dashed: planned. Esc clears.</p>'
             f'<div class="wrap">{_svg(lay, theme)}'
-            f'<aside id="panel" hidden><button id="close" aria-label="Close">×</button><div id="body"></div></aside></div>'
+            f'<aside id="panel" hidden><div id="handle" title="Drag to move"></div>'
+            f'<button id="close" aria-label="Close">×</button><div id="body"></div></aside></div>'
             f'<script type="application/json" id="spec">{spec}</script><script>{_SCRIPT}</script></body></html>')
 
 
