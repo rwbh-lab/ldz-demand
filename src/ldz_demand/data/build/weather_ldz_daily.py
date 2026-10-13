@@ -73,8 +73,20 @@ def ldz_weather(daily: xr.Dataset, weights: pd.DataFrame) -> pd.DataFrame:
     out = pd.concat(frames, ignore_index=True)
     bad = out["value"].isna()
     if bad.any():
-        logger.warning(f"{bad.sum()} LDZ values are NaN (missing ERA5 cells) and are dropped")
+        missing = out[bad]
+        detail = ", ".join(f"{v} on {d}" for v, d in sorted(
+            missing.groupby("variable")["gas_day"].agg(lambda g: _days(g)).items()))
+        if set(missing["variable"]) <= {"ssrd", "tp"}:  # expected at the edge of the extra files
+            logger.info(f"Skipped {bad.sum()} LDZ values without complete data ({detail}): solar radiation / "
+                        "precipitation need the ERA5 extra files for every hour of the gas day")
+        else:
+            logger.warning(f"Skipped {bad.sum()} LDZ values with missing ERA5 values ({detail})")
     return out[~bad]
+
+
+def _days(gas_days: pd.Series) -> str:
+    days = sorted(pd.DatetimeIndex(gas_days.unique()).date)
+    return f"{days[0]}" if len(days) == 1 else f"{len(days)} gas days {days[0]}..{days[-1]}"
 
 
 class WeatherLdzDailyBuilder:
