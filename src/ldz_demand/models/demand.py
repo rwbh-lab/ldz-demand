@@ -98,6 +98,7 @@ class Fit:
     breaks: tuple = ()
     shape: np.ndarray | None = None  # calendar shape coefficients after the first (shared by the LDZs fitted together)
     summer: bool = False             # summer level term (weather fits)
+    cold: str = "fitted"             # cold-end form (cwv.COLD)
 
 
 def _design(x: np.ndarray, cal: pd.DataFrame, breaks=(), summer: np.ndarray | None = None) -> tuple[np.ndarray, list[str]]:
@@ -140,9 +141,10 @@ def _seasonal(t, gas_days, p: cwv.CWVParams, seasonal: str, shape=None, h=None):
 
 
 def fit_weather(frame: pd.DataFrame, train: np.ndarray, ldz: str, seasonal: str = "none", breaks=(),
-                weights: np.ndarray | None = None, summer: bool = False) -> Fit:
+                weights: np.ndarray | None = None, summer: bool = False, cold: str = "fitted") -> Fit:
     """frame: consecutive gas days with t2m, ws10, ssrd, target. Fits on rows where train is True."""
-    return fit_joint({ldz: (frame, train)}, seasonal, breaks, None if weights is None else {ldz: weights}, summer)[ldz]
+    return fit_joint({ldz: (frame, train)}, seasonal, breaks, None if weights is None else {ldz: weights}, summer,
+                     cold)[ldz]
 
 
 def recency_weights(gas_days, train: np.ndarray, half_life: float) -> np.ndarray:
@@ -153,27 +155,29 @@ def recency_weights(gas_days, train: np.ndarray, half_life: float) -> np.ndarray
 
 
 def fit_joint(data: dict[str, tuple[pd.DataFrame, np.ndarray]], seasonal: str = "none", breaks=(),
-              weights: dict[str, np.ndarray] | None = None, summer: bool = False) -> dict[str, Fit]:
+              weights: dict[str, np.ndarray] | None = None, summer: bool = False,
+              cold: str = "fitted") -> dict[str, Fit]:
     """
     Fit several LDZs in one problem: each has its own CWV parameters and linear terms; with the
     "calendar" seasonal term they share the day-of-year shape. Each LDZ's residuals are divided by its
     robust scale, so the large LDZs don't decide the shape. weights: per LDZ, per day (all rows of the
     frame), multiplying each day's share of the loss.
     """
-    names = cwv.free_names(seasonal)
+    names = cwv.free_names(seasonal, cold)
     k, n_shape = len(names), 2 * HARMONICS - 1 if "calendar" in seasonal else 0
     blocks = []
     for ldz, (frame, train) in data.items():
         t, w, sr = _inputs(frame)
-        lo, hi = cwv.bounds(ldz, names)
+        lo, hi = cwv.bounds(ldz, names, cold)
+        base = cwv.fixed_values(ldz, cold)
         blocks.append(dict(ldz=ldz, t=t, w=w, sr=sr, y=frame["target"].to_numpy(dtype=float), train=train,
                            cal=calendar.features(frame.index, ldz), days=frame.index, lo=lo, hi=hi,
-                           p0=np.clip(cwv.start(ldz).vector(names), lo, hi),
+                           p0=np.clip(base.vector(names), lo, hi), base=base,
                            sw=np.sqrt(weights[ldz][train]) if weights else 1.0,
                            h=harmonics(frame.index) if n_shape else None))
 
     def x_of(b, p_vec, shape):
-        p = cwv.CWVParams.from_vector(p_vec, names)
+        p = cwv.CWVParams.from_vector(p_vec, names, b["base"])
         s, g = _seasonal(b["t"], b["days"], p, seasonal, shape, b["h"])
         cw = composite_weather(b["t"], b["w"], b["sr"], p, s, g)
         return _design(transform(cw, p), b["cal"], breaks, summer_weight(cw, p) if summer else None)[0]
@@ -207,8 +211,8 @@ def fit_joint(data: dict[str, tuple[pd.DataFrame, np.ndarray]], seasonal: str = 
                         jac_sparsity=sparsity if len(blocks) > 1 else None, max_nfev=3000)
     columns = _design(np.zeros(1), blocks[0]["cal"].iloc[:1], breaks, np.zeros(1) if summer else None)[1]
     shape = res.x[:n_shape] if n_shape else None
-    return {b["ldz"]: Fit("weather", b["ldz"], res.x[bs], columns, cwv.CWVParams.from_vector(res.x[ps], names),
-                          bool(res.success), int(b["train"].sum()), seasonal, tuple(breaks), shape, summer)
+    return {b["ldz"]: Fit("weather", b["ldz"], res.x[bs], columns, cwv.CWVParams.from_vector(res.x[ps], names, b["base"]),
+                          bool(res.success), int(b["train"].sum()), seasonal, tuple(breaks), shape, summer, cold)
             for b, (ps, bs) in zip(blocks, slices)}
 
 

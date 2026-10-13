@@ -17,6 +17,7 @@ Last updated: 13 October 2026.
 | Seasonal term | **a day-of-year shape shared by all LDZs** (slow heating-season temperature a close second) | cuts GB RMSE from 54.5 to 46.8 GWh/day; −21% on the coldest days (exp. 3) |
 | Change over time | **level and slope per gas year, latest year forward** (provisional) | best or near-best in both forward years (exp. 4) |
 | Against the official CWV | ours is better, mostly in the cold | GB coldest days 64.7 vs 92.6 GWh/day (exp. 3) |
+| Against National Gas's day-ahead forecasts | level on average, better in winter, worse in summer (not yet like for like) | GB winter 2.2% vs 3.2–3.6% per gas day |
 
 Current model, per LDZ: demand = a + b · CWV + day of week + bank holiday + Christmas, with a and b
 allowed to change each gas year; CWV from gas-weighted ERA5 temperature, wind and solar, with the
@@ -192,11 +193,81 @@ The shoulder months remain the model's weakest point, shared in spring with the 
 
 ---
 
+## Follow-up: the cold end
+
+*Is the cold-weather upturn right, and why did 2025/26's coldest days favour the model without a
+seasonal term?* Gas-weighted input, calendar shape, four forms of the upturn (methodology §5.5):
+fitted as now (V0 and I3 free, I3 ≤ max(0.4, 2 × published)); "strong" (I3 up to 1.5); linear (no
+upturn); the published V0 and I3. All five gas years, so 2025/26 is included (no official benchmark).
+
+GB RMSE in GWh/day:
+
+| Upturn | Held out: all | Held out: coldest | Forward (per year): all | Forward: coldest |
+|---|---|---|---|---|
+| **fitted** | **47.7** | **68.1** | **48.4** | **65.2** |
+| strong | 47.7 | 68.4 | 48.4 | 65.3 |
+| published | 48.8 | 70.2 | 49.5 | 66.8 |
+| linear (none) | 49.4 | 75.4 | 50.0 | 72.2 |
+| *no seasonal term, fitted upturn* | 56.5 | 76.1 | 55.3 | 76.1 |
+
+- **The upturn is real:** without it, cold-day errors are 10% higher.
+- **Fitted beats published**, and allowing a stronger one changes nothing — the bound isn't binding.
+  Fitted, it starts at a CW of about 7–8 with I3 about 0.25; published, 1–5 and 0.02–0.34.
+- **Extreme cold can't be calibrated from five years.** Below −2 °C (gas-weighted) there are only
+  10–18 LDZ-days per year, and the error there changes sign between years (+5.4, −7.3, −5.9 GWh/day
+  per LDZ-day in 2023/24 – 2025/26, forward). Treat forecasts for such days with caution.
+- **2025/26 is a level effect, not the upturn.** The calendar model's extra under-prediction in
+  2025/26 is on ordinary cold days, 0 – 4 °C (−3.5 against −1.1 GWh/day per LDZ-day without a
+  seasonal term), not at the extreme; the "coldest 5%" are mostly such days. It is the same higher
+  2025/26 winter level seen in the shoulder-month follow-up.
+
+Kept: the fitted upturn, as is.
+
+---
+
+## Against National Gas's day-ahead forecasts
+
+*How does the model compare with the forecasts National Gas actually publishes* — not the official
+CWV regressed on demand, but their total-demand forecast per LDZ (`ng_forecast_daily`)? Their first
+day-ahead issue (12:58 on D−1) against our best model (per gas year, scored forward), both on total
+demand in GWh: ours is our prediction plus the actual DM, so its error is the same as on our target.
+Run with `python -m ldz_demand.models.benchmark`. GB needs all 13 LDZs, so 2023/24 drops out (SE).
+
+GB, absolute % error per gas day on total demand, and RMSE in GWh/day:
+
+| | 2024/25 NG | 2024/25 ours | 2025/26 NG | 2025/26 ours |
+|---|---|---|---|---|
+| All days | 3.6% | 3.5% | 3.3% | 3.4% |
+| Winter (Nov – Mar) | 3.6% | **2.2%** | 3.2% | **2.2%** |
+| Summer | **3.6%** | 4.4% | **3.4%** | 4.3% |
+| RMSE, all days | 61.6 | **51.6** | 56.8 | **45.1** |
+
+(Percentages are lower than on our target, as total demand includes DM.)
+
+**Not like for like, in two directions:**
+
+- **Weather — in our favour:** ours uses actual weather, theirs a day-ahead forecast. At day-ahead
+  this matters little: their forecast CWV is 0.31 °C RMSE from the actual, and removing the part of
+  their error that follows it lowers their LDZ RMSE by only 1 – 13%.
+- **DM — in theirs:** their forecast is total demand, so includes forecasting DM; ours uses the actual
+  DM. Their DM forecasts aren't published, so this can't be separated; it may explain their much larger
+  errors in SE (RMSE 12.2 against our 5.7 GWh/day) and WS (7.0 against 2.5).
+
+**Findings:**
+
+- **Winter: ours is clearly better,** 2.2% against 3.2 – 3.6% per gas day.
+- **Summer: theirs is better,** 3.4 – 3.6% against 4.3 – 4.4% — the shoulder-month weakness again.
+- **Overall: level on % error, lower RMSE for ours** (the RMSE is dominated by high-demand days).
+- **The like-for-like test** is our model on the ECMWF ensemble at the same issue time; it needs an
+  ensemble archive covering at least one winter (the backfill).
+
+---
+
 ## Open
 
 - **Shoulder months** (see above): spring 2025 in particular.
-- **Cold end:** 2025/26's coldest days favoured no seasonal term; few cold days in five years
-  (methodology §5.5).
+- **Winter 2025/26 level:** demand above every model's forecast in ordinary cold days; watch 2026/27.
 - **Remaining experiments:** variables (2), gas-day averaging (5), target A vs B (6) — B would give
   SE its 2022/23 days.
-- **Against National Gas's forecasts** (methodology §7), once the model is run on the ensemble.
+- **Against National Gas's forecasts, like for like** — our model on the ensemble (needs the archive
+  backfill).

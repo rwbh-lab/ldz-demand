@@ -71,6 +71,7 @@ class Model:
     per_year: bool = False           # a level / slope per gas year (forward scheme: the latest is used)
     half_life: float | None = None   # recency weighting of training days, years
     summer: bool = False             # a summer level, changing at each break like the rest
+    cold: str = "fitted"             # cold-end form (cwv.COLD)
 
 
 MODELS = {  # experiment -> models
@@ -176,9 +177,9 @@ def run(frames: dict[str, pd.DataFrame], ldzs=LDZS, models=None, scheme: str = "
                 fits = {ldz: demand.fit_official(d, tr, ldz, breaks) for ldz, (d, tr, _) in folds.items()}
             elif "calendar" in seasonal:  # one shape shared by the LDZs: fitted together
                 fits = demand.fit_joint({ldz: (d, tr) for ldz, (d, tr, _) in folds.items()}, seasonal, breaks, weights,
-                                        m.summer)
+                                        m.summer, m.cold)
             else:
-                fits = {ldz: demand.fit_weather(d, tr, ldz, seasonal, breaks, weights and weights[ldz], m.summer)
+                fits = {ldz: demand.fit_weather(d, tr, ldz, seasonal, breaks, weights and weights[ldz], m.summer, m.cold)
                         for ldz, (d, tr, _) in folds.items()}
             for ldz, (data, _, test) in folds.items():
                 fit = fits[ldz]

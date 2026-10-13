@@ -26,7 +26,7 @@ bounds come from the published 2025 parameters (converted to our units). V2 is p
 so it stays above V1.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
@@ -53,9 +53,25 @@ NAMES = ("y", "I2", "W0", "T0", "S0", "V0", "I3", "V1", "dV", "q")
 SEASONAL = {"none": (), "slow": ("I1", "ys"), "calendar": ("Sc",), "slow_calendar": ("I1", "ys", "Sc")}  # seasonal term -> extra parameters
 
 
-def free_names(seasonal: str = "none") -> tuple[str, ...]:
-    """The parameters fitted for this seasonal term (the rest keep their defaults)."""
-    return NAMES + SEASONAL[seasonal]
+COLD = {  # cold-end form -> parameters held fixed (from `fixed_values`)
+    "fitted": (),                  # V0, I3 fitted, I3 <= max(0.4, 2 x published)
+    "strong": (),                  # as fitted, I3 up to 1.5
+    "linear": ("V0", "I3"),        # no upturn: I3 = 0
+    "published": ("V0", "I3"),     # the published upturn
+}
+
+
+def free_names(seasonal: str = "none", cold: str = "fitted") -> tuple[str, ...]:
+    """The parameters fitted for this seasonal term and cold-end form (the rest are fixed)."""
+    return tuple(n for n in NAMES + SEASONAL[seasonal] if n not in COLD[cold])
+
+
+def fixed_values(ldz: str, cold: str = "fitted") -> "CWVParams":
+    """Start values, with the cold-end parameters this form holds fixed."""
+    p = start(ldz)
+    if cold == "linear":
+        return replace(p, I3=0.0)
+    return p  # "published": start() already holds the published V0, I3
 
 
 @dataclass(frozen=True)
@@ -82,8 +98,10 @@ class CWVParams:
         return np.array([getattr(self, n) for n in names], dtype=float)
 
     @classmethod
-    def from_vector(cls, v, names=NAMES) -> "CWVParams":
-        return cls(**dict(zip(names, map(float, v))))
+    def from_vector(cls, v, names=NAMES, base: "CWVParams | None" = None) -> "CWVParams":
+        """From values for `names`; any others from `base` (or the defaults)."""
+        values = dict(zip(names, map(float, v)))
+        return replace(base, **values) if base is not None else cls(**values)
 
 
 def start(ldz: str) -> CWVParams:
@@ -94,7 +112,7 @@ def start(ldz: str) -> CWVParams:
                      V0=p["V0"], I3=p["I3"], V1=p["V1"], dV=p["V2"] - p["V1"], q=p["q"], I1=p["I1"])
 
 
-def bounds(ldz: str, names=NAMES) -> tuple[np.ndarray, np.ndarray]:
+def bounds(ldz: str, names=NAMES, cold: str = "fitted") -> tuple[np.ndarray, np.ndarray]:
     """(lower, upper) per parameter. The cold-weather upturn strength is held near the published values,
     as five years have few cold days; the rest is free within physically sensible ranges. V0 and T0 were
     first bounded more tightly (published V0 ± 2, T0 ≤ 25) and sat on those bounds in most fits."""
@@ -102,5 +120,7 @@ def bounds(ldz: str, names=NAMES) -> tuple[np.ndarray, np.ndarray]:
     lo = dict(y=0.05, I2=0.0, W0=-10.0, T0=5.0, S0=-0.05, V0=p["V0"] - 3.0, I3=0.0, V1=8.0, dV=0.5, q=0.0,
               I1=0.2, ys=0.85, Sc=-8.0)
     hi = dict(y=0.95, I2=0.2, W0=15.0, T0=35.0, S0=0.05, V0=p["V0"] + 6.0, I3=max(0.4, 2 * p["I3"]), V1=22.0,
-              dV=12.0, q=1.0, I1=1.0, ys=0.98, Sc=8.0)  # ys 0.85-0.98: a time constant of about 1 week to 2 months
+              dV=12.0, q=1.0, I1=1.0, ys=0.98, Sc=8.0)
+    if cold == "strong":
+        hi["I3"] = 1.5  # ys 0.85-0.98: a time constant of about 1 week to 2 months
     return np.array([lo[n] for n in names]), np.array([hi[n] for n in names])
