@@ -252,6 +252,9 @@ python -m ldz_demand.data.build.weather_ldz_daily --since 2026-08  # that month 
 
 - Uses the committed cell weights (`ldz_demand/geo/data/ldz_cell_weights.csv`, rebuilt by
   `python -m ldz_demand.geo build`). If you change `[era5] area`, rebuild the weights first.
+- Variables per gas day: mean temperature, wind and solar radiation; lowest and highest hourly
+  temperature; total precipitation. Solar radiation and precipitation need the ERA5 extra files
+  (`refresh --group extra`); rebuild after downloading them.
 - Safe to rerun: rows are replaced. Rerun after `refresh` so preliminary (ERA5T) days are replaced by
   final ERA5 once it arrives; the `source` column says which each day is.
 
@@ -290,6 +293,9 @@ python -m ldz_demand.data.build.ens_ldz_daily --since 2026-10-10  # every run fr
   steps cover: 24 (23 / 25 at the clock changes), and 22 on lead day 14, which ends a few hours
   after the last step.
 - **Lead day 0** is the run's own gas day: it started a few hours before the run was published.
+- **Solar radiation, precipitation, extremes** describe each step's period: solar radiation is averaged
+  over the periods' hours in the gas day, precipitation summed pro rata, and `tmin` / `tmax` taken over
+  the periods at least half inside it.
 - The gridded runs stay archived, so the table can be rebuilt with another method or variant.
 
 #### Daily on a Synology NAS (Container Manager)
@@ -391,13 +397,14 @@ Key: `(gas_day, ldz, membership, weighting, variable)`.
 | `ldz` | str | |
 | `membership` | str | `authority`, `voronoi`, `hybrid`, `sampled` (map methods), or `station` |
 | `weighting` | str | `area`, `gas` (DESNZ gas use), or `point` (station) |
-| `variable` | str | `t2m` (2 m temperature), `ws10` (10 m wind speed) |
-| `value` | float | gas-day mean |
-| `unit` | str | `degC`, `m s-1` |
+| `variable` | str | `t2m` (2 m temperature, mean), `ws10` (10 m wind speed, mean), `tmin` / `tmax` (lowest / highest hourly temperature), `ssrd` (surface solar radiation, mean), `tp` (precipitation, total) |
+| `value` | float | gas-day value: mean, minimum / maximum or total, by variable |
+| `unit` | str | `degC`, `m s-1`, `W m-2`, `mm` |
 | `source` | str | `era5` (final) or `era5t` (preliminary) |
 
 **`weather_ldz_hourly`** — the hourly series behind `weather_ldz_daily`, detail variants only.
-Key: `(time, ldz, membership, weighting, variable)`; `time` is the ERA5 hour (UTC). Other columns as
+Key: `(time, ldz, membership, weighting, variable)`; `time` is the ERA5 hour (UTC). Variables `t2m`,
+`ws10` at the hour; `ssrd` (mean W m⁻²) and `tp` (mm) over the hour ending then. Other columns as
 `weather_ldz_daily`.
 
 **`ens_ldz_daily`** — one row per run × member × gas day × LDZ × variant × variable × method.
@@ -409,7 +416,8 @@ Key: `(run_date, run_hour, member, gas_day, ldz, membership, weighting, variable
 | `member` | int | 1–50 |
 | `gas_day`, `lead_days` | date, int | `lead_days = gas_day − run_date`, 0–14 |
 | `ldz`, `membership`, `weighting`, `variable` | str | As `weather_ldz_daily` (detail variants) |
-| `method` | str | Gas-day averaging: `flat` |
+| `variable` | str | As `weather_ldz_daily`: `t2m`, `ws10`, `tmin`, `tmax`, `ssrd`, `tp` (runs archived before 2026-10-13: `t2m`, `ws10` only) |
+| `method` | str | Gas-day averaging for `t2m` / `ws10`: `flat` |
 | `value`, `unit` | float, str | |
 | `coverage_h` | float | Hours of the gas day the forecast steps cover |
 

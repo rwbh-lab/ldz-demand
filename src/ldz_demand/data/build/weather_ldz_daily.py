@@ -2,9 +2,11 @@
 Builds weather_ldz_daily: ERA5 gas-day weather per LDZ, for every membership x weighting variant.
 
 For each month in the ERA5 archive: hourly fields (that month plus the next, so the month's last gas
-day is complete) -> gas-day means (wind speed is computed hourly, before averaging) -> one weighted
-mean per LDZ and variant, with the cell weights in geo/data/ldz_cell_weights.csv (see
-ldz_demand.geo.grid_weights). Rows are written with replace, so rebuilding is safe and idempotent;
+day is complete) -> gas-day statistics per cell (gas_day.DAILY_STATS: means of temperature, wind and
+solar radiation, the minimum and maximum hourly temperature, total precipitation; wind speed is
+computed hourly, before averaging) -> one weighted mean per LDZ and variant, with the cell weights in
+geo/data/ldz_cell_weights.csv (see ldz_demand.geo.grid_weights). Solar radiation and precipitation
+need the ERA5 "extra" files; days without them have temperature and wind only. Rows are written with replace, so rebuilding is safe and idempotent;
 a month whose preliminary ERA5T data has since gone final is simply rebuilt.
 
 Run as a script:
@@ -22,14 +24,17 @@ import pandas as pd
 import xarray as xr
 
 from ldz_demand.config import create_config, resolve_path
-from ldz_demand.data.build.gas_day import gas_day_labels, gas_day_means
+from ldz_demand.data.build.gas_day import gas_day_labels, gas_day_stats
 from ldz_demand.data.datasets import WEATHER_LDZ_DAILY
 from ldz_demand.data.ingest.era5 import FINAL_NAME, load_hourly, month_files
 from ldz_demand.data.store import Store, get_store
 
 logger = logging.getLogger(__name__)
 
-VARIABLES = {"t2m": "degC", "ws10": "m s-1"}
+VARIABLES = {"t2m": "degC", "ws10": "m s-1", "tmin": "degC", "tmax": "degC", "ssrd": "W m-2", "tp": "mm"}
+# the cell weights to use for each variable (the weights table has temperature and wind; WM takes its
+# wind from a different station): everything that isn't wind uses the temperature weights
+WEIGHTS_FOR = {"ws10": "ws10"}
 KEY = ["ldz", "membership", "weighting"]
 
 
@@ -42,7 +47,7 @@ def weight_arrays(weights: pd.DataFrame, lats, lons) -> dict[str, tuple[pd.DataF
         raise ValueError(f"cell weights reach outside the ERA5 grid (e.g. {sorted(missing)[:3]}); rebuild the weights")
     out = {}
     for variable in VARIABLES:
-        w = weights[weights["variable"] == variable]
+        w = weights[weights["variable"] == WEIGHTS_FOR.get(variable, "t2m")]
         keys = w[KEY].drop_duplicates().reset_index(drop=True)
         k_index = {tuple(k): i for i, k in enumerate(keys.itertuples(index=False))}
         arr = np.zeros((len(keys), len(lats), len(lons)))
@@ -57,6 +62,8 @@ def ldz_weather(daily: xr.Dataset, weights: pd.DataFrame) -> pd.DataFrame:
     arrays = weight_arrays(weights, daily["latitude"].values, daily["longitude"].values)
     frames = []
     for variable, unit in VARIABLES.items():
+        if variable not in daily:
+            continue
         keys, w = arrays[variable]
         values = np.einsum("dij,kij->dk", daily[variable].transpose("gas_day", "latitude", "longitude").values, w)
         frame = pd.DataFrame(values, index=pd.DatetimeIndex(daily["gas_day"].values, name="gas_day"),
@@ -107,7 +114,7 @@ class WeatherLdzDailyBuilder:
         files = files or month_files(self.raw_dir)
         following = str(pd.Period(month, freq="M") + 1)
         hourly = load_hourly(self.raw_dir, month, following if following in files else month)
-        daily = gas_day_means(hourly)
+        daily = gas_day_stats(hourly)
         in_month = pd.DatetimeIndex(daily["gas_day"].values).to_period("M") == pd.Period(month, freq="M")
         daily = daily.isel(gas_day=in_month)
         if daily.sizes["gas_day"] == 0:

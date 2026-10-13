@@ -2,10 +2,14 @@
 Builds ens_ldz_daily: ECMWF ensemble gas-day forecast weather per LDZ, member by member.
 
 For each archived run (raw_dir/ecmwf_ens): the forecast steps of every member -> LDZ means with the
-same cell weights as weather_ldz_daily (only the [ldz_weather] detail_variants) -> gas-day means.
+same cell weights as weather_ldz_daily (only the [ldz_weather] detail_variants) -> gas-day values.
 The steps are 3-hourly to day 6 and 6-hourly after, so a gas day has 8 or 4 samples (one day has
-both); method "flat" weights each sample by the time it stands for, and coverage_h records the hours
-of the gas day the steps cover (lead day 14 ends a few hours after the last step). Lead days 0
+both). Temperature and wind are values at each step: method "flat" interpolates linearly between
+steps and averages over the gas day. Solar radiation, precipitation and the temperature extremes
+describe each step's period: solar radiation is averaged over the periods' hours in the gas day,
+precipitation summed pro rata, and tmin / tmax taken over the periods at least half inside it.
+coverage_h records the hours of the gas day the steps cover (lead day 14 ends a few hours after the
+last step). Runs archived before 2026-10-13 have temperature and wind only. Lead days 0
 (the run's own gas day, already a few hours old when the run is published) to 14.
 
 The gridded runs stay archived, so the table can be rebuilt with another averaging method or
@@ -27,7 +31,7 @@ import pandas as pd
 import xarray as xr
 
 from ldz_demand.config import create_config, resolve_path
-from ldz_demand.data.build.gas_day import gas_day_time_mean
+from ldz_demand.data.build.gas_day import gas_day_interval_stat, gas_day_time_mean
 from ldz_demand.data.build.weather_ldz_daily import KEY, VARIABLES, weight_arrays
 from ldz_demand.data.datasets import ENS_LDZ_DAILY
 from ldz_demand.data.ingest.ecmwf_ens import archived_runs, load_run
@@ -36,6 +40,8 @@ from ldz_demand.data.store import Store, get_store
 logger = logging.getLogger(__name__)
 
 LEAD_DAYS = range(0, 15)
+# how each variable becomes a gas-day value: values at each step, or statistics of each step's period
+PERIOD_STATS = {"ssrd": "mean", "tp": "sum", "tmin": "min", "tmax": "max"}
 
 
 def ens_ldz_daily(run_data: xr.Dataset, weights: pd.DataFrame, run: datetime, method: str = "flat") -> pd.DataFrame:
@@ -47,10 +53,16 @@ def ens_ldz_daily(run_data: xr.Dataset, weights: pd.DataFrame, run: datetime, me
     gas_days = pd.DatetimeIndex([run_date + pd.Timedelta(days=k) for k in LEAD_DAYS])
     frames = []
     for variable, unit in VARIABLES.items():
+        if variable not in run_data:  # runs archived before the extra variables
+            continue
         keys, w = arrays[variable]
         field = run_data[variable].transpose("number", "time", "latitude", "longitude").values
-        series = np.einsum("ntij,kij->nkt", field, w)                  # member x variant-LDZ x step
-        means, covered = gas_day_time_mean(series, times, gas_days, method)  # member x variant-LDZ x gas day
+        series = np.einsum("ntij,kij->nkt", np.nan_to_num(field, nan=0.0), w)  # member x variant-LDZ x step
+        if variable in PERIOD_STATS:
+            series[..., 0] = np.nan  # the first step has no period
+            means, covered = gas_day_interval_stat(series, times, gas_days, PERIOD_STATS[variable])
+        else:
+            means, covered = gas_day_time_mean(series, times, gas_days, method)  # member x variant-LDZ x gas day
         n, k, d = np.meshgrid(np.arange(len(members)), np.arange(len(keys)), np.arange(len(gas_days)), indexing="ij")
         frame = keys.iloc[k.ravel()].reset_index(drop=True)
         frame["member"] = members[n.ravel()]

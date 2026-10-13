@@ -109,3 +109,79 @@ def gas_day_time_mean(values: np.ndarray, times, gas_days, method: str = "flat")
     with np.errstate(invalid="ignore", divide="ignore"):
         means = (values @ w.T) / covered
     return means, covered
+
+
+# Gas-day statistics per variable: (source variable, statistic). Accumulated variables (ssrd, tp) describe
+# the hour ending at each time, so they are assigned to that hour, not to the instant it ends.
+DAILY_STATS = {
+    "t2m": ("t2m", "mean"),
+    "ws10": ("ws10", "mean"),
+    "tmin": ("t2m", "min"),
+    "tmax": ("t2m", "max"),
+    "ssrd": ("ssrd", "mean"),
+    "tp": ("tp", "sum"),
+}
+INTERVAL_VARIABLES = {"ssrd", "tp"}
+
+
+def gas_day_stats(hourly: xr.Dataset, stats: dict = DAILY_STATS) -> xr.Dataset:
+    """
+    Gas-day statistics of hourly data (dims time, ...; output dim gas_day): mean, min, max or sum,
+    over complete gas days only. A gas day with any missing hour gets NaN, so sums are never partial.
+    """
+    out = {}
+    complete_days = None
+    for name, (source, stat) in stats.items():
+        if source not in hourly:
+            continue
+        times = pd.DatetimeIndex(hourly["time"].values)
+        if source in INTERVAL_VARIABLES:
+            times = times - pd.Timedelta(hours=1)  # the hour ending at t starts at t - 1 h
+        gas_day, _ = gas_day_labels(times)
+        counts = pd.Series(1, index=gas_day).groupby(level=0).size()
+        complete = counts.index[counts == gas_day_hours(counts.index)]
+        grouped = hourly[source].assign_coords(gas_day=("time", gas_day)).groupby("gas_day")
+        values = getattr(grouped, stat)("time", skipna=False)
+        out[name] = values.sel(gas_day=values["gas_day"].isin(complete))
+        complete_days = complete if complete_days is None else complete_days.union(complete)
+    return xr.Dataset(out)
+
+
+def interval_weights(times, gas_days) -> np.ndarray:
+    """
+    Hours of each gas day inside the period each sample describes, (previous sample, this sample]:
+    array [gas day, sample]. For values that describe a period ending at the sample (accumulations,
+    period extremes); the first sample, with no period, gets 0.
+    """
+    t = _hours(times)
+    start, end = gas_day_bounds(gas_days)
+    s, e = _hours(start)[:, None], _hours(end)[:, None]
+    lo = np.concatenate([[t[0]], t[:-1]])
+    return np.clip(np.minimum(t, e) - np.maximum(lo, s), 0, None)
+
+
+def gas_day_interval_stat(values: np.ndarray, times, gas_days, stat: str) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Gas-day statistics of period values (each describing the time since the previous sample) along the
+    last axis of `values`: (stat [..., gas day], hours covered [gas day]).
+
+    mean: time-weighted mean of period means (e.g. W m-2); sum: each period's total pro rata to its hours
+    in the gas day (e.g. mm); min / max: over the periods at least half inside the gas day.
+    """
+    w = interval_weights(times, gas_days)
+    length = np.diff(_hours(times), prepend=_hours(times)[0])
+    covered = w.sum(axis=1)
+    v = np.nan_to_num(values, nan=0.0)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        if stat == "mean":
+            result = (v @ w.T) / covered
+        elif stat == "sum":
+            share = np.where(length > 0, w / np.where(length > 0, length, 1), 0)
+            result = v @ share.T
+        elif stat in ("min", "max"):
+            inside = (w >= 0.5 * length) & (length > 0)            # [gas day, sample]
+            masked = np.where(inside[(None,) * (values.ndim - 1)], values[..., None, :], np.nan)
+            result = (np.nanmin if stat == "min" else np.nanmax)(masked, axis=-1)
+        else:
+            raise ValueError(f"unknown statistic {stat!r}")
+    return result, covered
