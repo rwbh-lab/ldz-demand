@@ -358,7 +358,8 @@ svg.focus .edge.on .line {{ stroke: {theme.accent}; stroke-width: 2.5; }}
 #panel h3 {{ margin: 12px 0 4px; font-size: 11px; color: {theme.muted}; text-transform: uppercase; letter-spacing: .05em; }}
 #panel p {{ margin: 4px 0; color: {theme.ink_2}; }}
 #panel .kind {{ color: {theme.muted}; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; margin: 0; }}
-#panel ul {{ margin: 2px 0; padding-left: 18px; color: {theme.ink_2}; }}
+#panel ul {{ margin: 2px 0; padding-left: 0; list-style: none; color: {theme.ink_2}; }}
+#panel li + li {{ margin-top: 2px; }}
 #panel dl {{ margin: 8px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 3px 10px; }}
 #panel dt {{ color: {theme.muted}; }}
 #panel dd {{ margin: 0; color: {theme.ink_2}; }}
