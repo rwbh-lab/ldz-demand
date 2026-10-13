@@ -170,10 +170,28 @@ LDZs: EA, EM, NE, NO, NT, NW, SC, SE, SO, SW, WM, WN, WS.
 - **Gas day.** Hourly values are averaged over the UK gas day, 05:00 to 05:00 UK local time. Days
   spanning a clock change are 23 or 25 hours long.
 
-### 4.3 ECMWF ensemble forecasts — 🚧 Coming soon
+### 4.3 ECMWF ensemble forecasts
 
-ECMWF open data: the ensemble (control + 50 members), 2 m temperature and 10 m wind, 15-day
-horizon. No account; CC-BY-4.0. Only recent runs stay online, so each run used is archived.
+| | |
+|---|---|
+| **Source** | ECMWF open data (`data.ecmwf.int`), IFS ensemble (`enfo`), via the `ecmwf-opendata` client |
+| **Licence** | CC-BY-4.0, no account — credit ECMWF |
+| **Members** | 50 perturbed members (`pf`, numbers 1–50). The open-data files don't include the control forecast |
+| **Variables** | 2 m temperature (`2t`), 10 m wind (`10u`, `10v`) |
+| **Run / horizon** | The 00z run, 15 days: 3-hourly to day 6, then 6-hourly (85 steps, `[ecmwf_ens] steps`) |
+| **Published** | The whole 00z run is online by about 09:30 UTC; the portal keeps only the last few days |
+| **Area** | Cropped to the ERA5 box (`[ecmwf_ens] area`), so forecast and reanalysis grids match cell for cell |
+| **Size** | ~10 GB downloaded per run (~20 minutes), ~40 MB stored |
+| **Raw files** | `raw_dir/ecmwf_ens/<year>/ens_gb_YYYYMMDD_00z.nc` |
+
+- **Only GB is kept.** The published files are global, one per step with every variable and member.
+  Each step's three variables (~115 MB) are downloaded, cropped and the global download deleted at
+  once, so disk use never exceeds about one step. This is the one raw source not archived exactly as
+  downloaded; the run file records what was fetched, from where and when.
+- **Resumable.** Finished steps are kept under `raw_dir/ecmwf_ens/partial/` until the run is complete;
+  an interrupted run carries on from there next time.
+- **History.** ECMWF's cloud mirrors (e.g. `source = aws`) hold older runs (0.25° from about February
+  2024). Backfilling from them is planned, for chosen winters only.
 
 ---
 
@@ -223,9 +241,52 @@ python -m ldz_demand.data.build.weather_ldz_daily --since 2026-08  # that month 
 - Safe to rerun: rows are replaced. Rerun after `refresh` so preliminary (ERA5T) days are replaced by
   final ERA5 once it arrives; the `source` column says which each day is.
 
-### 5.3 ECMWF ensemble — 🚧 Coming soon
+### 5.3 ECMWF ensemble
 
-Ingestor (download + archive each run) and builder (`ens_ldz_daily`) planned. See §4.3 for the data.
+```bash
+python -m ldz_demand.data.ingest.ecmwf_ens refresh            # the latest run, plus any missing from the last 3 days
+python -m ldz_demand.data.ingest.ecmwf_ens pull 2026-10-12    # one run (only while still on the portal)
+python -m ldz_demand.data.ingest.ecmwf_ens status             # archived runs
+```
+
+`refresh` exits with an error if the latest run didn't make it into the archive, so a scheduler can
+alert on it. Runs only stay on the portal for a few days, so schedule it daily (below).
+
+**Build — 🚧 Coming soon:** `ens_ldz_daily`, LDZ gas-day forecasts per member, with the same cell
+weights as `weather_ldz_daily`.
+
+#### Daily on a Synology NAS (Container Manager)
+
+The `Dockerfile` builds a container for the scheduled jobs (default command: the ensemble refresh).
+The NAS needs an Intel/AMD image, built on the Mac and copied over:
+
+```bash
+docker build --platform linux/amd64 -t ldz-demand:latest .
+docker save ldz-demand:latest | gzip > /Volumes/Development/ldz-demand/images/ldz-demand.tar.gz
+```
+
+1. **Import** — Container Manager → Image → Action → Import → Add from file → choose
+   `ldz-demand.tar.gz` on the share. Repeat both steps after code changes.
+2. **Schedule** — Control Panel → Task Scheduler → Create → Scheduled Task → User-defined script:
+   - General: user `root` (Docker on DSM needs it).
+   - Schedule: daily, **11:00** UK time (the 00z run is complete by ~09:30 UTC).
+   - Task settings → Run command (adjust `/volume1/Development` to where the share lives):
+     ```bash
+     docker rm -f ldz-ens-refresh >/dev/null 2>&1
+     docker run --name ldz-ens-refresh -v /volume1/Development/ldz-demand/raw:/data/raw ldz-demand:latest
+     ```
+     The first line removes the previous run's container; the new one is kept after it exits, so its
+     log stays readable until the next run. The task's exit code is still `docker run`'s.
+   - Tick *Send run details by email* and *only when the script terminates abnormally* (needs DSM
+     email notifications set up: Control Panel → Notification).
+3. **Logs**
+   - Latest run: Container Manager → Container → `ldz-ens-refresh` → Details → Log (live while it runs).
+   - Every run: Task Scheduler → Settings → *Save output results* to a folder (e.g.
+     `Development/ldz-demand/logs`); Action → View Result shows the latest.
+   - Archive contents: `docker run --rm -v /volume1/Development/ldz-demand/raw:/data/raw ldz-demand:latest ldz_demand.data.ingest.ecmwf_ens status`.
+
+Inside the container the config is `config/docker.ini` (`raw_dir = /data/raw`). Jobs that write to
+MySQL also need the database settings: add `--env-file <path to .env>` to the command.
 
 ---
 
@@ -238,9 +299,12 @@ raw_dir/
 ├── national_gas/
 │   ├── <year>/ng_ldz_<start>_<end>_pulled_<UTC time>.csv     one file per request, never overwritten
 │   └── offtakes/<year>/ng_offtakes_<start>_<end>_pulled_<UTC time>.csv
-└── era5/
-    └── <year>/era5_gb_YYYY-MM.nc                            final month
-        <year>/era5t_gb_YYYY-MM_pulled_<UTC time>.nc         preliminary month, one per download
+├── era5/
+│   └── <year>/era5_gb_YYYY-MM.nc                            final month
+│       <year>/era5t_gb_YYYY-MM_pulled_<UTC time>.nc         preliminary month, one per download
+└── ecmwf_ens/
+    ├── <year>/ens_gb_YYYYMMDD_00z.nc                        one ensemble run, cropped to GB
+    └── partial/YYYYMMDD_00z/step_NNN.nc                     steps of a run still downloading
 ```
 
 ### 6.2 Tables
@@ -291,6 +355,7 @@ Key: `(gas_day, ldz, membership, weighting, variable)`.
 |---|---|---|
 | National Gas | Weekly (or daily) | D+6 values close out a week behind; the 10-day lookback fills them in |
 | ERA5 | Monthly | Preliminary months are replaced by final data after ~3 months |
+| ECMWF ensemble | **Daily** | Runs leave the portal after a few days (§5.3: scheduled on the NAS) |
 
 **Back up `raw_dir`.** For National Gas it will become the only copy of the oldest years.
 
@@ -388,6 +453,11 @@ print((100 * (total_kwh - parts) / total_kwh).describe())   # SE 2026: mean ~1%,
 | `python -m ldz_demand.data.build.ng_offtake_daily [--since DAY]` | Build `ng_offtake_daily` from the archive |
 | `python -m ldz_demand.data.ingest.era5 refresh` | Download ERA5 from `[era5] start` to the latest month |
 | `python -m ldz_demand.data.ingest.era5 pull FIRST LAST` | Download a month range (YYYY-MM) |
+| `python -m ldz_demand.data.ingest.ecmwf_ens refresh` | Archive the latest ensemble run(s) not yet archived |
+| `python -m ldz_demand.data.ingest.ecmwf_ens pull DATE` | Archive one ensemble run (YYYY-MM-DD) |
+| `python -m ldz_demand.data.ingest.ecmwf_ens status` | List archived ensemble runs |
+| `python -m ldz_demand.data.build.weather_ldz_daily [--since MONTH]` | Build `weather_ldz_daily` from ERA5 |
+| `python -m ldz_demand.dashboard` | Serve all dashboard pages (overview at /) |
 | `python -m ldz_demand.db status` | MySQL: connection check + migration status |
 | `python -m ldz_demand.db migrate [--dry-run]` | MySQL: apply pending migrations |
 | `python -m ldz_demand.db draft DATASET` | Print a `CREATE TABLE` for a dataset (developers) |
@@ -404,6 +474,11 @@ print((100 * (total_kwh - parts) / total_kwh).describe())   # SE 2026: mean ~1%,
 | `storage` | `raw_dir` | `data/raw` | Raw archive location |
 | `era5` | `start` | `2021-09` | First ERA5 month |
 | `era5` | `area` | `61, -8.5, 49.5, 2.0` | North, west, south, east (degrees) |
+| `ecmwf_ens` | `source` | `ecmwf` | `ecmwf` (open-data portal) or a mirror: `aws`, `azure`, `google` |
+| `ecmwf_ens` | `run_hour` | `0` | Forecast run (UTC hour) |
+| `ecmwf_ens` | `steps` | `0-144/3,150-360/6` | Forecast hours to download |
+| `ecmwf_ens` | `area` | the `[era5]` area | Crop box |
+| `ecmwf_ens` | `days_back` | `3` | `refresh` also fetches missing runs this many days back |
 
 Relative paths are relative to the repo root. Set `LDZ_DEMAND_CONFIG` to use a different override
 file instead of `config/local.ini`.

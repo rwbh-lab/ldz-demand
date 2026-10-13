@@ -1,0 +1,12 @@
+.git
+.venv
+**/__pycache__
+.pytest_cache
+.claude
+.env
+*.env
+config/local.ini
+data
+dashboard
+docs
+tests
