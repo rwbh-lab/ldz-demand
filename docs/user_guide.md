@@ -191,7 +191,7 @@ LDZs: EA, EM, NE, NO, NT, NW, SC, SE, SO, SW, WM, WN, WS.
 | **Run / horizon** | The 00z run, 15 days: 3-hourly to day 6, then 6-hourly (85 steps, `[ecmwf_ens] steps`) |
 | **Published** | The whole 00z run is online by about 09:30 UTC; the portal keeps only the last few days |
 | **Area** | Cropped to the ERA5 box (`[ecmwf_ens] area`), so forecast and reanalysis grids match cell for cell |
-| **Size** | ~23 GB downloaded per run (~45 minutes), ~90 MB stored |
+| **Size** | ~23 GB downloaded per run, ~90 MB stored. Three steps download at once (`[ecmwf_ens] downloads`): ~20 minutes on a laptop; the log reports download and decode times |
 | **Raw files** | `raw_dir/ecmwf_ens/<year>/ens_gb_YYYYMMDD_00z.nc` |
 
 - **Only GB is kept.** The published files are global, one per step with every variable and member.
@@ -555,7 +555,8 @@ print((100 * (total_kwh - parts) / total_kwh).describe())   # SE 2026: mean ~1%,
 | `ecmwf_ens` | `run_hour` | `0` | Forecast run (UTC hour) |
 | `ecmwf_ens` | `steps` | `0-144/3,150-360/6` | Forecast hours to download |
 | `ecmwf_ens` | `area` | the `[era5]` area | Crop box |
-| `ecmwf_ens` | `days_back` | `3` | `refresh` also fetches missing runs this many days back |
+| `ecmwf_ens` | `days_back` | `3` | `refresh` also fetches missing runs this many days back (`1` in the container) |
+| `ecmwf_ens` | `downloads` | `3` | Steps downloading at once |
 | `ldz_weather` | `detail_variants` | `sampled/gas, station/point` | Variants built hourly / per ensemble member |
 
 Relative paths are relative to the repo root. Set `LDZ_DEMAND_CONFIG` to use a different override

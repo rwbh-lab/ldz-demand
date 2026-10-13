@@ -126,3 +126,30 @@ def test_load_run_gives_era5_conventions(tmp_path):
     assert pd.Timestamp(ds["time"].values[-1]) == pd.Timestamp("2026-10-27 00:00")  # 360 h after the run
     assert float(ds["t2m"].isel(time=0).mean()) == pytest.approx(7.0, abs=1e-4)  # 280.15 K
     assert np.allclose(ds["ws10"], 5.0)
+
+
+def test_steps_download_in_parallel_and_still_archive_in_order(tmp_path):
+    import threading
+    import time
+
+    class SlowClient(FakeClient):
+        def __init__(self):
+            super().__init__()
+            self.lock, self.active, self.most = threading.Lock(), 0, 0
+
+        def retrieve(self, target, step, **request):
+            with self.lock:
+                self.active += 1
+                self.most = max(self.most, self.active)
+            time.sleep(0.05)
+            super().retrieve(target=target, step=step, **request)
+            with self.lock:
+                self.active -= 1
+
+    client = SlowClient()
+    ing = ENSIngestor(tmp_path / "raw", AREA, steps=[0, 3, 6, 9, 12, 15], client=client, reader=read_fake,
+                      pause=0, downloads=3)
+    ds = xr.open_dataset(ing.pull(RUN))
+    assert client.most == 3                                   # three at once, never more
+    assert ds["step"].values.astype("timedelta64[h]").astype(int).tolist() == [0, 3, 6, 9, 12, 15]
+    assert not list((tmp_path / "raw").rglob("*.grib2"))

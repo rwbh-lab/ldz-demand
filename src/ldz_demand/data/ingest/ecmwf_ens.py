@@ -10,7 +10,10 @@ numbers 1-50): the control forecast is not published there.
 The published files are global (one file per step, every variable and member, ~6 GB), so each
 step's fields are downloaded by byte range (~270 MB for our variables), cropped to the [ecmwf_ens]
 area straight away and the global download deleted: only GB is ever kept. A full run is ~23 GB
-downloaded (~45 minutes at ~13 MB/s) and ~100 MB stored. Steps are saved as they finish, so an interrupted run resumes
+downloaded and ~100 MB stored. ECMWF's speed per connection varies (6-13 MB/s), so several steps download
+at once ([ecmwf_ens] downloads); decoding runs one step at a time alongside, each field cropped as it is
+decoded so memory stays small. Timings are logged so a slow machine shows whether downloads or decoding
+are the limit. Steps are saved as they finish, so an interrupted run resumes
 where it stopped; the run file appears only once every step is in.
 
 Archived as raw_dir/ecmwf_ens/<year>/ens_gb_YYYYMMDD_HHz.nc — values as delivered on (step, number,
@@ -25,12 +28,15 @@ Run as a script:
 """
 
 import argparse
+import functools
 import logging
 import os
 import shutil
 import sys
+import threading
 import time
 import warnings
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -52,6 +58,7 @@ STORED = ["t2m", "u10", "v10", "ssrd", "tp", "tmin", "tmax"]
 STEPS = list(range(0, 145, 3)) + list(range(150, 361, 6))  # hours: 3-hourly to 144, 6-hourly to 360
 RUN_HOUR = 0
 DAYS_BACK = 3  # refresh looks for runs this many days back from the latest (the portal keeps a few days)
+DOWNLOADS = 3  # steps downloading at once (the portal allows 500 connections; per-connection speed varies)
 ATTRIBUTION = "Contains ECMWF open data (CC-BY-4.0), https://www.ecmwf.int/en/forecasts/datasets/open-data"
 
 
@@ -92,26 +99,32 @@ class ENSIngestor:
     """
 
     def __init__(self, raw_dir: Path, area, source: str = "ecmwf", run_hour: int = RUN_HOUR,
-                 steps: list[int] | None = None, client=None, reader=None, pause: float = 1.0) -> None:
+                 steps: list[int] | None = None, client=None, reader=None, pause: float = 1.0,
+                 downloads: int = DOWNLOADS) -> None:
         self.root = Path(raw_dir) / "ecmwf_ens"
         self.area = [float(x) for x in area]
         self.source = source
         self.run_hour = run_hour
         self.steps = steps or STEPS
         self._client = client
-        self.reader = reader or read_step
+        self._local = threading.local()
+        self.reader = reader or functools.partial(read_step, area=self.area)
         self.pause = pause
+        self.downloads = max(1, downloads)
 
     @property
     def client(self):
-        if self._client is None:
+        """One client per thread (each has its own HTTP session); an injected client is shared."""
+        if self._client is not None:
+            return self._client
+        if getattr(self._local, "client", None) is None:
             from ecmwf.opendata import Client
 
             # fail within minutes, not hours (the client's defaults are 500 retries, 2 minutes apart)
-            self._client = Client(source=self.source, model="ifs", resol="0p25", maximum_retries=5, retry_after=30)
+            self._local.client = Client(source=self.source, model="ifs", resol="0p25", maximum_retries=5, retry_after=30)
             if os.environ.get("TQDM_DISABLE"):
                 _quiet_downloads()
-        return self._client
+        return self._local.client
 
     # --- paths ---------------------------------------------------------------------------------
 
@@ -153,23 +166,56 @@ class ENSIngestor:
         work = self.partial_dir(run)
         work.mkdir(parents=True, exist_ok=True)
         started = datetime.now(timezone.utc)
-        for i, step in enumerate(self.steps, 1):
-            saved = work / f"step_{step:03d}.nc"
-            if saved.exists():
-                continue
-            grib = work / f"step_{step:03d}.grib2"
-            self.client.retrieve(date=run.strftime("%Y-%m-%d"), time=run.hour, stream="enfo", type="pf",
-                                 param=step_params(step), step=step, target=str(grib))
-            crop(self.reader(grib), self.area).to_netcdf(saved.with_suffix(".part"))
-            saved.with_suffix(".part").rename(saved)
-            grib.unlink()  # never keep the global fields
-            if i % 10 == 0 or i == len(self.steps):
-                logger.info(f"{run:%Y-%m-%d %Hz}: {i}/{len(self.steps)} steps")
-            time.sleep(self.pause)
+        todo = [s for s in self.steps if not (work / f"step_{s:03d}.nc").exists()]
+        timing = {"mb": 0.0, "download_s": 0.0, "process_s": 0.0, "done": len(self.steps) - len(todo)}
+        t0 = time.monotonic()
+        # downloads run in threads, several at once; each finished download is cropped and saved here,
+        # while the others carry on (at most `downloads` global files on disk at a time)
+        errors = []
+        with ThreadPoolExecutor(self.downloads) as pool:
+            queue, running = list(todo), set()
+            while queue or running:
+                while queue and not errors and len(running) < self.downloads:
+                    running.add(pool.submit(self._download, run, queue.pop(0), work))
+                finished, running = wait(running, return_when=FIRST_COMPLETED)
+                for future in finished:
+                    if future.exception() is not None:  # stop starting downloads; save the ones in flight
+                        errors.append(future.exception())
+                        continue
+                    step, grib, mb, seconds = future.result()
+                    t = time.monotonic()
+                    saved = work / f"step_{step:03d}.nc"
+                    crop(self.reader(grib), self.area).to_netcdf(saved.with_suffix(".part"))
+                    saved.with_suffix(".part").rename(saved)
+                    grib.unlink()  # never keep the global fields
+                    timing["mb"] += mb
+                    timing["download_s"] += seconds
+                    timing["process_s"] += time.monotonic() - t
+                    timing["done"] += 1
+                    if timing["done"] % 10 == 0 or timing["done"] == len(self.steps):
+                        self._log_progress(run, timing, time.monotonic() - t0)
+        if errors:
+            raise errors[0]
         self._combine(run, work, final, started)
         shutil.rmtree(work)
         logger.info(f"{run:%Y-%m-%d %Hz}: archived -> {final} ({final.stat().st_size / 1e6:.0f} MB)")
         return final
+
+    def _download(self, run: datetime, step: int, work: Path) -> tuple[int, Path, float, float]:
+        """One step's global fields -> work/step_NNN.grib2. Returns (step, path, MB, seconds)."""
+        grib = work / f"step_{step:03d}.grib2"
+        t = time.monotonic()
+        self.client.retrieve(date=run.strftime("%Y-%m-%d"), time=run.hour, stream="enfo", type="pf",
+                             param=step_params(step), step=step, target=str(grib))
+        seconds = time.monotonic() - t
+        time.sleep(self.pause)
+        return step, grib, grib.stat().st_size / 1e6, seconds
+
+    def _log_progress(self, run: datetime, timing: dict, elapsed: float) -> None:
+        mb, dl = timing["mb"], timing["download_s"]
+        logger.info(f"{run:%Y-%m-%d %Hz}: {timing['done']}/{len(self.steps)} steps, {elapsed / 60:.1f} min; "
+                    f"downloads {mb / max(dl, 1e-9) * self.downloads:.1f} MB/s across {self.downloads} "
+                    f"({mb / max(dl, 1e-9):.1f} MB/s each), decode + crop {timing['process_s']:.0f} s in total")
 
     def _combine(self, run: datetime, work: Path, final: Path, started: datetime) -> None:
         parts = [xr.open_dataset(work / f"step_{s:03d}.nc") for s in self.steps]
@@ -198,10 +244,11 @@ class ENSIngestor:
 
 # --- GRIB reading and cropping --------------------------------------------------------------------
 
-def read_step(path: Path) -> xr.Dataset:
+def read_step(path: Path, area=None) -> xr.Dataset:
     """
     One downloaded step on (number, latitude, longitude), with every STORED variable: those not
-    published at this step (step 0: accumulations are 0, extremes don't exist yet) are filled.
+    published at this step (step 0: accumulations are 0, extremes don't exist yet) are filled. With
+    `area`, each field is cropped as soon as it is decoded, so the globe is never held in memory.
     """
     import cfgrib
 
@@ -215,6 +262,8 @@ def read_step(path: Path) -> xr.Dataset:
             if grib_name not in ds:
                 continue
             da = ds[grib_name]
+            if area is not None:
+                da = crop(da.to_dataset(name="v"), area)["v"].load()
             if "number" not in da.dims:  # a single member (e.g. a control forecast) comes as a scalar number
                 da = da.expand_dims("number")
             if name in PARAMS_NAMES:
@@ -313,7 +362,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{len(runs)} runs archived")
         return 0
     ingestor = ENSIngestor(raw_dir, [x.strip() for x in section["area"].split(",")], source=section["source"],
-                           run_hour=section.getint("run_hour"), steps=parse_steps(section["steps"]))
+                           run_hour=section.getint("run_hour"), steps=parse_steps(section["steps"]),
+                           downloads=section.getint("downloads", DOWNLOADS))
     if args.command == "refresh":
         ingestor.refresh(section.getint("days_back"))
         if not ingestor.run_path(ingestor.latest).exists():  # a non-zero exit is what makes a scheduler alert
