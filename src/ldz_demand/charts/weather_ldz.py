@@ -9,6 +9,7 @@ Colour follows the membership (the same slots as the LDZ geography page, station
 follows the weighting (filled: gas, open: area).
 """
 
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
@@ -189,3 +190,51 @@ def _extent(w: pd.DataFrame, pad: float = 1.0) -> tuple[float, float, float, flo
         mid = (east + west) / 2
         west, east = mid - 3, mid + 3
     return max(south, 49.5), min(north, 61.0), max(west, -8.5), min(east, 2.0)
+
+
+GAS_YEAR_MONTHS = [10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+MONTH_NAMES = {m: pd.Timestamp(2026, m, 1).strftime("%b") for m in range(1, 13)}
+STATION = ("station", "point")
+
+
+def station_offsets(weather, variable: str = "t2m", reference: tuple[str, str] = REFERENCE) -> pd.DataFrame:
+    """
+    The official station minus the reference variant, per LDZ and calendar month: the mean and the SD of
+    the daily difference (rows: ldz, month, mean, sd, days). A mean that changes through the year is a
+    seasonal bias — e.g. a coastal station reading warm in autumn and winter, when the sea is warmer than
+    the land where the gas is used.
+    """
+    data = wide(weather, variable)
+    rows = []
+    for ldz in sorted(data.columns.get_level_values("ldz").unique()):
+        block = data[ldz]
+        if STATION not in block or reference not in block:
+            continue
+        diff = (block[STATION] - block[reference]).dropna()
+        for month, d in diff.groupby(pd.DatetimeIndex(diff.index).month):
+            rows.append({"ldz": ldz, "month": month, "mean": d.mean(), "sd": d.std(), "days": len(d)})
+    return pd.DataFrame(rows)
+
+
+def station_offset_chart(offsets: pd.DataFrame, variable: str = "t2m", reference: tuple[str, str] = REFERENCE) -> go.Figure:
+    """LDZ x month heatmap of the station's average difference from the reference (diverging, 0 = none)."""
+    t = active()
+    unit = UNITS[variable]
+    mean = offsets.pivot(index="ldz", columns="month", values="mean").reindex(columns=GAS_YEAR_MONTHS)
+    sd = offsets.pivot(index="ldz", columns="month", values="sd").reindex(columns=GAS_YEAR_MONTHS)
+    order = mean.abs().mean(axis=1).sort_values(ascending=False).index  # largest differences first
+    mean, sd = mean.loc[order], sd.loc[order]
+    limit = max(0.5, float(np.nanmax(np.abs(mean.to_numpy()))))
+    stops = t.diverging
+    fig = go.Figure(go.Heatmap(
+        z=mean.to_numpy(), x=[MONTH_NAMES[m] for m in mean.columns], y=mean.index, zmin=-limit, zmax=limit, zmid=0,
+        colorscale=[[i / (len(stops) - 1), c] for i, c in enumerate(stops)], xgap=2, ygap=2,
+        text=mean.to_numpy(), texttemplate="%{text:+.1f}", textfont=dict(size=11),
+        customdata=sd.to_numpy(),
+        hovertemplate=f"%{{y}}, %{{x}}: station %{{z:+.2f}} {unit} vs {label(reference)} "
+                      f"(day to day ±%{{customdata:.2f}})<extra></extra>",
+        colorbar=dict(title=dict(text=unit), outlinewidth=0, thickness=10, len=0.7)))
+    fig.update_layout(title=f"Official station minus {label(reference)}, average by month ({unit})",
+                      height=520, margin=dict(t=64, b=48), yaxis=dict(autorange="reversed"),
+                      xaxis=dict(title="Month (gas year order)"))
+    return fig

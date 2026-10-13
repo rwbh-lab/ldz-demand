@@ -22,6 +22,7 @@ PAGES = {  # file -> page, in reading order
     "era5_weather.py": Page("Data", "ERA5 weather", "/era5-weather"),
     "ldz_geography.py": Page("Models", "LDZ geography", "/ldz-geography"),
     "ldz_weather.py": Page("Models", "LDZ weather", "/ldz-weather"),
+    "ensemble_forecasts.py": Page("Models", "Ensemble forecasts", "/ensemble-forecasts"),
 }
 
 

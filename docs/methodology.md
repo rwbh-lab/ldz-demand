@@ -99,8 +99,12 @@ Two versions, to check results are robust to a data repair (`ldz_demand.data.ldz
 - **B (`target_repaired`)**: as A, but days with SE's missing feed (Sep 2022 – Feb 2024) repaired as
   offtakes plus the usual input.
 
-**To check:** step changes in DM demand when sites move between metering classes would shift the
-target without any change in weather (look at `demand_dm_d6` per LDZ).
+**Checked (October 2026): no step changes from sites changing metering class.** These would shift
+the target with no change in weather. Comparing summer levels year by year, DM and the target mostly
+move together (both fell in almost every LDZ from 2024 to 2025: lower demand generally), and the large
+DM changes — NO halving, SO and WS — leave the target unchanged (large sites changing output or
+closing). One odd day, SE on 4 July 2023 (both targets far below normal), is left to the model's
+outlier handling.
 
 ---
 
@@ -128,6 +132,14 @@ official station (the grid point at the CWV station).
 differ most from gas-weighted LDZ temperature: NE 0.69 °C (its station is Nottingham Watnall, in EM),
 WN 0.52, EA and SE 0.46 (Heathrow). Whether that improves the demand fit is the first model test
 (§6.1).
+
+**Finding: the station differences are seasonal** (LDZ weather page §4). On average by month, the
+station minus our gas-weighted temperature swings by up to ~0.8 °C through the year: St Athan (WS)
+reads up to +0.85 °C warm in November and +0.06 °C in May — a coastal station, warm when the sea is
+warmer than the inland towns and valleys where WS's gas is used; Southampton (SO) the same, weaker
+(+0.45 to +0.09); Heathrow reads −0.49 °C against SE in October and +0.25 °C in June; Watnall (NE)
++0.3 in winter to +1.3 °C in summer. The same gaps appear in the ensemble forecasts (WS ~+0.9 °C at
+every lead day in October 2026 runs), so they come from the station sites, not the forecast.
 
 ### 4.3 Variables and the gas day
 
@@ -185,6 +197,12 @@ from weather in five years; a possible later experiment.
 Partly in our favour: the official parameters reflect mostly pre-2022 behaviour, while our five years
 are mostly after it — more current, though with the 2022 break inside them.
 
+**Hypothesis: part of the official seasonal profile corrects for where the stations are.** A station
+bias that changes through the year (§4.2) can't be absorbed by a constant; in the official CWV the
+seasonal profile is the term that can. If so, a gas-weighted LDZ temperature, without the siting bias,
+should need a smaller seasonal term — helpful with five years of data. Tested in §6 (experiment 3),
+most clearly in WS, SO and SE.
+
 ### 5.4 Averaging the gas day
 
 The official CWV weights 24 hourly observations (weights not published). Variants to test: flat
@@ -211,7 +229,9 @@ Each is a variant fitted the same way and judged on held-out years (§7):
    The station-vs-gas-weighted comparison separates "one point vs the whole LDZ" from "reanalysis vs
    station observations".
 2. **Variables:** with / without solar radiation; with / without temperature extremes.
-3. **Seasonal term:** none; slow heating-season temperature; pooled calendar shape.
+3. **Seasonal term:** none; slow heating-season temperature; pooled calendar shape. Fitted for both the
+   station and the gas-weighted input: if the station needs the larger seasonal term (WS, SO, SE in
+   particular), the seasonal profile is partly correcting the station siting (§5.3).
 4. **Change over time:** fixed; per gas year; break in 2022; adapting.
 5. **Gas-day averaging:** flat; heating-peak weighted; extremes.
 6. **Target:** A and B.

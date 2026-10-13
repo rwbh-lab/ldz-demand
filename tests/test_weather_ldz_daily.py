@@ -143,7 +143,7 @@ def test_page_menu_links_every_page_and_marks_the_current_one():
     assert set(pages.PAGES) | {pages.INDEX} == {p.name for p in dashboard.glob("*.py")}
     lines = pages.contents_markdown("ldz_weather.py").split("  \n")
     assert lines == ["Data: [National Gas data](/ng-ldz-daily) | [ERA5 weather](/era5-weather)",
-                     "Models: [LDZ geography](/ldz-geography) | **LDZ weather**"]
+                     "Models: [LDZ geography](/ldz-geography) | **LDZ weather** | [Ensemble forecasts](/ensemble-forecasts)"]
     assert "(/)" in pages.nav("ldz_weather.py").text or 'href="/"' in pages.nav("ldz_weather.py").text
 
 

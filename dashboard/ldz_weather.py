@@ -207,6 +207,30 @@ def _(detail_ldz, detail_variants, mo, reference, show_values, variable, variant
 
 
 @app.cell(hide_code=True)
+def _(mo, weather, wx):
+    _offsets = wx.station_offsets(weather, "t2m")
+    mo.vstack([
+        mo.md(r"""
+        ## 4 · The official stations through the year
+
+        How much warmer (red) or colder (blue) the official CWV weather station reads than our
+        gas-weighted LDZ temperature, on average in each month (ERA5, every gas day since 2021). A
+        **constant** difference is absorbed when a model is fitted; a difference that **changes through
+        the year** is not, unless the model has a seasonal term to soak it up.
+
+        The coastal stations show it most: **St Athan (WS)** reads up to ~0.85 °C warm in autumn and
+        winter, when the sea is warmer than the inland towns and valleys where WS's gas is used, and
+        almost nothing in late spring; **Southampton (SO)** the same, weaker; **Heathrow** reads colder
+        than SE's coastal towns in autumn. **Nottingham Watnall** stands in for NE from EM and reads warm
+        all year, most in summer. The official CWV's seasonal profile (pseudo-SNET) may be partly
+        correcting for where its stations are — which our gas-weighted temperature shouldn't need.
+        """),
+        mo.ui.plotly(wx.station_offset_chart(_offsets, "t2m")),
+    ])
+    return
+
+
+@app.cell(hide_code=True)
 def _(mo):
     mo.accordion({
         "How this was built": mo.md(r"""
