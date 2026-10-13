@@ -313,21 +313,19 @@ docker save ldz-demand:latest | gzip > /Volumes/Development/ldz-demand/images/ld
 2. **Schedule** — Control Panel → Task Scheduler → Create → Scheduled Task → User-defined script:
    - General: user `root` (Docker on DSM needs it).
    - Schedule: daily, **11:00** UK time (the 00z run is complete by ~09:30 UTC).
-   - Task settings → Run command (adjust `/volume1/Development` to where the share lives):
+   - Task settings → Run command:
      ```bash
-     RAW=/volume1/Development/ldz-demand/raw
-     docker rm -f ldz-ens-refresh ldz-ens-build >/dev/null 2>&1
-     docker run --name ldz-ens-refresh -v $RAW:/data/raw ldz-demand:latest
-     refresh=$?
-     docker run --name ldz-ens-build --env-file /volume1/Development/ldz-demand/docker.env \
-       -v $RAW:/data/raw ldz-demand:latest ldz_demand.data.build.ens_ldz_daily
-     build=$?
-     [ $refresh -ne 0 ] && exit $refresh
-     exit $build
+     bash /volume1/Development/ldz-demand/deploy/ens_daily.sh
      ```
-     Download, then build `ens_ldz_daily` (it runs even if the download failed, so earlier runs still
-     get built). The task fails if either step does. Each container is kept after it exits, so its log
-     stays readable until the next run.
+     The script is `deploy/nas/ens_daily.sh` in the repo (commented: settings at the top, then the two
+     steps). Copy it to the share after any change:
+     ```bash
+     mkdir -p /Volumes/Development/ldz-demand/deploy && cp deploy/nas/ens_daily.sh /Volumes/Development/ldz-demand/deploy/
+     ```
+     It downloads, then builds `ens_ldz_daily` (the build runs even if the download failed, so earlier
+     runs still get built), and fails if either step does. Each step's container is kept after it
+     finishes, so its log stays readable until the next run. If the share isn't at
+     `/volume1/Development`, change `SHARE` at the top of the script.
    - `docker.env` holds the database settings for the build (`LDZ_DB_HOST`, `LDZ_DB_PORT`, `LDZ_DB_NAME`,
      `LDZ_DB_USER`, `LDZ_DB_PASSWORD`). Set `LDZ_DB_HOST` to the NAS's **LAN** address (e.g.
      192.168.x.x): a container reaches it, but not necessarily a Tailscale address. Make the file
@@ -335,7 +333,7 @@ docker save ldz-demand:latest | gzip > /Volumes/Development/ldz-demand/images/ld
    - Tick *Send run details by email* and *only when the script terminates abnormally* (needs DSM
      email notifications set up: Control Panel → Notification).
 3. **Logs**
-   - Latest run: Container Manager → Container → `ldz-ens-refresh` / `ldz-ens-build` → Details → Log.
+   - Latest run: Container Manager → Container → `ldz-ens-download` / `ldz-ens-build` → Details → Log.
    - Every run: Task Scheduler → Settings → *Save output results* to a folder (e.g.
      `Development/ldz-demand/logs`); Action → View Result shows the latest.
    - Archive contents: `docker run --rm -v /volume1/Development/ldz-demand/raw:/data/raw ldz-demand:latest ldz_demand.data.ingest.ecmwf_ens status`.
