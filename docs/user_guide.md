@@ -161,20 +161,24 @@ LDZs: EA, EM, NE, NO, NT, NW, SC, SE, SO, SW, WM, WN, WS.
 
 | | |
 |---|---|
-| **What** | Hourly 2 m temperature and 10 m wind (u, v) on a 0.25° grid over GB |
+| **What** | Hourly 2 m temperature and 10 m wind (u, v) on a 0.25° grid over GB; plus (group `extra`) surface solar radiation and total precipitation |
 | **Source** | Copernicus Climate Data Store, dataset `reanalysis-era5-single-levels` |
 | **Account** | Free CDS account + accepted licence (§3.3) |
 | **Attribution** | Required: *"Contains modified Copernicus Climate Change Service information [year]"* |
 | **History** | 1940 to ~5 days ago. Default download starts 2021-09 (`[era5] start`) |
 | **Area** | 61°N, 8.5°W to 49.5°N, 2°E (`[era5] area`) |
 | **Size** | ~9 MB per month |
-| **Raw files** | `raw_dir/era5/<year>/era5_gb_YYYY-MM.nc` (final) and `era5t_gb_YYYY-MM_pulled_<UTC time>.nc` (preliminary) |
+| **Raw files** | `raw_dir/era5/<year>/era5_gb_YYYY-MM.nc` (final) and `era5t_gb_YYYY-MM_pulled_<UTC time>.nc` (preliminary); the extra group as `era5x_gb_…` / `era5xt_gb_…` |
 
 - **Final vs preliminary.** Recent data is preliminary (*ERA5T*) and is replaced by final ERA5
   about 2–3 months later. Months older than 90 days are downloaded once as final files; more recent
   months are re-downloaded to new preliminary files on each run. The newest file wins when reading.
 - **Gas day.** Hourly values are averaged over the UK gas day, 05:00 to 05:00 UK local time. Days
   spanning a clock change are 23 or 25 hours long.
+- **Extra variables** (`--group extra`): surface solar radiation downwards and total precipitation,
+  in their own monthly files so an existing archive gains them without re-downloading temperature
+  and wind. Delivered as hourly accumulations; read as mean W m⁻² and mm over the hour ending at
+  each time. Daily minimum / maximum temperature come from the hourly 2 m temperature.
 
 ### 4.3 ECMWF ensemble forecasts
 
@@ -183,16 +187,17 @@ LDZs: EA, EM, NE, NO, NT, NW, SC, SE, SO, SW, WM, WN, WS.
 | **Source** | ECMWF open data (`data.ecmwf.int`), IFS ensemble (`enfo`), via the `ecmwf-opendata` client |
 | **Licence** | CC-BY-4.0, no account — credit ECMWF |
 | **Members** | 50 perturbed members (`pf`, numbers 1–50). The open-data files don't include the control forecast |
-| **Variables** | 2 m temperature (`2t`), 10 m wind (`10u`, `10v`) |
+| **Variables** | 2 m temperature (`2t`), 10 m wind (`10u`, `10v`), surface solar radiation (`ssrd`), total precipitation (`tp`), and the 2 m temperature minimum / maximum over each step's period (`mn2t3` / `mx2t3` to 144 h, `mn2t6` / `mx2t6` after). Runs archived before 2026-10-13 have temperature and wind only |
 | **Run / horizon** | The 00z run, 15 days: 3-hourly to day 6, then 6-hourly (85 steps, `[ecmwf_ens] steps`) |
 | **Published** | The whole 00z run is online by about 09:30 UTC; the portal keeps only the last few days |
 | **Area** | Cropped to the ERA5 box (`[ecmwf_ens] area`), so forecast and reanalysis grids match cell for cell |
-| **Size** | ~10 GB downloaded per run (~20 minutes), ~40 MB stored |
+| **Size** | ~23 GB downloaded per run (~45 minutes), ~90 MB stored |
 | **Raw files** | `raw_dir/ecmwf_ens/<year>/ens_gb_YYYYMMDD_00z.nc` |
 
 - **Only GB is kept.** The published files are global, one per step with every variable and member.
-  Each step's three variables (~115 MB) are downloaded, cropped and the global download deleted at
-  once, so disk use never exceeds about one step. This is the one raw source not archived exactly as
+  Each step's fields (~270 MB) are downloaded, cropped and the global download deleted at once, so
+  disk use never exceeds about one step. Solar radiation and precipitation are accumulated from the
+  start of the run; reading a run turns them into mean W m⁻² and mm over each step's period. This is the one raw source not archived exactly as
   downloaded; the run file records what was fetched, from where and when.
 - **Resumable.** Finished steps are kept under `raw_dir/ecmwf_ens/partial/` until the run is complete;
   an interrupted run carries on from there next time.
@@ -227,8 +232,9 @@ python -m ldz_demand.data.build.ng_forecast_daily        # raw_dir -> ng_forecas
 ### 5.2 ERA5
 
 ```bash
-python -m ldz_demand.data.ingest.era5 refresh            # download -> raw_dir
-python -m ldz_demand.data.ingest.era5 pull 2026-01 2026-01   # explicit month range
+python -m ldz_demand.data.ingest.era5 refresh                  # download -> raw_dir (core + extra)
+python -m ldz_demand.data.ingest.era5 refresh --group extra    # only solar radiation + precipitation
+python -m ldz_demand.data.ingest.era5 pull 2026-01 2026-01     # explicit month range
 ```
 
 - **Runtime:** one request per month; each takes ~2–4 minutes, mostly queueing and processing on
@@ -346,6 +352,7 @@ raw_dir/
 ├── era5/
 │   └── <year>/era5_gb_YYYY-MM.nc                            final month
 │       <year>/era5t_gb_YYYY-MM_pulled_<UTC time>.nc         preliminary month, one per download
+│       <year>/era5x_gb_YYYY-MM.nc, era5xt_gb_…              the same for the extra variables
 └── ecmwf_ens/
     ├── <year>/ens_gb_YYYYMMDD_00z.nc                        one ensemble run, cropped to GB
     └── partial/YYYYMMDD_00z/step_NNN.nc                     steps of a run still downloading

@@ -92,3 +92,44 @@ def test_load_hourly_standardises_units_and_names(tmp_path):
     assert "time" in ds.dims
     assert float(ds["t2m"].isel(time=0, latitude=0, longitude=0)) == pytest.approx(5.0)
     assert float(ds["ws10"].isel(time=0, latitude=0, longitude=0)) == pytest.approx(5.0)
+
+
+def extra_file(path, month: str, last_day: int):
+    """Hourly accumulations as CDS delivers them: ssrd 360000 J m-2 (100 W m-2), tp 0.0005 m (0.5 mm) per hour."""
+    times = pd.date_range(f"{month}-01", periods=24 * last_day, freq="h")
+    lat, lon = np.array([52.0, 51.75]), np.array([-1.0, -0.75])
+    shape = (len(times), len(lat), len(lon))
+    xr.Dataset({"ssrd": (("valid_time", "latitude", "longitude"), np.full(shape, 360000.0)),
+                "tp": (("valid_time", "latitude", "longitude"), np.full(shape, 0.0005))},
+               coords={"valid_time": times, "latitude": lat, "longitude": lon}).to_netcdf(path)
+
+
+class ExtraClient(FakeClient):
+    def retrieve(self, dataset, request, target):
+        self.requests.append((dataset, request))
+        month = f"{request['year'][0]}-{request['month'][0]}"
+        if "total_precipitation" in request["variable"]:
+            extra_file(target, month, len(request["day"]))
+        else:
+            cds_file(target, month, len(request["day"]))
+
+
+def test_extra_group_archives_separately_and_merges_on_load(tmp_path):
+    today = date(2026, 10, 11)
+    client = ExtraClient()
+    core = ERA5Ingestor(tmp_path / "raw", AREA, client=client)
+    extra = ERA5Ingestor(tmp_path / "raw", AREA, client=client, group="extra")
+    core.pull("2026-01", "2026-02", today)
+    assert [p.name for p in extra.pull("2026-01", "2026-01", today)] == ["era5x_gb_2026-01.nc"]
+    assert client.requests[-1][1]["variable"] == ["surface_solar_radiation_downwards", "total_precipitation"]
+    assert list(month_files(tmp_path / "raw")) == ["2026-01", "2026-02"]  # the core months only
+    assert list(month_files(tmp_path / "raw", "extra")) == ["2026-01"]
+
+    ds = load_hourly(tmp_path / "raw")
+    jan, feb = ds.sel(time="2026-01-15"), ds.sel(time="2026-02-15")
+    assert np.allclose(jan["ssrd"], 100.0) and np.allclose(jan["tp"], 0.5)
+    assert ds["ssrd"].attrs["units"] == "W m-2" and ds["tp"].attrs["units"] == "mm"
+    assert np.isnan(feb["ssrd"]).all()                    # no extra file for February yet
+    assert "ssrd" not in load_hourly(tmp_path / "raw", extra=False)
+    with pytest.raises(ValueError, match="group"):
+        ERA5Ingestor(tmp_path / "raw", AREA, group="snow")

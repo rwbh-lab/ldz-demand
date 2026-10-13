@@ -17,10 +17,15 @@ def global_step(step: int, members=(1, 2, 3)) -> xr.Dataset:
     lat = np.arange(63.0, 47.75, -0.25)
     lon = np.arange(-12.0, 4.25, 0.25)
     shape = (len(members), len(lat), len(lon))
+    dims = ("number", "latitude", "longitude")
     return xr.Dataset(
-        {"t2m": (("number", "latitude", "longitude"), np.full(shape, 280.15 + step / 10)),
-         "u10": (("number", "latitude", "longitude"), np.full(shape, 3.0)),
-         "v10": (("number", "latitude", "longitude"), np.full(shape, 4.0))},
+        {"t2m": (dims, np.full(shape, 280.15 + step / 10)),
+         "u10": (dims, np.full(shape, 3.0)),
+         "v10": (dims, np.full(shape, 4.0)),
+         "ssrd": (dims, np.full(shape, 100.0 * 3600 * step)),          # 100 W m-2 all the time, accumulated
+         "tp": (dims, np.full(shape, 0.0005 * step)),                    # 0.5 mm an hour, accumulated
+         "tmin": (dims, np.full(shape, np.nan if step == 0 else 275.15)),
+         "tmax": (dims, np.full(shape, np.nan if step == 0 else 285.15))},
         coords={"number": list(members), "latitude": lat, "longitude": lon,
                 "step": np.timedelta64(step, "h"), "valid_time": np.datetime64(RUN) + np.timedelta64(step, "h")})
 
@@ -63,7 +68,9 @@ def test_pull_crops_each_step_to_gb_and_keeps_no_global_files(tmp_path):
     assert float(ds["latitude"][0]) == 61.0 and float(ds["longitude"][0]) == -8.5
     assert ds["t2m"].dtype == np.float32 and ds.attrs["run"] == "2026-10-12T00:00Z"
     assert [s for s, _ in client.requests] == [0, 3, 360]
-    assert client.requests[0][1]["type"] == "pf" and client.requests[0][1]["param"] == ["2t", "10u", "10v"]
+    assert client.requests[0][1]["type"] == "pf" and client.requests[0][1]["param"] == ["2t", "10u", "10v"]  # step 0
+    assert client.requests[1][1]["param"] == ["2t", "10u", "10v", "ssrd", "tp", "mn2t3", "mx2t3"]
+    assert client.requests[2][1]["param"] == ["2t", "10u", "10v", "ssrd", "tp", "mn2t6", "mx2t6"]
     assert not list((tmp_path / "raw").rglob("*.grib2")) and not (tmp_path / "raw" / "ecmwf_ens" / "partial" / "20261012_00z").exists()
 
 
@@ -111,7 +118,11 @@ def test_crop_handles_0_to_360_longitudes_and_refuses_a_short_grid():
 def test_load_run_gives_era5_conventions(tmp_path):
     ingestor(tmp_path, FakeClient()).pull(RUN)
     ds = load_run(tmp_path / "raw", RUN)
-    assert set(ds.data_vars) == {"t2m", "u10", "v10", "ws10"} and "time" in ds.dims
+    assert set(ds.data_vars) == {"t2m", "u10", "v10", "ws10", "ssrd", "tp", "tmin", "tmax"} and "time" in ds.dims
+    assert np.isnan(ds["ssrd"].isel(time=0)).all() and np.isnan(ds["tmin"].isel(time=0)).all()
+    assert np.allclose(ds["ssrd"].isel(time=slice(1, None)), 100.0)        # mean W m-2 over each period
+    assert np.allclose(ds["tp"].isel(time=1), 1.5) and np.allclose(ds["tp"].isel(time=2), 178.5)  # mm: 3 h, 357 h
+    assert np.allclose(ds["tmin"].isel(time=1), 2.0) and np.allclose(ds["tmax"].isel(time=1), 12.0)
     assert pd.Timestamp(ds["time"].values[-1]) == pd.Timestamp("2026-10-27 00:00")  # 360 h after the run
     assert float(ds["t2m"].isel(time=0).mean()) == pytest.approx(7.0, abs=1e-4)  # 280.15 K
     assert np.allclose(ds["ws10"], 5.0)

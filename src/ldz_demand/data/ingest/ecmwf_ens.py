@@ -1,18 +1,22 @@
 """
 ECMWF open-data ensemble (ENS) ingestor — download each 00z run, crop it to GB, archive it.
 
-The 50 perturbed members, 2 m temperature and 10 m wind (u, v), 0.25°, out to 15 days (3-hourly to
-day 6, then 6-hourly). Open data under CC-BY-4.0, no registration. The open-data ensemble files carry
-the perturbed members only (type pf, numbers 1-50): the control forecast is not published there.
+The 50 perturbed members, 0.25°, out to 15 days (3-hourly to day 6, then 6-hourly): 2 m temperature,
+10 m wind (u, v), surface solar radiation (ssrd), total precipitation (tp), and the 2 m temperature
+minimum / maximum over each step's period (mn2t3 / mx2t3 to 144 h, mn2t6 / mx2t6 after). Open data under
+CC-BY-4.0, no registration. The open-data ensemble files carry the perturbed members only (type pf,
+numbers 1-50): the control forecast is not published there.
 
 The published files are global (one file per step, every variable and member, ~6 GB), so each
-step's fields are downloaded by byte range (~115 MB for our three variables), cropped to the
-[ecmwf_ens] area straight away and the global download deleted: only GB is ever kept. A full run is
-~10 GB downloaded (~20 minutes at ~13 MB/s) and ~40 MB stored. Steps are saved as they finish, so an interrupted run resumes
+step's fields are downloaded by byte range (~270 MB for our variables), cropped to the [ecmwf_ens]
+area straight away and the global download deleted: only GB is ever kept. A full run is ~23 GB
+downloaded (~45 minutes at ~13 MB/s) and ~100 MB stored. Steps are saved as they finish, so an interrupted run resumes
 where it stopped; the run file appears only once every step is in.
 
-Archived as raw_dir/ecmwf_ens/<year>/ens_gb_YYYYMMDD_HHz.nc — values as delivered (t2m in K,
-u10 / v10 in m/s) on (step, number, latitude, longitude); load_run() converts to the ERA5 conventions.
+Archived as raw_dir/ecmwf_ens/<year>/ens_gb_YYYYMMDD_HHz.nc — values as delivered on (step, number,
+latitude, longitude): t2m, tmin, tmax in K; u10 / v10 in m/s; ssrd (J m-2) and tp (m) accumulated from
+the start of the run; tmin / tmax over the period since the previous step (missing at step 0). Runs
+archived before 2026-10-13 have temperature and wind only. load_run() converts to the ERA5 conventions.
 
 Run as a script:
     python -m ldz_demand.data.ingest.ecmwf_ens refresh                 # the latest runs not yet archived
@@ -38,12 +42,28 @@ from ldz_demand.config import create_config, resolve_path
 
 logger = logging.getLogger(__name__)
 
-PARAMS = ["2t", "10u", "10v"]
-VARIABLES = {"2t": "t2m", "10u": "u10", "10v": "v10"}  # GRIB short name -> our name (as cfgrib names them)
+PARAMS = ["2t", "10u", "10v"]                 # instantaneous: every step
+ACCUMULATED = ["ssrd", "tp"]                    # from the start of the run: steps after 0
+EXTREMES = {3: ["mn2t3", "mx2t3"], 6: ["mn2t6", "mx2t6"]}  # over the period since the last step
+# cfgrib variable name -> our name
+VARIABLES = {"t2m": "t2m", "u10": "u10", "v10": "v10", "ssrd": "ssrd", "tp": "tp",
+             "mn2t3": "tmin", "mx2t3": "tmax", "mn2t6": "tmin", "mx2t6": "tmax"}
+STORED = ["t2m", "u10", "v10", "ssrd", "tp", "tmin", "tmax"]
 STEPS = list(range(0, 145, 3)) + list(range(150, 361, 6))  # hours: 3-hourly to 144, 6-hourly to 360
 RUN_HOUR = 0
 DAYS_BACK = 3  # refresh looks for runs this many days back from the latest (the portal keeps a few days)
 ATTRIBUTION = "Contains ECMWF open data (CC-BY-4.0), https://www.ecmwf.int/en/forecasts/datasets/open-data"
+
+
+def step_params(step: int) -> list[str]:
+    """
+    The fields to download for a step. Extremes are published over the 3 h (to 144 h) or 6 h (after)
+    before each step, so with the standard steps they cover the whole forecast; with a sparser step
+    list they cover only the last 3 / 6 h before each step.
+    """
+    if step == 0:
+        return list(PARAMS)
+    return PARAMS + ACCUMULATED + EXTREMES[3 if step <= 144 else 6]
 
 
 def parse_steps(text: str) -> list[int]:
@@ -139,7 +159,7 @@ class ENSIngestor:
                 continue
             grib = work / f"step_{step:03d}.grib2"
             self.client.retrieve(date=run.strftime("%Y-%m-%d"), time=run.hour, stream="enfo", type="pf",
-                                 param=PARAMS, step=step, target=str(grib))
+                                 param=step_params(step), step=step, target=str(grib))
             crop(self.reader(grib), self.area).to_netcdf(saved.with_suffix(".part"))
             saved.with_suffix(".part").rename(saved)
             grib.unlink()  # never keep the global fields
@@ -157,12 +177,14 @@ class ENSIngestor:
         ds.attrs.update({
             "title": "ECMWF IFS ensemble (ENS), cropped to GB",
             "run": f"{run:%Y-%m-%dT%H:%M}Z", "source": self.source, "stream": "enfo", "type": "pf (members 1-50)",
-            "params": ", ".join(PARAMS), "steps_h": ",".join(map(str, self.steps)),
+            "params": ", ".join(PARAMS + ACCUMULATED) + ", mn2t3/mx2t3 (to 144 h), mn2t6/mx2t6 (after)",
+            "steps_h": ",".join(map(str, self.steps)),
             "area_nwse": ", ".join(map(str, self.area)),
             "downloaded": f"{started:%Y-%m-%dT%H:%M}Z to {datetime.now(timezone.utc):%Y-%m-%dT%H:%M}Z",
             "attribution": ATTRIBUTION,
         })
-        encoding = {v: {"zlib": True, "complevel": 4, "dtype": "float32"} for v in ds.data_vars}
+        encoding = {v: {"zlib": True, "complevel": 4, "dtype": "float32", "_FillValue": np.float32("nan")}
+                    for v in ds.data_vars}
         # whole hours, stated up front (xarray otherwise tries days, then falls back with a warning)
         encoding["step"] = {"units": "hours", "dtype": "int32"}
         encoding["valid_time"] = {"units": f"hours since {run:%Y-%m-%d %H:%M}", "dtype": "int32"}
@@ -177,28 +199,39 @@ class ENSIngestor:
 # --- GRIB reading and cropping --------------------------------------------------------------------
 
 def read_step(path: Path) -> xr.Dataset:
-    """One downloaded step as t2m, u10, v10 on (number, latitude, longitude)."""
+    """
+    One downloaded step on (number, latitude, longitude), with every STORED variable: those not
+    published at this step (step 0: accumulations are 0, extremes don't exist yet) are filled.
+    """
     import cfgrib
 
-    pieces: dict[str, list[xr.DataArray]] = {v: [] for v in VARIABLES.values()}
+    pieces: dict[str, list[xr.DataArray]] = {v: [] for v in STORED}
     step = valid_time = None
     with warnings.catch_warnings():  # cfgrib's own merge triggers an xarray FutureWarning
         warnings.simplefilter("ignore", FutureWarning)
         datasets = cfgrib.open_datasets(str(path), backend_kwargs={"indexpath": ""})
     for ds in datasets:
-        for name in pieces:
-            if name not in ds:
+        for grib_name, name in VARIABLES.items():
+            if grib_name not in ds:
                 continue
-            da = ds[name]
+            da = ds[grib_name]
             if "number" not in da.dims:  # a single member (e.g. a control forecast) comes as a scalar number
                 da = da.expand_dims("number")
-            step, valid_time = da["step"].values, da["valid_time"].values
+            if name in PARAMS_NAMES:
+                step, valid_time = da["step"].values, da["valid_time"].values
             pieces[name].append(da.reset_coords([c for c in da.coords if c not in da.dims], drop=True))
-    missing = [n for n, p in pieces.items() if not p]
+    missing = [n for n in PARAMS_NAMES if not pieces[n]]
     if missing:
         raise ValueError(f"{path.name}: no {missing} in the downloaded fields")
-    out = xr.Dataset({n: xr.concat(p, dim="number").sortby("number") for n, p in pieces.items()})
-    return out.assign_coords(step=step, valid_time=valid_time)
+    out = xr.Dataset({n: xr.concat(p, dim="number").sortby("number") for n, p in pieces.items() if p})
+    template = out["t2m"]
+    for name in STORED:
+        if name not in out:  # step 0
+            out[name] = xr.zeros_like(template) if name in ("ssrd", "tp") else xr.full_like(template, np.nan)
+    return out[STORED].assign_coords(step=step, valid_time=valid_time)
+
+
+PARAMS_NAMES = ["t2m", "u10", "v10"]
 
 
 def _quiet_downloads() -> None:
@@ -238,8 +271,9 @@ def archived_runs(raw_dir: Path) -> dict[datetime, Path]:
 
 def load_run(raw_dir: Path, run: datetime) -> xr.Dataset:
     """
-    One archived run in the ERA5 conventions: t2m (degC), u10, v10 and wind speed ws10 (m/s) on
-    (time, number, latitude, longitude), time = valid time in UTC.
+    One archived run in the ERA5 conventions, on (time, number, latitude, longitude), time = valid time
+    in UTC: t2m (degC), u10, v10 and wind speed ws10 (m/s); and where the run has them, over the period
+    since the previous step (missing at the first step): ssrd (mean W m-2), tp (mm), tmin / tmax (degC).
     """
     path = archived_runs(raw_dir)[run]
     ds = xr.open_dataset(path)
@@ -248,6 +282,13 @@ def load_run(raw_dir: Path, run: datetime) -> xr.Dataset:
     out["ws10"] = np.hypot(out["u10"], out["v10"])
     out["t2m"].attrs["units"] = "degC"
     out["ws10"].attrs["units"] = "m s-1"
+    if "ssrd" in ds:
+        seconds = (out["time"].diff("time") / np.timedelta64(1, "s")).astype(float)
+        out["ssrd"] = (ds["ssrd"].diff("time") / seconds).reindex(time=out["time"])  # J m-2 -> mean W m-2
+        out["tp"] = (ds["tp"].diff("time") * 1000).clip(min=0).reindex(time=out["time"])  # m -> mm
+        out["tmin"], out["tmax"] = ds["tmin"] - 273.15, ds["tmax"] - 273.15
+        for name, unit in (("ssrd", "W m-2"), ("tp", "mm"), ("tmin", "degC"), ("tmax", "degC")):
+            out[name].attrs["units"] = unit
     return out
 
 
