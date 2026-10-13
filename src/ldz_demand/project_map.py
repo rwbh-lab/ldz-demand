@@ -215,7 +215,7 @@ NODES: tuple[Node, ...] = (
          modules=("config",), files=("config/default.ini", "config/docker.ini")),
     Node("x_nas", None, 3, "NAS container",
          "The daily ensemble download and build, in Container Manager on the Synology NAS.",
-         files=("Dockerfile", "deploy/nas/ens_daily.sh", "config/docker.ini"),
+         files=("Dockerfile", "config/docker.ini"),
          details=(("Schedule", "DSM Task Scheduler, daily after the 00z run is published (~09:30 UTC)"),)),
     Node("x_dashboard", None, 4, "Dashboard",
          "The marimo pages, served together, and their shared charts and theme.",
