@@ -18,6 +18,7 @@ class Page:
 
 
 PAGES = {  # file -> page, in reading order
+    "project_map.py": Page("Project", "Project map", "/project-map"),
     "ng_ldz_daily.py": Page("Data", "National Gas data", "/ng-ldz-daily"),
     "era5_weather.py": Page("Data", "ERA5 weather", "/era5-weather"),
     "ldz_geography.py": Page("Models", "LDZ geography", "/ldz-geography"),
