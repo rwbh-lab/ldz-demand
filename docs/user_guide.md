@@ -1,7 +1,8 @@
 # User guide — building the data from scratch
 
 How to download the source data, archive it, and build the tables the models use. Everything here
-uses free, public data. For *why* the project is built this way, see `methodology.md`.
+uses free, public data. For *why* the project is built this way, see `methodology.md`; for what the
+models found, `results.md`.
 
 Sections marked **🚧 Coming soon** describe parts that are planned but not built yet.
 
@@ -165,7 +166,7 @@ LDZs: EA, EM, NE, NO, NT, NW, SC, SE, SO, SW, WM, WN, WS.
 | **Source** | Copernicus Climate Data Store, dataset `reanalysis-era5-single-levels` |
 | **Account** | Free CDS account + accepted licence (§3.3) |
 | **Attribution** | Required: *"Contains modified Copernicus Climate Change Service information [year]"* |
-| **History** | 1940 to ~5 days ago. Default download starts 2021-09 (`[era5] start`) |
+| **History** | 1940 to ~5 days ago. Default download starts 2021-07 (`[era5] start`) |
 | **Area** | 61°N, 8.5°W to 49.5°N, 2°E (`[era5] area`) |
 | **Size** | ~9 MB per month |
 | **Raw files** | `raw_dir/era5/<year>/era5_gb_YYYY-MM.nc` (final) and `era5t_gb_YYYY-MM_pulled_<UTC time>.nc` (preliminary); the extra group as `era5x_gb_…` / `era5xt_gb_…` |
@@ -238,7 +239,7 @@ python -m ldz_demand.data.ingest.era5 pull 2026-01 2026-01     # explicit month 
 ```
 
 - **Runtime:** one request per month; each takes ~2–4 minutes, mostly queueing and processing on
-  the Copernicus side. The default 2021-09 start is ~60 months, so **2–4 hours**. Leave it running;
+  the Copernicus side. The default 2021-07 start is ~63 months, so **2–4 hours**. Leave it running;
   if it stops, run it again and it skips months already downloaded.
 - Try a single month first to check your account and licence.
 
@@ -260,7 +261,7 @@ python -m ldz_demand.data.build.weather_ldz_daily --since 2026-08  # that month 
 
 **Build:** `weather_ldz_hourly`, the hourly LDZ series behind the daily table, for the
 `[ldz_weather] detail_variants` only (default: sampled · gas use and the station reference, ~2.3M rows
-for 2021-09 onwards). Kept so ways of averaging a gas day (flat, or weighting the morning and evening
+for 2021-07 onwards). Kept so ways of averaging a gas day (flat, or weighting the morning and evening
 heating peaks) can be tested against demand without going back to the gridded archive:
 
 ```bash
@@ -532,6 +533,7 @@ print((100 * (total_kwh - parts) / total_kwh).describe())   # SE 2026: mean ~1%,
 | `python -m ldz_demand.data.build.weather_ldz_daily [--since MONTH]` | Build `weather_ldz_daily` from ERA5 |
 | `python -m ldz_demand.data.build.weather_ldz_hourly [--since MONTH]` | Build `weather_ldz_hourly` from ERA5 |
 | `python -m ldz_demand.data.build.ens_ldz_daily [--since DATE]` | Build `ens_ldz_daily` from the ensemble archive |
+| `python -m ldz_demand.models.experiment cwv_inputs\|seasonal\|change [--ldz …]` | Run a model experiment → `data/results/` (see `results.md`) |
 | `python -m ldz_demand.dashboard` | Serve all dashboard pages (overview at /) |
 | `python -m ldz_demand.db status` | MySQL: connection check + migration status |
 | `python -m ldz_demand.db migrate [--dry-run]` | MySQL: apply pending migrations |
@@ -547,7 +549,7 @@ print((100 * (total_kwh - parts) / total_kwh).describe())   # SE 2026: mean ~1%,
 | `storage` | `database` | `false` | `true` = MySQL, `false` = CSV |
 | `storage` | `cache_dir` | `data/cache` | CSV table location |
 | `storage` | `raw_dir` | `data/raw` | Raw archive location |
-| `era5` | `start` | `2021-09` | First ERA5 month |
+| `era5` | `start` | `2021-07` | First ERA5 month (three months of warm-up before the demand history) |
 | `era5` | `area` | `61, -8.5, 49.5, 2.0` | North, west, south, east (degrees) |
 | `ecmwf_ens` | `source` | `ecmwf` | `ecmwf` (open-data portal) or a mirror: `aws`, `azure`, `google` |
 | `ecmwf_ens` | `run_hour` | `0` | Forecast run (UTC hour) |

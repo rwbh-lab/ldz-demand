@@ -50,7 +50,7 @@ PUBLISHED = {
 }
 
 NAMES = ("y", "I2", "W0", "T0", "S0", "V0", "I3", "V1", "dV", "q")
-SEASONAL = {"none": (), "slow": ("I1", "ys"), "calendar": ("Sc",)}  # seasonal term -> extra parameters
+SEASONAL = {"none": (), "slow": ("I1", "ys"), "calendar": ("Sc",), "slow_calendar": ("I1", "ys", "Sc")}  # seasonal term -> extra parameters
 
 
 def free_names(seasonal: str = "none") -> tuple[str, ...]:
@@ -95,11 +95,12 @@ def start(ldz: str) -> CWVParams:
 
 
 def bounds(ldz: str, names=NAMES) -> tuple[np.ndarray, np.ndarray]:
-    """(lower, upper) per parameter. The cold-weather upturn is held near the published values, as five
-    years have few cold days; the rest is free within physically sensible ranges."""
+    """(lower, upper) per parameter. The cold-weather upturn strength is held near the published values,
+    as five years have few cold days; the rest is free within physically sensible ranges. V0 and T0 were
+    first bounded more tightly (published V0 ± 2, T0 ≤ 25) and sat on those bounds in most fits."""
     p = PUBLISHED[ldz]
-    lo = dict(y=0.05, I2=0.0, W0=-10.0, T0=5.0, S0=-0.05, V0=p["V0"] - 2.0, I3=0.0, V1=8.0, dV=0.5, q=0.0,
+    lo = dict(y=0.05, I2=0.0, W0=-10.0, T0=5.0, S0=-0.05, V0=p["V0"] - 3.0, I3=0.0, V1=8.0, dV=0.5, q=0.0,
               I1=0.2, ys=0.85, Sc=-8.0)
-    hi = dict(y=0.95, I2=0.2, W0=15.0, T0=25.0, S0=0.05, V0=p["V0"] + 2.0, I3=max(0.4, 2 * p["I3"]), V1=22.0,
+    hi = dict(y=0.95, I2=0.2, W0=15.0, T0=35.0, S0=0.05, V0=p["V0"] + 6.0, I3=max(0.4, 2 * p["I3"]), V1=22.0,
               dV=12.0, q=1.0, I1=1.0, ys=0.98, Sc=8.0)  # ys 0.85-0.98: a time constant of about 1 week to 2 months
     return np.array([lo[n] for n in names]), np.array([hi[n] for n in names])

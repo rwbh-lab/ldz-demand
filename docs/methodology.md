@@ -238,9 +238,15 @@ Each is a variant fitted the same way and judged on held-out years (§7):
 
 ---
 
+Results, as they come in: [results.md](results.md).
+
 ## 7. Validation
 
 - **Held out by gas year:** fit on all other years, score the held-out one; repeat for each.
+- **Forward, for change over time** (experiment 4): each year predicted from the years before it only
+  — a level per gas year can't be estimated for a held-out middle year.
+- **Regimes:** where the level and slope change on a date, a held-out year is scored only if each
+  period between those dates it contains has at least 90 training days.
 - **Scores:** RMSE and MAPE per LDZ; separately for winter and for the coldest days.
 - **Against National Gas's own forecasts** (`ng_forecast_daily`, every issue since October 2021),
   not CWV against CWV — the official CWV changed definition in October 2025, but each forecast used

@@ -17,10 +17,18 @@ day-of-year shape pooled across LDZs. All with a level / slope break on 1 Oct 20
 too), so the seasonal term isn't absorbing the post-2022 drop in demand. 2021/22 is then the only year
 before the break and can't be held out; the scores cover 2022/23 - 2025/26 (official: to 2024/25).
 
+Experiment "change" (4): how should the model follow changes in behaviour over time? Scored forward:
+2023/24, 2024/25 and 2025/26 each predicted from the years before it only (holding out a middle year
+can't test this — a level per gas year can't be estimated for the year left out). The gas-weighted
+input with the calendar shape, and: fixed; a break on 1 Oct 2022; a level / slope per gas year (the
+forecast uses the latest year's); recent years weighted more (half-life 1 or 2 years). The official CWV
+(with the 2022 break) as benchmark, to 2024/25.
+
 Run:
     python -m ldz_demand.models.experiment cwv_inputs              # all LDZs (a few minutes)
     python -m ldz_demand.models.experiment cwv_inputs --ldz NT WS  # some LDZs
     python -m ldz_demand.models.experiment seasonal
+    python -m ldz_demand.models.experiment change
 Writes data/results/<experiment>_{predictions,scores,scores_2025_26,params}.csv.
 """
 
@@ -28,7 +36,7 @@ import argparse
 import logging
 import sys
 import time
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import numpy as np
@@ -51,12 +59,45 @@ INPUTS = {  # name -> weather variant (membership, weighting), or None for the o
 }
 GAS_YEARS = ("2021/22", "2022/23", "2023/24", "2024/25", "2025/26")
 _B, _O = demand.BEHAVIOUR_BREAK, demand.BREAK_DAY
-MODELS = {  # experiment -> models: (label, input, seasonal term, breaks)
-    "cwv_inputs": [("official", "official", "none", (_O,))] + [(n, n, "none", ()) for n in INPUTS if n != "official"],
-    "seasonal": [("official", "official", "none", (_B, _O))]
-                + [(f"{n}/{s}", n, s, (_B,)) for n in ("station", "sampled_gas") for s in ("none", "slow", "calendar")],
+
+
+@dataclass(frozen=True)
+class Model:
+    label: str
+    input: str
+    seasonal: str = "none"
+    breaks: tuple = ()
+    per_year: bool = False           # a level / slope per gas year (forward scheme: the latest is used)
+    half_life: float | None = None   # recency weighting of training days, years
+
+
+MODELS = {  # experiment -> models
+    "cwv_inputs": [Model("official", "official", breaks=(_O,))] + [Model(n, n) for n in INPUTS if n != "official"],
+    "seasonal": [Model("official", "official", breaks=(_B, _O))]
+                + [Model(f"{n}/{s}", n, s, (_B,)) for n in ("station", "sampled_gas") for s in ("none", "slow", "calendar")],
+    "change": [Model("official", "official", breaks=(_B, _O)),
+               Model("fixed", "sampled_gas", "calendar"),
+               Model("break_2022", "sampled_gas", "calendar", (_B,)),
+               Model("per_year", "sampled_gas", "calendar", per_year=True),
+               Model("adapting_1y", "sampled_gas", "calendar", half_life=1.0),
+               Model("adapting_2y", "sampled_gas", "calendar", half_life=2.0)],
 }
+SCHEME = {"cwv_inputs": "held_out", "seasonal": "held_out", "change": "forward"}
+FORWARD_FROM = "2023/24"  # forward scheme: the first year predicted (from at least two years before it)
+
+
+def _folds(scheme: str):
+    """(held-out year, training years) per fold."""
+    if scheme == "held_out":
+        return [(y, tuple(g for g in GAS_YEARS if g != y)) for y in GAS_YEARS]
+    return [(y, tuple(g for g in GAS_YEARS if g < y)) for y in GAS_YEARS if y >= FORWARD_FROM]
+
+
+def _year_starts(years) -> tuple:
+    """1 October of each gas year after the first: breaks for a level / slope per gas year."""
+    return tuple(pd.Timestamp(f"{y[:4]}-10-01") for y in sorted(years)[1:])
 RESULTS = get_project_root() / "data" / "results"
+MIN_REGIME_DAYS = 90  # training days needed in each regime a held-out year contains (SE 2022/23 has ~5)
 COLD_SHARE = 0.05  # "coldest days": this share of each LDZ's days, by its gas-weighted temperature
 
 
@@ -102,31 +143,38 @@ def _prepared(frame: pd.DataFrame, name: str):
     return data, years[rows], usable[rows]
 
 
-def run(frames: dict[str, pd.DataFrame], ldzs=LDZS, models=None) -> tuple[pd.DataFrame, pd.DataFrame]:
+def run(frames: dict[str, pd.DataFrame], ldzs=LDZS, models=None, scheme: str = "held_out") -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Held-out predictions (gas_day, ldz, input, held_out, actual, predicted, cwv) and fitted parameters for
-    each model (label, input, seasonal term, breaks). A held-out year is scored only when every regime
-    (between breaks) it contains also appears in its training years.
+    each model. scheme "held_out": each gas year predicted from all the others; "forward": each year from
+    FORWARD_FROM predicted from the years before it. A held-out year is scored only when every regime
+    (between breaks) it contains has at least MIN_REGIME_DAYS training days.
     """
     predictions, params = [], []
-    for label, name, seasonal, breaks in models or MODELS["cwv_inputs"]:
+    for m in models or MODELS["cwv_inputs"]:
+        label, name, seasonal = m.label, m.input, m.seasonal
         t0 = time.monotonic()
         prepared = {ldz: _prepared(frames[ldz], name) for ldz in ldzs}
-        for held in GAS_YEARS:
+        for held, train_years in _folds(scheme):
+            breaks = tuple(sorted(set(m.breaks) | set(_year_starts(train_years) if m.per_year else ())))
             folds = {}
             for ldz, (data, years_d, usable_d) in prepared.items():
-                train, test = usable_d & (years_d != held), usable_d & (years_d == held)
+                train, test = usable_d & np.isin(years_d, train_years), usable_d & (years_d == held)
                 regime = demand.regimes(data.index, breaks)
-                if test.any() and train.sum() >= 200 and set(regime[test]) <= set(regime[train]):
+                trained = np.bincount(regime[train], minlength=len(breaks) + 1)
+                if test.any() and train.sum() >= 200 and (trained[np.unique(regime[test])] >= MIN_REGIME_DAYS).all():
                     folds[ldz] = (data, train, test)
             if not folds:
                 continue
+            weights = ({ldz: demand.recency_weights(d.index, tr, m.half_life) for ldz, (d, tr, _) in folds.items()}
+                       if m.half_life else None)
             if name == "official":
                 fits = {ldz: demand.fit_official(d, tr, ldz, breaks) for ldz, (d, tr, _) in folds.items()}
-            elif seasonal == "calendar":  # one shape shared by the LDZs: fitted together
-                fits = demand.fit_joint({ldz: (d, tr) for ldz, (d, tr, _) in folds.items()}, seasonal, breaks)
+            elif "calendar" in seasonal:  # one shape shared by the LDZs: fitted together
+                fits = demand.fit_joint({ldz: (d, tr) for ldz, (d, tr, _) in folds.items()}, seasonal, breaks, weights)
             else:
-                fits = {ldz: demand.fit_weather(d, tr, ldz, seasonal, breaks) for ldz, (d, tr, _) in folds.items()}
+                fits = {ldz: demand.fit_weather(d, tr, ldz, seasonal, breaks, weights and weights[ldz])
+                        for ldz, (d, tr, _) in folds.items()}
             for ldz, (data, _, test) in folds.items():
                 fit = fits[ldz]
                 pred, x = demand.predict(fit, data), demand.cwv_series(fit, data)
@@ -187,7 +235,7 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     frames = load()
     models = MODELS[args.experiment]
-    predictions, params = run(frames, args.ldz, models)
+    predictions, params = run(frames, args.ldz, models, SCHEME[args.experiment])
     table = scores(predictions, frames)
     latest = scores(predictions[predictions["held_out"] == "2025/26"], frames).assign(period="2025/26")
     RESULTS.mkdir(parents=True, exist_ok=True)
@@ -195,7 +243,7 @@ def main(argv: list[str] | None = None) -> int:
         df.to_csv(RESULTS / f"{args.experiment}_{name}.csv", index=False)
     pd.set_option("display.width", 200)
     summary = table.pivot(index="ldz", columns="input", values="rmse_all").round(2)
-    logger.info(f"RMSE (GWh/day), held-out gas years:\n{summary[[m[0] for m in models if m[0] in summary]].to_string()}")
+    logger.info(f"RMSE (GWh/day), held-out gas years:\n{summary[[m.label for m in models if m.label in summary]].to_string()}")
     logger.info(f"Results -> {RESULTS}")
     return 0
 

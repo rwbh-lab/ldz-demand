@@ -42,8 +42,9 @@ def effective_temperature(t: np.ndarray, y: float) -> np.ndarray:
     return lfilter([1 - y], [1, -y], t, zi=[y * t[0]])[0]
 
 
-def harmonics(gas_days, n: int = HARMONICS) -> np.ndarray:
-    """(days, 2n): cos, sin of 1..n cycles a year, by day of year."""
+def harmonics(gas_days, n: int | None = None) -> np.ndarray:
+    """(days, 2n): cos, sin of 1..n cycles a year, by day of year (n: HARMONICS)."""
+    n = n or HARMONICS
     w = 2 * np.pi * pd.DatetimeIndex(gas_days).dayofyear.to_numpy() / YEAR
     return np.column_stack([f(k * w) for k in range(1, n + 1) for f in (np.cos, np.sin)])
 
@@ -109,26 +110,34 @@ def calendar_shape(gas_days, shape, h=None) -> np.ndarray:
 
 def _seasonal(t, gas_days, p: cwv.CWVParams, seasonal: str, shape=None, h=None):
     """(s, g) for composite."""
-    if seasonal == "slow":
-        return effective_temperature(t, p.ys), None
-    if seasonal == "calendar":
-        return None, calendar_shape(gas_days, shape, h)
-    return None, None
+    s = effective_temperature(t, p.ys) if "slow" in seasonal else None
+    g = calendar_shape(gas_days, shape, h) if "calendar" in seasonal else None
+    return s, g
 
 
-def fit_weather(frame: pd.DataFrame, train: np.ndarray, ldz: str, seasonal: str = "none", breaks=()) -> Fit:
+def fit_weather(frame: pd.DataFrame, train: np.ndarray, ldz: str, seasonal: str = "none", breaks=(),
+                weights: np.ndarray | None = None) -> Fit:
     """frame: consecutive gas days with t2m, ws10, ssrd, target. Fits on rows where train is True."""
-    return fit_joint({ldz: (frame, train)}, seasonal, breaks)[ldz]
+    return fit_joint({ldz: (frame, train)}, seasonal, breaks, None if weights is None else {ldz: weights})[ldz]
 
 
-def fit_joint(data: dict[str, tuple[pd.DataFrame, np.ndarray]], seasonal: str = "none", breaks=()) -> dict[str, Fit]:
+def recency_weights(gas_days, train: np.ndarray, half_life: float) -> np.ndarray:
+    """Per day, 0.5 ** (age / half_life), age in years before the last training day."""
+    days = pd.DatetimeIndex(gas_days)
+    age = (days[train].max() - days).days.to_numpy() / YEAR
+    return 0.5 ** (np.clip(age, 0, None) / half_life)
+
+
+def fit_joint(data: dict[str, tuple[pd.DataFrame, np.ndarray]], seasonal: str = "none", breaks=(),
+              weights: dict[str, np.ndarray] | None = None) -> dict[str, Fit]:
     """
     Fit several LDZs in one problem: each has its own CWV parameters and linear terms; with the
     "calendar" seasonal term they share the day-of-year shape. Each LDZ's residuals are divided by its
-    robust scale, so the large LDZs don't decide the shape.
+    robust scale, so the large LDZs don't decide the shape. weights: per LDZ, per day (all rows of the
+    frame), multiplying each day's share of the loss.
     """
     names = cwv.free_names(seasonal)
-    k, n_shape = len(names), 2 * HARMONICS - 1 if seasonal == "calendar" else 0
+    k, n_shape = len(names), 2 * HARMONICS - 1 if "calendar" in seasonal else 0
     blocks = []
     for ldz, (frame, train) in data.items():
         t, w, sr = _inputs(frame)
@@ -136,6 +145,7 @@ def fit_joint(data: dict[str, tuple[pd.DataFrame, np.ndarray]], seasonal: str = 
         blocks.append(dict(ldz=ldz, t=t, w=w, sr=sr, y=frame["target"].to_numpy(dtype=float), train=train,
                            cal=calendar.features(frame.index, ldz), days=frame.index, lo=lo, hi=hi,
                            p0=np.clip(cwv.start(ldz).vector(names), lo, hi),
+                           sw=np.sqrt(weights[ldz][train]) if weights else 1.0,
                            h=harmonics(frame.index) if n_shape else None))
 
     def x_of(b, p_vec, shape):
@@ -158,7 +168,7 @@ def fit_joint(data: dict[str, tuple[pd.DataFrame, np.ndarray]], seasonal: str = 
 
     def residuals(theta):
         shape = theta[:n_shape]
-        return np.concatenate([(x_of(b, theta[ps], shape)[b["train"]] @ theta[bs] - b["y"][b["train"]]) / b["scale"]
+        return np.concatenate([b["sw"] * (x_of(b, theta[ps], shape)[b["train"]] @ theta[bs] - b["y"][b["train"]]) / b["scale"]
                                for b, (ps, bs) in zip(blocks, slices)])
 
     rows = [int(b["train"].sum()) for b in blocks]
