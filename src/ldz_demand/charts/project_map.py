@@ -251,9 +251,12 @@ function clear() {
 const section = (label, html) => html ? `<h3>${label}</h3>${html}` : '';
 const list = items => items.length ? `<ul>${items.join('')}</ul>` : '';
 const details = d => d.length ? `<dl>${d.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : '';
-const PREFIX = 'src/ldz_demand/';  // every module lives here: shown once, as a note, rather than on each path
-const modules = ms => list(ms.map(([m, f]) => `<li><code>${esc((f || m).replace(PREFIX, ''))}</code></li>`));
-const note = ms => ms.length ? `<p class="note">Code paths are under <code>${PREFIX}</code></p>` : '';
+const PREFIX = 'src/ldz_demand/';  // every module and model file lives here: shown once, as a note, not on each path
+const short = f => f.startsWith(PREFIX) ? f.slice(PREFIX.length) : f;
+const modules = ms => list(ms.map(([m, f]) => `<li><code>${esc(short(f || m))}</code></li>`));
+const files = fs => list(fs.map(f => `<li><code>${esc(short(f))}</code></li>`));
+const note = (ms, fs = []) => ms.length || fs.some(f => f.startsWith(PREFIX))
+  ? `<p class="note">Code and file paths are under <code>${PREFIX}</code></p>` : '';
 const links = ids => ids.map(id => `<a href="#" data-node="${id}">${esc(nodes[id].title)}</a>`).join(', ');
 
 function showNode(id) {
@@ -268,11 +271,11 @@ function showNode(id) {
     <h2>${esc(n.title)}</h2><p>${esc(n.summary)}</p>${details(n.details)}
     ${section('Tables', list(n.datasets.map(d => `<li><code>${esc(d)}</code></li>`)))}
     ${section('Code', modules(n.modules))}
-    ${section('Files', list(n.files.map(f => `<li><code>${esc(f)}</code></li>`)))}
+    ${section('Files', files(n.files))}
     ${section('Docs', list(n.docs.map(d => `<li>${esc(d)}</li>`)))}
     ${n.page ? section('Dashboard', `<p><a href="${n.page.path}" target="_top">${esc(n.page.title)} →</a></p>`) : ''}
     ${section('Fed by', from.length ? `<p>${links(from)}</p>` : '')}
-    ${section('Feeds', into.length ? `<p>${links(into)}</p>` : '')}${note(n.modules)}`;
+    ${section('Feeds', into.length ? `<p>${links(into)}</p>` : '')}${note(n.modules, n.files)}`;
   panel.hidden = false;
 }
 
