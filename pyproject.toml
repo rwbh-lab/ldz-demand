@@ -18,7 +18,7 @@ dependencies = [
 [project.optional-dependencies]
 weather = ["xarray", "netCDF4", "cfgrib", "cdsapi", "ecmwf-opendata"]
 geo = ["geopandas", "shapely", "scipy", "openpyxl", "pyproj"]
-models = ["scikit-learn", "statsmodels", "optuna"]
+models = ["scikit-learn", "statsmodels", "optuna", "scipy", "holidays"]
 plot = ["matplotlib", "cartopy"]
 db = ["sqlalchemy>=2.0", "pymysql", "cryptography", "python-dotenv"]
 dashboard = ["marimo", "plotly"]

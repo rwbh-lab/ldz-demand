@@ -14,6 +14,8 @@ config/local.ini
 # Data — never committed
 data/cache/*
 data/raw/*
+# experiment outputs: rerun with python -m ldz_demand.models.experiment
+data/results/*
 !data/cache/.gitkeep
 !data/raw/.gitkeep
 *.pickle

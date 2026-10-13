@@ -1,0 +1,202 @@
+"""
+LDZ demand as a straight line in a composite weather variable, plus calendar effects.
+
+    demand_t = a + b · CWV_t + day of week + bank holiday + Christmas period
+               [+ a change in a and b after each break]
+
+Two kinds of fit, per LDZ:
+- "weather": CWV built from our weather (ldz_demand.models.cwv); its parameters and the linear terms are
+  fitted together. With the "calendar" seasonal term the LDZs are fitted jointly (fit_joint), as they
+  share one day-of-year shape;
+- "official": the published CWV as given, linear terms only.
+
+Breaks: the intercept and slope may change on given days — BEHAVIOUR_BREAK (demand after the 2022 price
+shock) and, for the official CWV, BREAK_DAY (when its parameters and seasonal normal changed). A break's
+terms can only be estimated from training days after it, so held-out years are scored only when every
+regime they contain appears in training (`regimes`).
+
+Both use a robust loss (soft L1), so a few odd days — data errors, one-off events — don't pull the fit.
+The weather series must be consecutive gas days (effective temperatures carry over from day to day);
+`train` selects the days the fit uses.
+"""
+
+from dataclasses import dataclass
+
+import numpy as np
+import pandas as pd
+from scipy.optimize import least_squares
+from scipy.signal import lfilter
+from scipy.sparse import lil_matrix
+
+from ldz_demand.models import calendar, cwv
+
+BREAK_DAY = pd.Timestamp("2025-10-01")        # official CWV redefined (2024 review)
+BEHAVIOUR_BREAK = pd.Timestamp("2022-10-01")  # demand after the 2022 price shock
+HARMONICS = 2                                 # sine / cosine pairs in the calendar shape
+YEAR = 365.25
+SHAPE_BOUND = 3.0                             # on each shape coefficient (the first cosine's is fixed at 1)
+
+
+def effective_temperature(t: np.ndarray, y: float) -> np.ndarray:
+    """E_t = y · E_t−1 + (1 − y) · T_t from E_0 = T_0 (vectorised)."""
+    return lfilter([1 - y], [1, -y], t, zi=[y * t[0]])[0]
+
+
+def harmonics(gas_days, n: int = HARMONICS) -> np.ndarray:
+    """(days, 2n): cos, sin of 1..n cycles a year, by day of year."""
+    w = 2 * np.pi * pd.DatetimeIndex(gas_days).dayofyear.to_numpy() / YEAR
+    return np.column_stack([f(k * w) for k in range(1, n + 1) for f in (np.cos, np.sin)])
+
+
+def composite(t, w, sr, p: cwv.CWVParams, s: np.ndarray | None = None, g: np.ndarray | None = None) -> np.ndarray:
+    """The CWV. s: a seasonal temperature mixed in with weight 1 - I1; g: a calendar shape added as Sc · g."""
+    e = effective_temperature(t, p.y)
+    base = e if s is None else p.I1 * e + (1 - p.I1) * s
+    if g is not None:
+        base = base + p.Sc * g
+    cw = base - p.I2 * np.maximum(0.0, w - p.W0) * np.maximum(0.0, p.T0 - t) + p.S0 * sr
+    v1, v2 = p.V1, p.V2
+    out = np.where(cw >= v2, v1 + p.q * (v2 - v1), cw)
+    out = np.where((cw > v1) & (cw < v2), v1 + p.q * (cw - v1), out)
+    return np.where(cw < p.V0, cw + p.I3 * (cw - p.V0), out)
+
+
+def regimes(gas_days, breaks=()) -> np.ndarray:
+    """Per day, how many breaks it is on or after (0 = before all of them)."""
+    days = pd.DatetimeIndex(gas_days)
+    return sum(((days >= b).astype(int) for b in breaks), np.zeros(len(days), int))
+
+
+@dataclass
+class Fit:
+    kind: str                       # "weather" or "official"
+    ldz: str
+    coef: np.ndarray                # linear terms, in the order of `columns`
+    columns: list[str]
+    params: cwv.CWVParams | None    # weather fits only
+    success: bool
+    n_train: int
+    seasonal: str = "none"
+    breaks: tuple = ()
+    shape: np.ndarray | None = None  # calendar shape coefficients after the first (shared by the LDZs fitted together)
+
+
+def _design(x: np.ndarray, cal: pd.DataFrame, breaks=()) -> tuple[np.ndarray, list[str]]:
+    cols = [np.ones(len(x)), x]
+    names = ["intercept", "cwv"]
+    for b in breaks:
+        post = (cal.index >= b).astype(float)
+        cols += [post, post * x]
+        names += [f"intercept_after_{b:%Y-%m}", f"cwv_after_{b:%Y-%m}"]
+    cols += [cal[c].to_numpy() for c in cal.columns]
+    return np.column_stack(cols), names + list(cal.columns)
+
+
+def _robust_scale(r: np.ndarray) -> float:
+    return max(1.4826 * float(np.median(np.abs(r - np.median(r)))), 1e-6)
+
+
+def _inputs(frame: pd.DataFrame):
+    t, w, sr = (frame[c].to_numpy(dtype=float) for c in ("t2m", "ws10", "ssrd"))
+    return t, w, np.nan_to_num(sr, nan=float(np.nanmean(sr)))  # a few edge days without solar: use the mean
+
+
+def calendar_shape(gas_days, shape, h=None) -> np.ndarray:
+    """g: the first cosine (coefficient 1) plus the fitted coefficients on the other harmonics."""
+    h = harmonics(gas_days) if h is None else h
+    return h[:, 0] + h[:, 1:] @ shape
+
+
+def _seasonal(t, gas_days, p: cwv.CWVParams, seasonal: str, shape=None, h=None):
+    """(s, g) for composite."""
+    if seasonal == "slow":
+        return effective_temperature(t, p.ys), None
+    if seasonal == "calendar":
+        return None, calendar_shape(gas_days, shape, h)
+    return None, None
+
+
+def fit_weather(frame: pd.DataFrame, train: np.ndarray, ldz: str, seasonal: str = "none", breaks=()) -> Fit:
+    """frame: consecutive gas days with t2m, ws10, ssrd, target. Fits on rows where train is True."""
+    return fit_joint({ldz: (frame, train)}, seasonal, breaks)[ldz]
+
+
+def fit_joint(data: dict[str, tuple[pd.DataFrame, np.ndarray]], seasonal: str = "none", breaks=()) -> dict[str, Fit]:
+    """
+    Fit several LDZs in one problem: each has its own CWV parameters and linear terms; with the
+    "calendar" seasonal term they share the day-of-year shape. Each LDZ's residuals are divided by its
+    robust scale, so the large LDZs don't decide the shape.
+    """
+    names = cwv.free_names(seasonal)
+    k, n_shape = len(names), 2 * HARMONICS - 1 if seasonal == "calendar" else 0
+    blocks = []
+    for ldz, (frame, train) in data.items():
+        t, w, sr = _inputs(frame)
+        lo, hi = cwv.bounds(ldz, names)
+        blocks.append(dict(ldz=ldz, t=t, w=w, sr=sr, y=frame["target"].to_numpy(dtype=float), train=train,
+                           cal=calendar.features(frame.index, ldz), days=frame.index, lo=lo, hi=hi,
+                           p0=np.clip(cwv.start(ldz).vector(names), lo, hi),
+                           h=harmonics(frame.index) if n_shape else None))
+
+    def x_of(b, p_vec, shape):
+        p = cwv.CWVParams.from_vector(p_vec, names)
+        s, g = _seasonal(b["t"], b["days"], p, seasonal, shape, b["h"])
+        return _design(composite(b["t"], b["w"], b["sr"], p, s, g), b["cal"], breaks)[0]
+
+    theta0, lo, hi, slices, start = [np.zeros(n_shape)], [np.full(n_shape, -SHAPE_BOUND)], [np.full(n_shape, SHAPE_BOUND)], [], n_shape
+    for b in blocks:
+        x0 = x_of(b, b["p0"], np.zeros(n_shape))
+        beta0 = np.linalg.lstsq(x0[b["train"]], b["y"][b["train"]], rcond=None)[0]
+        b["scale"] = _robust_scale(x0[b["train"]] @ beta0 - b["y"][b["train"]])
+        nb = len(beta0)
+        theta0 += [b["p0"], beta0]
+        lo += [b["lo"], np.full(nb, -np.inf)]
+        hi += [b["hi"], np.full(nb, np.inf)]
+        slices.append((slice(start, start + k), slice(start + k, start + k + nb)))
+        start += k + nb
+    theta0, lo, hi = np.concatenate(theta0), np.concatenate(lo), np.concatenate(hi)
+
+    def residuals(theta):
+        shape = theta[:n_shape]
+        return np.concatenate([(x_of(b, theta[ps], shape)[b["train"]] @ theta[bs] - b["y"][b["train"]]) / b["scale"]
+                               for b, (ps, bs) in zip(blocks, slices)])
+
+    rows = [int(b["train"].sum()) for b in blocks]
+    sparsity = lil_matrix((sum(rows), len(theta0)), dtype=int)  # each LDZ's rows: its own terms + the shape
+    r0 = 0
+    for n, (ps, bs) in zip(rows, slices):
+        sparsity[r0:r0 + n, :n_shape] = 1
+        sparsity[r0:r0 + n, ps.start:bs.stop] = 1
+        r0 += n
+    res = least_squares(residuals, theta0, bounds=(lo, hi), loss="soft_l1", f_scale=1.0, x_scale="jac",
+                        jac_sparsity=sparsity if len(blocks) > 1 else None, max_nfev=3000)
+    columns = _design(np.zeros(1), blocks[0]["cal"].iloc[:1], breaks)[1]
+    shape = res.x[:n_shape] if n_shape else None
+    return {b["ldz"]: Fit("weather", b["ldz"], res.x[bs], columns, cwv.CWVParams.from_vector(res.x[ps], names),
+                          bool(res.success), int(b["train"].sum()), seasonal, tuple(breaks), shape)
+            for b, (ps, bs) in zip(blocks, slices)}
+
+
+def fit_official(frame: pd.DataFrame, train: np.ndarray, ldz: str, breaks=(BREAK_DAY,)) -> Fit:
+    """frame: gas days with cwv_official, target. Linear terms only, with the given breaks."""
+    x, names = _design(frame["cwv_official"].to_numpy(dtype=float), calendar.features(frame.index, ldz), breaks)
+    y = frame["target"].to_numpy(dtype=float)
+    beta0 = np.linalg.lstsq(x[train], y[train], rcond=None)[0]
+    scale = _robust_scale(x[train] @ beta0 - y[train])
+    res = least_squares(lambda b: x[train] @ b - y[train], beta0, loss="soft_l1", f_scale=scale, x_scale="jac")
+    return Fit("official", ldz, res.x, names, None, bool(res.success), int(train.sum()), breaks=tuple(breaks))
+
+
+def cwv_series(fit: Fit, frame: pd.DataFrame) -> np.ndarray:
+    """The fitted CWV for every row (weather fits), or the official CWV (official fits)."""
+    if fit.kind == "official":
+        return frame["cwv_official"].to_numpy(dtype=float)
+    t, w, sr = _inputs(frame)
+    s, g = _seasonal(t, frame.index, fit.params, fit.seasonal, fit.shape)
+    return composite(t, w, sr, fit.params, s, g)
+
+
+def predict(fit: Fit, frame: pd.DataFrame) -> np.ndarray:
+    """Predicted target for every row of frame (same layout as for the fit)."""
+    x, _ = _design(cwv_series(fit, frame), calendar.features(frame.index, fit.ldz), fit.breaks)
+    return x @ fit.coef
