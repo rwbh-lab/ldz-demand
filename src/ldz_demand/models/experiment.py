@@ -21,7 +21,8 @@ Experiment "change" (4): how should the model follow changes in behaviour over t
 2023/24, 2024/25 and 2025/26 each predicted from the years before it only (holding out a middle year
 can't test this — a level per gas year can't be estimated for the year left out). The gas-weighted
 input with the calendar shape, and: fixed; a break on 1 Oct 2022; a level / slope per gas year (the
-forecast uses the latest year's); recent years weighted more (half-life 1 or 2 years). The official CWV
+forecast uses the latest year's); recent years weighted more (half-life 1 or 2 years); and the break /
+per-year models with a summer level of their own (demand.summer_weight). The official CWV
 (with the 2022 break) as benchmark, to 2024/25.
 
 Run:
@@ -69,6 +70,7 @@ class Model:
     breaks: tuple = ()
     per_year: bool = False           # a level / slope per gas year (forward scheme: the latest is used)
     half_life: float | None = None   # recency weighting of training days, years
+    summer: bool = False             # a summer level, changing at each break like the rest
 
 
 MODELS = {  # experiment -> models
@@ -80,7 +82,9 @@ MODELS = {  # experiment -> models
                Model("break_2022", "sampled_gas", "calendar", (_B,)),
                Model("per_year", "sampled_gas", "calendar", per_year=True),
                Model("adapting_1y", "sampled_gas", "calendar", half_life=1.0),
-               Model("adapting_2y", "sampled_gas", "calendar", half_life=2.0)],
+               Model("adapting_2y", "sampled_gas", "calendar", half_life=2.0),
+               Model("break_2022_summer", "sampled_gas", "calendar", (_B,), summer=True),
+               Model("per_year_summer", "sampled_gas", "calendar", per_year=True, summer=True)],
 }
 SCHEME = {"cwv_inputs": "held_out", "seasonal": "held_out", "change": "forward"}
 FORWARD_FROM = "2023/24"  # forward scheme: the first year predicted (from at least two years before it)
@@ -171,9 +175,10 @@ def run(frames: dict[str, pd.DataFrame], ldzs=LDZS, models=None, scheme: str = "
             if name == "official":
                 fits = {ldz: demand.fit_official(d, tr, ldz, breaks) for ldz, (d, tr, _) in folds.items()}
             elif "calendar" in seasonal:  # one shape shared by the LDZs: fitted together
-                fits = demand.fit_joint({ldz: (d, tr) for ldz, (d, tr, _) in folds.items()}, seasonal, breaks, weights)
+                fits = demand.fit_joint({ldz: (d, tr) for ldz, (d, tr, _) in folds.items()}, seasonal, breaks, weights,
+                                        m.summer)
             else:
-                fits = {ldz: demand.fit_weather(d, tr, ldz, seasonal, breaks, weights and weights[ldz])
+                fits = {ldz: demand.fit_weather(d, tr, ldz, seasonal, breaks, weights and weights[ldz], m.summer)
                         for ldz, (d, tr, _) in folds.items()}
             for ldz, (data, _, test) in folds.items():
                 fit = fits[ldz]

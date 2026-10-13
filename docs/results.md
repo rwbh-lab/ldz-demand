@@ -160,10 +160,41 @@ GB, RMSE in GWh/day. 2023/24 isn't scored for GB: SE has too few training days a
 
 ---
 
+## Follow-up: summer and the shoulder months
+
+*Why is our percentage error over all days slightly above the official CWV's?* By month, mid-summer
+is close to the official CWV; we lose in the shoulder months (April – June, October). Two causes:
+
+- **The level moves between years.** With a single 2022 break, the GB error keeps one sign for months
+  and changes sign between years (excluding SE): +27 to +57 GWh/day in winter 2022/23, down to −52 in
+  spring 2024, up to +42 in spring 2025, about −40 in winter 2025/26. This is what the per-year terms
+  of experiment 4 address.
+- **Spring 2025 is missed by every model,** the official CWV included (+54 GWh/day in April 2025,
+  against +64 for ours): demand fell further than the weather explains.
+
+Tested and not adopted (all LDZs, GB RMSE in GWh/day):
+
+| Change | Held out (exp. 3 setup) | Forward (exp. 4, per gas year) |
+|---|---|---|
+| none (calendar shape, 2 sine / cosine pairs) | 47.7* / **46.8** | **51.6** |
+| 3 sine / cosine pairs | 47.2* | — |
+| calendar shape + slow temperature | 47.6* | — |
+| summer level of its own, changing per year | 47.1 | 52.2 |
+
+\* including 2025/26 (884 days, no official benchmark); the others on the experiment's usual days.
+
+- **More detail in the shape** helps by about 1%: within noise; kept at two pairs.
+- **The summer level** (an intercept on a weight that is 0 on heating days and 1 above the summer
+  cut-off, so summer demand can move independently of the heating line) halves the July – August bias
+  in 2024/25 (+18 → +10 GWh/day) and helps October, but makes April – May worse; no net gain.
+
+The shoulder months remain the model's weakest point, shared in spring with the official CWV.
+
+---
+
 ## Open
 
-- **Summer errors:** proportionally larger than the official CWV's (MAPE); check the summer cut-off
-  (V1, V2, q) and low-demand days.
+- **Shoulder months** (see above): spring 2025 in particular.
 - **Cold end:** 2025/26's coldest days favoured no seasonal term; few cold days in five years
   (methodology §5.5).
 - **Remaining experiments:** variables (2), gas-day averaging (5), target A vs B (6) — B would give
