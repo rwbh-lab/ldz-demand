@@ -351,7 +351,7 @@ svg {{ display: block; width: 100%; height: auto; }}
 svg.focus .node:not(.on), svg.focus .edge:not(.on) {{ opacity: .22; }}
 svg.focus .node.on .box {{ stroke: {theme.accent}; stroke-width: 1.5; }}
 svg.focus .edge.on .line {{ stroke: {theme.accent}; stroke-width: 2.5; }}
-#panel {{ position: absolute; top: 8px; right: 8px; width: min(300px, calc(100% - 16px));  /* clear of the middle lane either side, at ~1000 px */ max-height: calc(100% - 16px);
+#panel {{ position: absolute; top: 8px; right: 8px; width: min(340px, calc(100% - 16px)); max-height: calc(100% - 16px);
   overflow: auto; box-sizing: border-box; background: {theme.surface}; border: 1px solid {theme.axis};
   border-radius: 8px; padding: 18px 16px 14px; box-shadow: 0 8px 28px rgba(0,0,0,.35); font-size: 13px; line-height: 1.45; }}
 #panel h2 {{ margin: 2px 0 6px; font-size: 16px; }}
