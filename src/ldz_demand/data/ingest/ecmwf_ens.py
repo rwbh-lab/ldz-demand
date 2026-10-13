@@ -163,6 +163,9 @@ class ENSIngestor:
             "attribution": ATTRIBUTION,
         })
         encoding = {v: {"zlib": True, "complevel": 4, "dtype": "float32"} for v in ds.data_vars}
+        # whole hours, stated up front (xarray otherwise tries days, then falls back with a warning)
+        encoding["step"] = {"units": "hours", "dtype": "int32"}
+        encoding["valid_time"] = {"units": f"hours since {run:%Y-%m-%d %H:%M}", "dtype": "int32"}
         final.parent.mkdir(parents=True, exist_ok=True)
         part = final.with_suffix(".part")
         ds.load().to_netcdf(part, encoding=encoding)

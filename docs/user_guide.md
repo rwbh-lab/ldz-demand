@@ -129,7 +129,6 @@ Two series are downloaded:
 - **`offtakes`** — energy offtaken from the national transmission system (NTS) at each of the 122
   LDZ offtake points (kWh/day). Summed per LDZ, an independent meter of the gas entering it, used to
   check the published totals (§9).
-
 LDZs: EA, EM, NE, NO, NT, NW, SC, SE, SO, SW, WM, WN, WS.
 
 | Item | Unit | Published | Notes |
@@ -241,6 +240,16 @@ python -m ldz_demand.data.build.weather_ldz_daily --since 2026-08  # that month 
 - Safe to rerun: rows are replaced. Rerun after `refresh` so preliminary (ERA5T) days are replaced by
   final ERA5 once it arrives; the `source` column says which each day is.
 
+**Build:** `weather_ldz_hourly`, the hourly LDZ series behind the daily table, for the
+`[ldz_weather] detail_variants` only (default: sampled · gas use and the station reference, ~2.3M rows
+for 2021-09 onwards). Kept so ways of averaging a gas day (flat, or weighting the morning and evening
+heating peaks) can be tested against demand without going back to the gridded archive:
+
+```bash
+python -m ldz_demand.data.build.weather_ldz_hourly                  # every month in the archive
+python -m ldz_demand.data.build.weather_ldz_hourly --since 2026-08  # that month onwards
+```
+
 ### 5.3 ECMWF ensemble
 
 ```bash
@@ -252,8 +261,21 @@ python -m ldz_demand.data.ingest.ecmwf_ens status             # archived runs
 `refresh` exits with an error if the latest run didn't make it into the archive, so a scheduler can
 alert on it. Runs only stay on the portal for a few days, so schedule it daily (below).
 
-**Build — 🚧 Coming soon:** `ens_ldz_daily`, LDZ gas-day forecasts per member, with the same cell
-weights as `weather_ldz_daily`.
+**Build:** `ens_ldz_daily`, gas-day forecast weather per LDZ for every member and lead day 0–14, with
+the same cell weights as `weather_ldz_daily` (detail variants only, ~39,000 rows a run):
+
+```bash
+python -m ldz_demand.data.build.ens_ldz_daily                     # runs not built yet
+python -m ldz_demand.data.build.ens_ldz_daily --since 2026-10-10  # every run from that date
+```
+
+- **Gas-day means from forecast steps.** Steps are 3-hourly to day 6 and 6-hourly after, so a gas day
+  has 8 or 4 samples. Method `flat` takes the series as a straight line between steps and averages it
+  over the gas day (exact however the steps are spaced). `coverage_h` is the hours of the gas day the
+  steps cover: 24 (23 / 25 at the clock changes), and 22 on lead day 14, which ends a few hours
+  after the last step.
+- **Lead day 0** is the run's own gas day: it started a few hours before the run was published.
+- The gridded runs stay archived, so the table can be rebuilt with another method or variant.
 
 #### Daily on a Synology NAS (Container Manager)
 
@@ -272,15 +294,27 @@ docker save ldz-demand:latest | gzip > /Volumes/Development/ldz-demand/images/ld
    - Schedule: daily, **11:00** UK time (the 00z run is complete by ~09:30 UTC).
    - Task settings → Run command (adjust `/volume1/Development` to where the share lives):
      ```bash
-     docker rm -f ldz-ens-refresh >/dev/null 2>&1
-     docker run --name ldz-ens-refresh -v /volume1/Development/ldz-demand/raw:/data/raw ldz-demand:latest
+     RAW=/volume1/Development/ldz-demand/raw
+     docker rm -f ldz-ens-refresh ldz-ens-build >/dev/null 2>&1
+     docker run --name ldz-ens-refresh -v $RAW:/data/raw ldz-demand:latest
+     refresh=$?
+     docker run --name ldz-ens-build --env-file /volume1/Development/ldz-demand/docker.env \
+       -v $RAW:/data/raw ldz-demand:latest ldz_demand.data.build.ens_ldz_daily
+     build=$?
+     [ $refresh -ne 0 ] && exit $refresh
+     exit $build
      ```
-     The first line removes the previous run's container; the new one is kept after it exits, so its
-     log stays readable until the next run. The task's exit code is still `docker run`'s.
+     Download, then build `ens_ldz_daily` (it runs even if the download failed, so earlier runs still
+     get built). The task fails if either step does. Each container is kept after it exits, so its log
+     stays readable until the next run.
+   - `docker.env` holds the database settings for the build (`LDZ_DB_HOST`, `LDZ_DB_PORT`, `LDZ_DB_NAME`,
+     `LDZ_DB_USER`, `LDZ_DB_PASSWORD`). Set `LDZ_DB_HOST` to the NAS's **LAN** address (e.g.
+     192.168.x.x): a container reaches it, but not necessarily a Tailscale address. Make the file
+     readable by root only.
    - Tick *Send run details by email* and *only when the script terminates abnormally* (needs DSM
      email notifications set up: Control Panel → Notification).
 3. **Logs**
-   - Latest run: Container Manager → Container → `ldz-ens-refresh` → Details → Log (live while it runs).
+   - Latest run: Container Manager → Container → `ldz-ens-refresh` / `ldz-ens-build` → Details → Log.
    - Every run: Task Scheduler → Settings → *Save output results* to a folder (e.g.
      `Development/ldz-demand/logs`); Action → View Result shows the latest.
    - Archive contents: `docker run --rm -v /volume1/Development/ldz-demand/raw:/data/raw ldz-demand:latest ldz_demand.data.ingest.ecmwf_ens status`.
@@ -341,11 +375,22 @@ Key: `(gas_day, ldz, membership, weighting, variable)`.
 | `unit` | str | `degC`, `m s-1` |
 | `source` | str | `era5` (final) or `era5t` (preliminary) |
 
-**🚧 Coming soon**
+**`weather_ldz_hourly`** — the hourly series behind `weather_ldz_daily`, detail variants only.
+Key: `(time, ldz, membership, weighting, variable)`; `time` is the ERA5 hour (UTC). Other columns as
+`weather_ldz_daily`.
 
-| Table | Contents |
-|---|---|
-| `ens_ldz_daily` | Ensemble forecast temperature and wind per LDZ, per member and run |
+**`ens_ldz_daily`** — one row per run × member × gas day × LDZ × variant × variable × method.
+Key: `(run_date, run_hour, member, gas_day, ldz, membership, weighting, variable, method)`.
+
+| Column | Type | Notes |
+|---|---|---|
+| `run_date`, `run_hour` | date, int | The forecast run (00z) |
+| `member` | int | 1–50 |
+| `gas_day`, `lead_days` | date, int | `lead_days = gas_day − run_date`, 0–14 |
+| `ldz`, `membership`, `weighting`, `variable` | str | As `weather_ldz_daily` (detail variants) |
+| `method` | str | Gas-day averaging: `flat` |
+| `value`, `unit` | float, str | |
+| `coverage_h` | float | Hours of the gas day the forecast steps cover |
 
 ---
 
@@ -457,6 +502,8 @@ print((100 * (total_kwh - parts) / total_kwh).describe())   # SE 2026: mean ~1%,
 | `python -m ldz_demand.data.ingest.ecmwf_ens pull DATE` | Archive one ensemble run (YYYY-MM-DD) |
 | `python -m ldz_demand.data.ingest.ecmwf_ens status` | List archived ensemble runs |
 | `python -m ldz_demand.data.build.weather_ldz_daily [--since MONTH]` | Build `weather_ldz_daily` from ERA5 |
+| `python -m ldz_demand.data.build.weather_ldz_hourly [--since MONTH]` | Build `weather_ldz_hourly` from ERA5 |
+| `python -m ldz_demand.data.build.ens_ldz_daily [--since DATE]` | Build `ens_ldz_daily` from the ensemble archive |
 | `python -m ldz_demand.dashboard` | Serve all dashboard pages (overview at /) |
 | `python -m ldz_demand.db status` | MySQL: connection check + migration status |
 | `python -m ldz_demand.db migrate [--dry-run]` | MySQL: apply pending migrations |
@@ -479,6 +526,7 @@ print((100 * (total_kwh - parts) / total_kwh).describe())   # SE 2026: mean ~1%,
 | `ecmwf_ens` | `steps` | `0-144/3,150-360/6` | Forecast hours to download |
 | `ecmwf_ens` | `area` | the `[era5]` area | Crop box |
 | `ecmwf_ens` | `days_back` | `3` | `refresh` also fetches missing runs this many days back |
+| `ldz_weather` | `detail_variants` | `sampled/gas, station/point` | Variants built hourly / per ensemble member |
 
 Relative paths are relative to the repo root. Set `LDZ_DEMAND_CONFIG` to use a different override
 file instead of `config/local.ini`.

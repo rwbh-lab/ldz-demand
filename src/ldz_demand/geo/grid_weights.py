@@ -209,3 +209,24 @@ def variants(weights: pd.DataFrame | None = None) -> list[tuple[str, str]]:
     weights = load() if weights is None else weights
     pairs = weights[["membership", "weighting"]].drop_duplicates()
     return sorted(map(tuple, pairs.to_numpy()), key=lambda mw: (mw[0] != "station",) + mw)
+
+
+def parse_variants(text: str) -> list[tuple[str, str]]:
+    """'sampled/gas, station/point' -> [("sampled", "gas"), ("station", "point")]."""
+    return [tuple(v.strip().split("/")) for v in text.split(",") if v.strip()]
+
+
+def select(weights: pd.DataFrame, variants: list[tuple[str, str]]) -> pd.DataFrame:
+    """Only the given (membership, weighting) variants; refuses any not in the weights table."""
+    have = set(map(tuple, weights[["membership", "weighting"]].drop_duplicates().to_numpy()))
+    missing = [v for v in variants if tuple(v) not in have]
+    if missing:
+        raise ValueError(f"variants {missing} are not in the cell weights")
+    keep = pd.Series(list(zip(weights["membership"], weights["weighting"])), index=weights.index).isin(list(map(tuple, variants)))
+    return weights[keep]
+
+
+def detail_variants(config=None) -> list[tuple[str, str]]:
+    """The [ldz_weather] detail_variants: the variants built at sub-daily detail."""
+    config = config or create_config()
+    return parse_variants(config["ldz_weather"]["detail_variants"])
