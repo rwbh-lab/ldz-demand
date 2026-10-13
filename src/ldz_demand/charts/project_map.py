@@ -351,7 +351,7 @@ svg {{ display: block; width: 100%; height: auto; }}
 svg.focus .node:not(.on), svg.focus .edge:not(.on) {{ opacity: .22; }}
 svg.focus .node.on .box {{ stroke: {theme.accent}; stroke-width: 1.5; }}
 svg.focus .edge.on .line {{ stroke: {theme.accent}; stroke-width: 2.5; }}
-#panel {{ position: absolute; top: 8px; right: 8px; width: min(380px, calc(100% - 16px)); max-height: calc(100% - 16px);
+#panel {{ position: absolute; top: 8px; right: 8px; width: min(300px, calc(100% - 16px));  /* clear of the middle lane either side, at ~1000 px */ max-height: calc(100% - 16px);
   overflow: auto; box-sizing: border-box; background: {theme.surface}; border: 1px solid {theme.axis};
   border-radius: 8px; padding: 18px 16px 14px; box-shadow: 0 8px 28px rgba(0,0,0,.35); font-size: 13px; line-height: 1.45; }}
 #panel h2 {{ margin: 2px 0 6px; font-size: 16px; }}
@@ -366,6 +366,7 @@ svg.focus .edge.on .line {{ stroke: {theme.accent}; stroke-width: 2.5; }}
 #panel pre {{ background: {theme.page}; border: 1px solid {theme.grid}; border-radius: 6px; padding: 8px; overflow-x: auto;
   white-space: pre; margin: 4px 0; }}
 #panel a {{ color: {theme.accent}; }}
+#panel li code, #panel p code, #panel dd {{ overflow-wrap: anywhere; }}  /* long file paths wrap in the narrow panel */
 #handle {{ position: absolute; top: 0; left: 0; right: 32px; height: 14px; cursor: move; touch-action: none; }}
 #handle::after {{ content: ""; position: absolute; left: 50%; top: 5px; width: 36px; height: 4px; margin-left: -18px;
   border-radius: 2px; background: {theme.axis}; }}
