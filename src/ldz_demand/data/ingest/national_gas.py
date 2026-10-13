@@ -1,13 +1,17 @@
 """
 National Gas Transmission data portal ingestor — download and archive only.
 
-Public CSV API, no auth. Two series, each archived untouched (the portal keeps a rolling ~5 years):
+Public CSV API, no auth. Three series, each archived untouched (the portal keeps a rolling ~5 years):
 
 - "ldz": per-LDZ daily demand (total, DM, NDM, UIG), calorific value and actual CWV (ITEMS)
   -> raw_dir/national_gas/<year>/ng_ldz_<start>_<end>_pulled_<UTC time>.csv
 - "offtakes": energy offtaken from the NTS at each LDZ offtake point (OFFTAKES), used to check
   the published LDZ totals
   -> raw_dir/national_gas/offtakes/<year>/ng_offtakes_<start>_<end>_pulled_<UTC time>.csv
+- "forecasts": National Gas's own forecasts per LDZ — total demand and the CWV — with EVERY issue
+  kept (latestFlag=N: ~8 demand issues per gas day, from D-1 afternoon to the end of D), the
+  benchmark our forecasts are compared with (FORECAST_ITEMS)
+  -> raw_dir/national_gas/forecasts/<year>/ng_forecasts_<start>_<end>_pulled_<UTC time>.csv
 
 The archive is the source of truth: tables are built from it by ldz_demand.data.build.
 
@@ -38,11 +42,13 @@ USER_AGENT = "ldz-demand/0.1"  # the portal rejects Python's default urllib user
 TIMEOUT = 300  # seconds; a full year of all items is ~4 MB and takes ~15 s
 HISTORY_DAYS = 5 * 365  # the portal keeps a rolling ~5 years
 REFRESH_LOOKBACK_DAYS = 10  # re-pull recent days so D+6 closed-out values replace provisional gaps
-SERIES = ("ldz", "offtakes")
+SERIES = ("ldz", "offtakes", "forecasts")
 ARCHIVE = {  # series -> (sub-folder of raw_dir/national_gas, filename prefix)
     "ldz": ("", "ng_ldz"),
     "offtakes": ("offtakes", "ng_offtakes"),
+    "forecasts": ("forecasts", "ng_forecasts"),
 }
+LATEST_ONLY = {"ldz": True, "offtakes": True, "forecasts": False}  # forecasts: keep every issue
 
 LDZS = ("EA", "EM", "NE", "NO", "NT", "NW", "SC", "SE", "SO", "SW", "WM", "WN", "WS")
 
@@ -104,6 +110,25 @@ ITEMS: dict[str, Item] = {i.name: i for i in (
 )}
 
 
+# National Gas forecasts, from the portal catalogue, checked 2026-10-13. "Demand Forecast, LDZ" is total LDZ
+# demand (mcm), re-issued after each UNC forecast run; the CWV forecasts are issued on the gas day (D) and
+# the day before (D-1).
+FORECAST_ITEMS: dict[str, Item] = {i.name: i for i in (
+    _item("demand_forecast", "mcm", r"Demand Forecast, LDZ \((\w\w)\)", {
+        "EA": "PUBOB609", "EM": "PUBOB610", "NE": "PUBOB611", "NO": "PUBOB612", "NT": "PUBOB613",
+        "NW": "PUBOB614", "SC": "PUBOB615", "SE": "PUBOB616", "SO": "PUBOB617", "SW": "PUBOB618",
+        "WM": "PUBOB619", "WN": "PUBOB620", "WS": "PUBOB621"}),
+    _item("cwv_forecast_d", "degC", r"Composite Weather Variable, Forecast, LDZ\((\w\w)\), D", {
+        "EA": "PUBOB3713", "EM": "PUBOB3714", "NE": "PUBOB3715", "NO": "PUBOB3716", "NT": "PUBOB3717",
+        "NW": "PUBOB3718", "SC": "PUBOB3721", "SE": "PUBOB3719", "SO": "PUBOB3720", "SW": "PUBOB3722",
+        "WM": "PUBOB3723", "WN": "PUBOB3724", "WS": "PUBOB3725"}),
+    _item("cwv_forecast_d_minus_1", "degC", r"Composite Weather Variable, Forecast, LDZ\((\w\w)\), D-1", {
+        "EA": "PUBOB3726", "EM": "PUBOB3727", "NE": "PUBOB3728", "NO": "PUBOB3729", "NT": "PUBOB3730",
+        "NW": "PUBOB3731", "SC": "PUBOB3734", "SE": "PUBOB3732", "SO": "PUBOB3733", "SW": "PUBOB3735",
+        "WM": "PUBOB3736", "WN": "PUBOB3737", "WS": "PUBOB3738"}),
+)}
+
+
 # Energy offtaken (kWh) at each NTS -> LDZ offtake point, from the portal catalogue, checked 2026-10-11.
 # LDZ -> {site: id}. Peters Green has two items: one published under NT, and one under "SM" whose
 # physical-flow item is labelled "SM, NT" — it also feeds North Thames, so it sits in NT as PetersGrnSM.
@@ -159,7 +184,7 @@ class NationalGasIngestor:
     raw_dir : Path
         Raw archive root; responses go under raw_dir/national_gas/ (see ARCHIVE).
     series : str
-        "ldz" (ITEMS per LDZ) or "offtakes" (OFFTAKES).
+        "ldz" (ITEMS per LDZ), "offtakes" (OFFTAKES) or "forecasts" (FORECAST_ITEMS, every issue).
     items, ldzs : sequence of str, optional
         Subset to pull. items applies to "ldz" only. Defaults to everything.
     session : requests.Session, optional
@@ -180,6 +205,8 @@ class NationalGasIngestor:
     def ids(self) -> list[str]:
         if self.series == "offtakes":
             return [i for ldz in self.ldzs for i in OFFTAKES[ldz].values()]
+        if self.series == "forecasts":
+            return [item.ids[ldz] for item in FORECAST_ITEMS.values() for ldz in self.ldzs]
         return [item.ids[ldz] for item in self.items for ldz in self.ldzs]
 
     def pull(self, start: date, end: date) -> list[Path]:
@@ -202,7 +229,7 @@ class NationalGasIngestor:
             "dateFrom": start.isoformat(),
             "dateTo": end.isoformat(),
             "dateType": "GASDAY",
-            "latestFlag": "Y",
+            "latestFlag": "Y" if LATEST_ONLY[self.series] else "N",
             "ids": ",".join(self.ids),
             "type": "CSV",
         }
@@ -228,6 +255,15 @@ class NationalGasIngestor:
 def identify(data_item: str) -> tuple[Item, str] | None:
     """Portal "Data Item" text -> (Item, LDZ), or None if it isn't one of ITEMS."""
     for item in ITEMS.values():
+        match = item.pattern.fullmatch(data_item)
+        if match and match.group(1) in item.ids:
+            return item, match.group(1)
+    return None
+
+
+def identify_forecast(data_item: str) -> tuple[Item, str] | None:
+    """Portal forecast "Data Item" text -> (Item, LDZ), or None if it isn't one of FORECAST_ITEMS."""
+    for item in FORECAST_ITEMS.values():
         match = item.pattern.fullmatch(data_item)
         if match and match.group(1) in item.ids:
             return item, match.group(1)
@@ -270,8 +306,8 @@ def main(argv: list[str] | None = None) -> int:
         ingestor = NationalGasIngestor(raw_dir, series=series)
         files = ingestor.refresh() if args.command == "refresh" else ingestor.pull(args.start, args.end)
         logger.info(f"{series}: {len(files)} file(s) archived")
-    logger.info("Build the tables with: python -m ldz_demand.data.build.ng_ldz_daily "
-                "and python -m ldz_demand.data.build.ng_offtake_daily")
+    logger.info("Build the tables with: python -m ldz_demand.data.build.ng_ldz_daily, "
+                "ng_offtake_daily and ng_forecast_daily")
     return 0
 
 

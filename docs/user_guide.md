@@ -111,7 +111,7 @@ Run `migrate` again whenever you update the code; it only applies new migrations
 
 ## 4. Datasets
 
-### 4.1 National Gas — LDZ demand, calorific value, CWV, NTS offtakes
+### 4.1 National Gas — LDZ demand, calorific value, CWV, NTS offtakes, forecasts
 
 | | |
 |---|---|
@@ -120,15 +120,22 @@ Run `migrate` again whenever you update the code; it only applies new migrations
 | **Account** | None |
 | **Terms** | See the portal's terms of use |
 | **History** | Rolling ~5 years (earliest gas day on 2026-10-11: 2021-10-12) |
-| **Size** | ~20 MB for 5 years per series |
-| **Raw files** | `raw_dir/national_gas/<year>/ng_ldz_…csv` (LDZ items), `raw_dir/national_gas/offtakes/<year>/ng_offtakes_…csv` (offtakes) |
+| **Size** | ~20 MB for 5 years per series (~40 MB for forecasts, every issue kept) |
+| **Raw files** | `raw_dir/national_gas/<year>/ng_ldz_…csv` (LDZ items), `…/offtakes/<year>/ng_offtakes_…csv`, `…/forecasts/<year>/ng_forecasts_…csv` |
 
-Two series are downloaded:
+Three series are downloaded:
 
 - **`ldz`** — the per-LDZ items below.
 - **`offtakes`** — energy offtaken from the national transmission system (NTS) at each of the 122
   LDZ offtake points (kWh/day). Summed per LDZ, an independent meter of the gas entering it, used to
   check the published totals (§9).
+- **`forecasts`** — National Gas's own forecasts per LDZ, **every issue kept**: total LDZ demand
+  (`demand_forecast`, mcm) and the forecast CWV (`cwv_forecast_d`, issued on the gas day, and
+  `cwv_forecast_d_minus_1`, issued the day before). Demand is issued ~8 times per gas day: on D−1 at
+  ~13:00, ~16:00 and ~24:00, and on D at ~10:00, ~13:00, ~16:00, ~21:00 and ~24:00 (UK time). The
+  benchmark our forecasts are compared with, issue time for issue time. Like everything on the portal
+  only the last ~5 years are kept, so the archive becomes the only copy of the oldest forecasts.
+
 LDZs: EA, EM, NE, NO, NT, NW, SC, SE, SO, SW, WM, WN, WS.
 
 | Item | Unit | Published | Notes |
@@ -202,12 +209,14 @@ LDZs: EA, EM, NE, NO, NT, NW, SC, SE, SO, SW, WM, WN, WS.
 python -m ldz_demand.data.ingest.national_gas refresh    # download both series -> raw_dir
 python -m ldz_demand.data.build.ng_ldz_daily             # raw_dir -> ng_ldz_daily
 python -m ldz_demand.data.build.ng_offtake_daily         # raw_dir -> ng_offtake_daily
+python -m ldz_demand.data.build.ng_forecast_daily        # raw_dir -> ng_forecast_daily
 ```
 
 - **First run:** `refresh` downloads the full ~5 years of both series (12 requests, 2–3 minutes).
   The builds then write ~204,000 and ~219,000 rows. In MySQL mode, run `python -m ldz_demand.db
   migrate` first so both tables exist.
-- **One series only:** add `--series ldz` or `--series offtakes` to `refresh` / `pull`.
+- **One series only:** add `--series ldz`, `--series offtakes` or `--series forecasts` to `refresh` / `pull`.
+  The first `refresh` of a new series downloads its full ~5-year history.
 - **Later runs:** `refresh` starts 10 days before the last archived gas day, so D+6 values that
   were missing get filled in. Rebuild only recent rows with `--since`:
   ```bash
@@ -332,7 +341,8 @@ MySQL also need the database settings: add `--env-file <path to .env>` to the co
 raw_dir/
 ├── national_gas/
 │   ├── <year>/ng_ldz_<start>_<end>_pulled_<UTC time>.csv     one file per request, never overwritten
-│   └── offtakes/<year>/ng_offtakes_<start>_<end>_pulled_<UTC time>.csv
+│   ├── offtakes/<year>/ng_offtakes_<start>_<end>_pulled_<UTC time>.csv
+│   └── forecasts/<year>/ng_forecasts_<start>_<end>_pulled_<UTC time>.csv
 ├── era5/
 │   └── <year>/era5_gb_YYYY-MM.nc                            final month
 │       <year>/era5t_gb_YYYY-MM_pulled_<UTC time>.nc         preliminary month, one per download
@@ -360,6 +370,10 @@ raw_dir/
 **`ng_offtake_daily`** — one row per gas day × LDZ × offtake site. Key: `(gas_day, ldz, site)`.
 Same columns as `ng_ldz_daily`, with `site` (e.g. `Farningham`) in place of `item`; `unit` is
 always `kWh`.
+
+**`ng_forecast_daily`** — National Gas forecasts, one row per gas day × LDZ × item × issue.
+Key: `(gas_day, ldz, item, issued_at)`. `issued_at` is when the issue was made (UK time); `issue_day`
+is its calendar date minus the gas day (−1 day ahead, 0 within day). Other columns as `ng_ldz_daily`.
 
 **`weather_ldz_daily`** — one row per gas day × LDZ × variant × variable.
 Key: `(gas_day, ldz, membership, weighting, variable)`.
@@ -492,10 +506,11 @@ print((100 * (total_kwh - parts) / total_kwh).describe())   # SE 2026: mean ~1%,
 
 | Command | Does |
 |---|---|
-| `python -m ldz_demand.data.ingest.national_gas refresh [--series ldz\|offtakes]` | Download new National Gas days (full history if none archived) |
+| `python -m ldz_demand.data.ingest.national_gas refresh [--series ldz\|offtakes\|forecasts]` | Download new National Gas days (full history if none archived) |
 | `python -m ldz_demand.data.ingest.national_gas pull START END [--series …]` | Download a gas-day range (YYYY-MM-DD) |
 | `python -m ldz_demand.data.build.ng_ldz_daily [--since DAY]` | Build `ng_ldz_daily` from the archive |
 | `python -m ldz_demand.data.build.ng_offtake_daily [--since DAY]` | Build `ng_offtake_daily` from the archive |
+| `python -m ldz_demand.data.build.ng_forecast_daily [--since DAY]` | Build `ng_forecast_daily` from the archive |
 | `python -m ldz_demand.data.ingest.era5 refresh` | Download ERA5 from `[era5] start` to the latest month |
 | `python -m ldz_demand.data.ingest.era5 pull FIRST LAST` | Download a month range (YYYY-MM) |
 | `python -m ldz_demand.data.ingest.ecmwf_ens refresh` | Archive the latest ensemble run(s) not yet archived |

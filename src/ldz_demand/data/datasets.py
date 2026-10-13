@@ -91,6 +91,24 @@ ENS_LDZ_DAILY = Dataset(
     date_col="run_date",
 )
 
+NG_FORECAST_DAILY = Dataset(
+    "ng_forecast_daily",
+    columns={
+        "gas_day": "date",            # Applicable For: the gas day forecast
+        "ldz": "str",
+        "item": "str",                # demand_forecast, cwv_forecast_d, cwv_forecast_d_minus_1
+        "issued_at": "datetime",      # Applicable At: when this issue was made (UK time)
+        "issue_day": "int",           # calendar date of issue minus gas day: -1 (day ahead) or 0 (within day)
+        "data_item_id": "str",
+        "value": "float",
+        "unit": "str",                # mcm (demand), degC (CWV)
+        "quality": "str",
+        "generated_time": "datetime",
+    },
+    keys=("gas_day", "ldz", "item", "issued_at"),
+)
+
 DATASETS: dict[str, Dataset] = {
-    ds.name: ds for ds in (NG_LDZ_DAILY, NG_OFFTAKE_DAILY, WEATHER_LDZ_DAILY, WEATHER_LDZ_HOURLY, ENS_LDZ_DAILY)
+    ds.name: ds for ds in (NG_LDZ_DAILY, NG_OFFTAKE_DAILY, WEATHER_LDZ_DAILY, WEATHER_LDZ_HOURLY, ENS_LDZ_DAILY,
+                           NG_FORECAST_DAILY)
 }

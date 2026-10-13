@@ -223,3 +223,60 @@ def test_offtake_pull_archives_separately_and_builds(tmp_path):
     assert df.loc["Shorne", "value"] == 2489711
     assert df.loc["PetersGrnSM", "ldz"] == "NT"
     assert set(df["unit"]) == {"kWh"}
+
+
+# --- forecasts ----------------------------------------------------------------------------------
+
+FORECAST_TEMPLATES = {
+    "demand_forecast": "Demand Forecast, LDZ ({ldz})",
+    "cwv_forecast_d": "Composite Weather Variable, Forecast, LDZ({ldz}), D",
+    "cwv_forecast_d_minus_1": "Composite Weather Variable, Forecast, LDZ({ldz}), D-1",
+}
+
+
+def forecast_line(item, ldz, gas_day, issued, value):
+    return f'{issued},{gas_day},"{FORECAST_TEMPLATES[item].format(ldz=ldz)}",{value},{issued},\n'
+
+
+def test_forecast_items_are_identified_and_ids_unique():
+    from ldz_demand.data.ingest.national_gas import FORECAST_ITEMS, identify_forecast
+
+    assert set(FORECAST_TEMPLATES) == set(FORECAST_ITEMS)
+    for name in FORECAST_ITEMS:
+        for ldz in LDZS:
+            item, found = identify_forecast(FORECAST_TEMPLATES[name].format(ldz=ldz))
+            assert (item.name, found) == (name, ldz)
+    ids = [item.ids[ldz] for item in FORECAST_ITEMS.values() for ldz in LDZS]
+    assert len(set(ids)) == len(FORECAST_ITEMS) * len(LDZS)
+    assert identify_forecast("Demand Actual, LDZ (SE), D+1") is None  # actuals are not forecasts
+
+
+def test_forecasts_keep_every_issue_and_build(tmp_path):
+    from ldz_demand.data.build.ng_forecast_daily import NGForecastDailyBuilder
+    from ldz_demand.data.datasets import NG_FORECAST_DAILY
+
+    class ForecastSession(FakeSession):
+        def get(self, url, params, timeout):
+            self.calls.append(params)
+            body = HEADER + "".join([
+                forecast_line("demand_forecast", "NT", "11/01/2022", "10/01/2022 15:58:30", "60.5"),  # day ahead
+                forecast_line("demand_forecast", "NT", "11/01/2022", "10/01/2022 23:58:30", "61.0"),
+                forecast_line("demand_forecast", "NT", "11/01/2022", "11/01/2022 12:58:30", "59.0"),  # within day
+                forecast_line("cwv_forecast_d_minus_1", "NT", "11/01/2022", "10/01/2022 15:58:30", "4.2"),
+            ])
+            return FakeResponse(body.encode())
+
+    ing = NationalGasIngestor(tmp_path / "raw", series="forecasts", ldzs=["NT"], session=ForecastSession())
+    files = ing.pull(date(2022, 1, 11), date(2022, 1, 11))
+    assert ing.session.calls[0]["latestFlag"] == "N"  # every issue, not just the latest
+    assert ing.session.calls[0]["ids"].split(",") == ["PUBOB613", "PUBOB3717", "PUBOB3730"]
+    assert files[0].parent.parent.name == "forecasts" and archived_pulls(tmp_path / "raw", "ldz") == []
+
+    store = CsvCacheStore(tmp_path / "cache")
+    assert NGForecastDailyBuilder(store, tmp_path / "raw").build() == 4
+    df = store.read(NG_FORECAST_DAILY)
+    demand = df[df["item"] == "demand_forecast"].sort_values("issued_at")
+    assert demand["value"].tolist() == [60.5, 61.0, 59.0]
+    assert demand["issue_day"].tolist() == [-1, -1, 0]
+    assert set(df["unit"]) == {"mcm", "degC"}
+    assert NGForecastDailyBuilder(store, tmp_path / "raw").build() == 4 and len(store.read(NG_FORECAST_DAILY)) == 4
