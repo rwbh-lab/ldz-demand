@@ -251,7 +251,9 @@ function clear() {
 const section = (label, html) => html ? `<h3>${label}</h3>${html}` : '';
 const list = items => items.length ? `<ul>${items.join('')}</ul>` : '';
 const details = d => d.length ? `<dl>${d.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : '';
-const modules = ms => list(ms.map(([m, f]) => `<li><code>${esc(f || m)}</code></li>`));
+const PREFIX = 'src/ldz_demand/';  // every module lives here: shown once, as a note, rather than on each path
+const modules = ms => list(ms.map(([m, f]) => `<li><code>${esc((f || m).replace(PREFIX, ''))}</code></li>`));
+const note = ms => ms.length ? `<p class="note">Code paths are under <code>${PREFIX}</code></p>` : '';
 const links = ids => ids.map(id => `<a href="#" data-node="${id}">${esc(nodes[id].title)}</a>`).join(', ');
 
 function showNode(id) {
@@ -270,7 +272,7 @@ function showNode(id) {
     ${section('Docs', list(n.docs.map(d => `<li>${esc(d)}</li>`)))}
     ${n.page ? section('Dashboard', `<p><a href="${n.page.path}" target="_top">${esc(n.page.title)} →</a></p>`) : ''}
     ${section('Fed by', from.length ? `<p>${links(from)}</p>` : '')}
-    ${section('Feeds', into.length ? `<p>${links(into)}</p>` : '')}`;
+    ${section('Feeds', into.length ? `<p>${links(into)}</p>` : '')}${note(n.modules)}`;
   panel.hidden = false;
 }
 
@@ -284,7 +286,7 @@ function showEdge(id) {
     ${section('Code', modules(e.modules))}
     ${section('Config', e.config.length ? `<p>${e.config.map(c => `<code>[${esc(c)}]</code>`).join(' ')} in config/default.ini</p>` : '')}
     ${section('Runs', e.runs ? `<p>${esc(e.runs)}</p>` : '')}
-    ${section('Ends', `<p>${links([e.source, e.target])}</p>`)}`;
+    ${section('Ends', `<p>${links([e.source, e.target])}</p>`)}${note(e.modules)}`;
   panel.hidden = false;
 }
 
@@ -367,6 +369,8 @@ svg.focus .edge.on .line {{ stroke: {theme.accent}; stroke-width: 2.5; }}
 #panel pre {{ background: {theme.page}; border: 1px solid {theme.grid}; border-radius: 6px; padding: 8px; overflow-x: auto;
   white-space: pre; margin: 4px 0; }}
 #panel a {{ color: {theme.accent}; }}
+#panel .note {{ margin-top: 12px; padding-top: 8px; border-top: 1px solid {theme.grid}; font-size: 11px; color: {theme.muted}; }}
+#panel .note code {{ font-size: 11px; color: {theme.muted}; }}
 #panel li code, #panel p code, #panel dd {{ overflow-wrap: anywhere; }}  /* long file paths wrap in the narrow panel */
 #handle {{ position: absolute; top: 0; left: 0; right: 32px; height: 14px; cursor: move; touch-action: none; }}
 #handle::after {{ content: ""; position: absolute; left: 50%; top: 5px; width: 36px; height: 4px; margin-left: -18px;
