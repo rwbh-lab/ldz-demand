@@ -15,13 +15,15 @@ Last updated: 13 October 2026.
 |---|---|---|
 | Weather input | **ERA5 over the LDZ, weighted by gas use** | beats ERA5 at the official station in every LDZ (exp. 1, 3) |
 | Seasonal term | **a day-of-year shape shared by all LDZs** (slow heating-season temperature a close second) | cuts GB RMSE from 54.5 to 46.8 GWh/day; −21% on the coldest days (exp. 3) |
-| Change over time | **level and slope per gas year, latest year forward** (provisional) | best or near-best in both forward years (exp. 4) |
+| Target | **total − DM, with SE's missing-feed days repaired (target B)** | same scores on shared days; gives SE its 2022/23 and GB a third forward year (exp. 6) |
+| Change over time | **training days weighted by recency, half-life 1 year** | best over three forward years, 48.2 vs 48.7 GWh/day per gas year (exp. 6; per gas year led on two years, exp. 4) |
 | Against the official CWV | ours is better, mostly in the cold | GB coldest days 64.7 vs 92.6 GWh/day (exp. 3) |
 | Against National Gas's day-ahead forecasts | level on average, better in winter, worse in summer (not yet like for like) | GB winter 2.2% vs 3.2–3.6% per gas day |
 
-Current model, per LDZ: demand = a + b · CWV + day of week + bank holiday + Christmas, with a and b
-allowed to change each gas year; CWV from gas-weighted ERA5 temperature, wind and solar, with the
-shared calendar shape. All fits use a robust (soft L1) loss.
+Current model, per LDZ: demand = a + b · CWV + day of week + bank holiday + Christmas, fitted with
+training days weighted by recency (half-life 1 year) so it follows changes in behaviour; CWV from
+gas-weighted ERA5 temperature, wind and solar, with the shared calendar shape. Target B. All fits use a
+robust (soft L1) loss.
 
 ---
 
@@ -263,11 +265,58 @@ GB, absolute % error per gas day on total demand, and RMSE in GWh/day:
 
 ---
 
+## Experiment 6: target A vs B
+
+*Does repairing the days a feed is missing from the published total help?* Target A (total − DM on
+days the total passes the checks) against target B (as A, plus days where the total left out a feed,
+repaired as offtakes + the feed's usual level; methodology §3). In practice only SE: B adds its
+Sep 2022 – Feb 2024 days. Scored forward, gas-weighted input, calendar shape.
+
+The repaired days' "actual" is our own repair, so scoring on them would partly score the repair
+against itself. **Scores use only days that are real in both targets;** repaired days are reported
+separately.
+
+- **On the same days, A and B score the same** (GB 2024/25: per gas year 51.6 vs 52.2, break 2022
+  52.4 vs 53.7), except recency weighting in SE (RMSE 11.3 → 7.2): with A it had almost no SE data
+  after 2022 to weight.
+- **B gives GB a third forward year.** With A, 2023/24 can't be scored for GB (SE has ~5 training days
+  after the 2022 break); with B it can, and the ranking changes:
+
+GB, real days, 2023/24 – 2025/26 (882 days), RMSE in GWh/day:
+
+| Model (target B) | All | Winter | Coldest | MAPE | 2023/24 | 2024/25 | 2025/26 |
+|---|---|---|---|---|---|---|---|
+| **Recency weighting, half-life 1 year** | **48.2** | **54.9** | 64.4 | **4.55%** | 39.5 | 56.4 | 44.1 |
+| Recency, half-life 0.5 year | 48.9 | 55.9 | 68.8 | 4.56% | **38.3** | 57.0 | 45.9 |
+| Recency, half-life 1.5 years | 48.5 | 55.7 | 63.4 | 4.59% | 40.4 | 56.9 | **43.9** |
+| Recency, half-life 2 years | 48.9 | 56.5 | **63.4** | 4.60% | 40.7 | 57.6 | 44.0 |
+| Per gas year | 48.7 | 55.3 | 65.6 | 4.80% | 48.6 | **52.2** | 45.2 |
+| Per gas year + recency, 1 year | 49.0 | 55.9 | 67.0 | 4.72% | 46.8 | 54.4 | 44.6 |
+| Break 2022 + recency, 1 year | 50.0 | 59.0 | 74.5 | 4.76% | 46.8 | 54.9 | 46.7 |
+| Break 2022 | 51.0 | 61.3 | 78.4 | 4.90% | 48.6 | 53.7 | 49.5 |
+
+- **2023/24 is why.** Demand rose from 2022/23 — the year of the biggest cut after the price shock — so
+  carrying the latest year's level forward under-predicts by 28 GWh/day; recency weighting smooths
+  across years. Per gas year still wins 2024/25, when the latest year was the better guide.
+- **Half-life 1 year** is best overall and in winter; longer half-lives are marginally better on the
+  coldest days only.
+- **Experiment 3 holds on target B** (held out, 2022 break): calendar shape 47.2, slow temperature
+  47.7, no seasonal term 54.8, station with calendar 48.1, official CWV 49.9 GWh/day.
+- **Repaired days** (175 SE days in the scored years) have RMSE ~10.3 GWh/day per LDZ-day, against ~6
+  on SE's real days: the repair is rougher than measured data, as expected — fine for training, not for
+  scoring.
+
+Chosen: **target B, recency weighting with a 1-year half-life.** It also needs no hand-picked break
+dates. Experiment 6 is `python -m ldz_demand.models.experiment target`.
+
+---
+
 ## Open
 
 - **Shoulder months** (see above): spring 2025 in particular.
 - **Winter 2025/26 level:** demand above every model's forecast in ordinary cold days; watch 2026/27.
-- **Remaining experiments:** variables (2), gas-day averaging (5), target A vs B (6) — B would give
-  SE its 2022/23 days.
+- **Remaining experiments:** variables (2) and gas-day averaging (5), before the final fit.
+- **The National Gas comparison** above uses experiment 4's per-gas-year model on target A; to rerun with
+  the final model.
 - **Against National Gas's forecasts, like for like** — our model on the ensemble (needs the archive
   backfill).

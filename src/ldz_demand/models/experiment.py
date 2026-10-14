@@ -25,11 +25,16 @@ forecast uses the latest year's); recent years weighted more (half-life 1 or 2 y
 per-year models with a summer level of their own (demand.summer_weight). The official CWV
 (with the 2022 break) as benchmark, to 2024/25.
 
+Experiment "target" (6): target A (total - DM on days that pass the checks) against target B (as A, plus
+days a feed was missing from the total, repaired), scored forward. Scores use only days that are real in
+both (scores(repaired=False)): a repaired day's "actual" is our repair.
+
 Run:
     python -m ldz_demand.models.experiment cwv_inputs              # all LDZs (a few minutes)
     python -m ldz_demand.models.experiment cwv_inputs --ldz NT WS  # some LDZs
     python -m ldz_demand.models.experiment seasonal
     python -m ldz_demand.models.experiment change
+    python -m ldz_demand.models.experiment target
 Writes data/results/<experiment>_{predictions,scores,scores_2025_26,params}.csv.
 """
 
@@ -72,6 +77,7 @@ class Model:
     half_life: float | None = None   # recency weighting of training days, years
     summer: bool = False             # a summer level, changing at each break like the rest
     cold: str = "fitted"             # cold-end form (cwv.COLD)
+    target: str = "target"           # "target" (A) or "target_repaired" (B)
 
 
 MODELS = {  # experiment -> models
@@ -86,8 +92,13 @@ MODELS = {  # experiment -> models
                Model("adapting_2y", "sampled_gas", "calendar", half_life=2.0),
                Model("break_2022_summer", "sampled_gas", "calendar", (_B,), summer=True),
                Model("per_year_summer", "sampled_gas", "calendar", per_year=True, summer=True)],
+    "target": [m for t, tag in (("target", "A"), ("target_repaired", "B")) for m in (
+               Model(f"official/{tag}", "official", breaks=(_B, _O), target=t),
+               Model(f"break_2022/{tag}", "sampled_gas", "calendar", (_B,), target=t),
+               Model(f"per_year/{tag}", "sampled_gas", "calendar", per_year=True, target=t),
+               Model(f"adapting_1y/{tag}", "sampled_gas", "calendar", half_life=1.0, target=t))],
 }
-SCHEME = {"cwv_inputs": "held_out", "seasonal": "held_out", "change": "forward"}
+SCHEME = {"cwv_inputs": "held_out", "seasonal": "held_out", "change": "forward", "target": "forward"}
 FORWARD_FROM = "2023/24"  # forward scheme: the first year predicted (from at least two years before it)
 
 
@@ -116,7 +127,7 @@ def load(store=None) -> dict[str, pd.DataFrame]:
     wide = weather.pivot_table(index=["ldz", "gas_day"], columns=["membership", "weighting", "variable"], values="value")
     frames = {}
     for ldz in LDZS:
-        e = energy.xs(ldz, level="ldz")[["target", "cwv"]].rename(columns={"cwv": "cwv_official"})
+        e = energy.xs(ldz, level="ldz")[["target", "target_repaired", "cwv"]].rename(columns={"cwv": "cwv_official"})
         e.index = pd.DatetimeIndex(e.index)
         w = wide.xs(ldz, level="ldz")
         w.index = pd.DatetimeIndex(w.index)
@@ -126,7 +137,7 @@ def load(store=None) -> dict[str, pd.DataFrame]:
 
 
 def _variant_frame(frame: pd.DataFrame, variant) -> pd.DataFrame:
-    out = frame[["target", "cwv_official"]].copy()
+    out = frame[["target", "target_repaired", "cwv_official"]].copy()
     if variant is not None:
         for var in ("t2m", "ws10", "ssrd"):
             out[var] = frame[(*variant, var)]
@@ -134,10 +145,14 @@ def _variant_frame(frame: pd.DataFrame, variant) -> pd.DataFrame:
     return out
 
 
-def _prepared(frame: pd.DataFrame, name: str):
-    """(data, gas years, usable) for one input: weather inputs keep the full consecutive span."""
+def _prepared(frame: pd.DataFrame, name: str, target: str = "target"):
+    """(data, gas years, usable) for one input: weather inputs keep the full consecutive span. target:
+    "target" (A) or "target_repaired" (B, which adds days whose total was repaired); "repaired" marks those."""
     years = le.gas_year(frame.index)
     data = _variant_frame(frame, INPUTS[name])
+    data["repaired"] = data["target"].isna() & data["target_repaired"].notna()
+    if target == "target_repaired":
+        data["target"] = data["target_repaired"]
     weather_ok = data[["t2m"]].notna().all(axis=1).to_numpy() if INPUTS[name] else np.ones(len(data), bool)
     usable = data["target"].notna().to_numpy() & weather_ok & np.isin(years, GAS_YEARS)
     if name == "official":
@@ -159,7 +174,7 @@ def run(frames: dict[str, pd.DataFrame], ldzs=LDZS, models=None, scheme: str = "
     for m in models or MODELS["cwv_inputs"]:
         label, name, seasonal = m.label, m.input, m.seasonal
         t0 = time.monotonic()
-        prepared = {ldz: _prepared(frames[ldz], name) for ldz in ldzs}
+        prepared = {ldz: _prepared(frames[ldz], name, m.target) for ldz in ldzs}
         for held, train_years in _folds(scheme):
             breaks = tuple(sorted(set(m.breaks) | set(_year_starts(train_years) if m.per_year else ())))
             folds = {}
@@ -186,6 +201,7 @@ def run(frames: dict[str, pd.DataFrame], ldzs=LDZS, models=None, scheme: str = "
                 pred, x = demand.predict(fit, data), demand.cwv_series(fit, data)
                 predictions.append(pd.DataFrame({"gas_day": data.index[test], "ldz": ldz, "input": label,
                                                  "held_out": held, "actual": data["target"].to_numpy()[test],
+                                                 "repaired": data["repaired"].to_numpy()[test],
                                                  "predicted": pred[test], "cwv": x[test]}))
                 row = {"ldz": ldz, "input": label, "held_out": held, "success": fit.success, "n_train": fit.n_train,
                        **dict(zip(fit.columns, fit.coef))}
@@ -198,12 +214,16 @@ def run(frames: dict[str, pd.DataFrame], ldzs=LDZS, models=None, scheme: str = "
     return pd.concat(predictions, ignore_index=True), pd.DataFrame(params)
 
 
-def scores(predictions: pd.DataFrame, frames: dict[str, pd.DataFrame] | None = None, common: bool = True) -> pd.DataFrame:
+def scores(predictions: pd.DataFrame, frames: dict[str, pd.DataFrame] | None = None, common: bool = True,
+           repaired: bool = False) -> pd.DataFrame:
     """
     RMSE / MAPE per LDZ (and GB) and input: all held-out days, winter (Nov-Mar), coldest days. With
-    common=True, only days every input was scored on (so inputs are compared on the same days).
+    common=True, only days every input was scored on (so inputs are compared on the same days). Days whose
+    total was repaired (target B only) are left out unless repaired=True: their "actual" is our repair.
     """
     p = predictions.copy()
+    if not repaired and "repaired" in p:
+        p = p[~p["repaired"].astype(bool)]
     if common:
         n_inputs = p["input"].nunique()
         p = p[p.groupby(["ldz", "gas_day"])["input"].transform("nunique") == n_inputs]

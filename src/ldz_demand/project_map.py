@@ -174,7 +174,7 @@ NODES: tuple[Node, ...] = (
          docs=("docs/methodology.md: 5", "docs/results.md"),
          details=(("CWV", "effective temperature, wind chill, solar, a seasonal shape shared by all LDZs; "
                           "summer cut-off and cold-weather upturn"),
-                  ("Demand", "a + b · CWV + day of week + bank holidays + Christmas; a and b per gas year"),
+                  ("Demand", "a + b · CWV + day of week + bank holidays + Christmas; recent years weighted more (half-life 1 year)"),
                   ("Fit", "robust (soft L1) least squares; CWV parameters bounded near the published values"),
                   ("Benchmark", "the official CWV through the same regression")),
          at=(1.1, 4.15)),
@@ -184,7 +184,7 @@ NODES: tuple[Node, ...] = (
          "Held-out and forward predictions, scores and fitted parameters for each experiment.",
          modules=("models.experiment",), docs=("docs/results.md",),
          details=(("Where", "data/results/<experiment>_{predictions,scores,params}.csv (not committed)"),
-                  ("Experiments", "1 weather input, 3 seasonal term, 4 change over time; 2, 5, 6 open"),
+                  ("Experiments", "1 weather input, 3 seasonal term, 4 change over time, 6 target A vs B; 2 and 5 open"),
                   ("Best so far", "GB winter 2.5% per gas day, 2024/25 (official CWV 3.3%)")),
          at=(1.1, 5.15)),
     Node("o_benchmark", 4, 2.4, "National Gas benchmark",
