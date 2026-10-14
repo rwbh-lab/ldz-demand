@@ -72,3 +72,16 @@ def test_station_gap_note_puts_the_run_in_context():
     assert "+0.85 °C" in usual and "+0.80 °C" in usual and "where the station is" in usual
     odd = ens.station_gap_note(gap + 1.0, offsets, "2026-10-13", "WS", "t2m")
     assert "larger than usual" in odd
+
+
+def test_mean_map_has_a_frame_per_full_lead_day():
+    style.use()
+    from ldz_demand.data.ingest.national_gas import LDZS
+
+    rng = np.random.default_rng(0)
+    da = ens.cube(rows({ldz: rng.normal(10, 1, (5, 15)) for ldz in LDZS}))
+    fig = ens.mean_map(da, RUN)
+    assert len(fig.frames) == 14 and len(fig.layout.sliders[0].steps) == 14   # lead days 0–13 (14 is partial)
+    assert fig.layout.sliders[0].steps[0].label == "Tue 13"
+    z = fig.data[0].z
+    assert np.isfinite(np.asarray(z, dtype=float)).all()                       # every authority coloured

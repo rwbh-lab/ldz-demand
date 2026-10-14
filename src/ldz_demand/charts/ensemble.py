@@ -292,3 +292,85 @@ def station_gap_note(forecast_gap: pd.Series, offsets: pd.DataFrame, run_date, l
     return (f"This run: the station reads **{gap:+.2f} {unit}** against our gas-weighted {ldz} on average over the "
             f"15 days. In ERA5 since 2021, the {MONTH_NAMES[month]} average is **{mean:+.2f} {unit}** (day to day "
             f"±{sd:.2f}) — {context}")
+
+
+# --- the map ----------------------------------------------------------------------------------------
+
+MAP_LEADS = range(0, 14)          # lead days 0–13: the days the run covers in full
+MAP_MIN_SPAN = 3.0                # °C: the colour scale spans at least this either side of its centre
+
+
+def mean_map(da: xr.DataArray, run_date, variable: str = "t2m") -> go.Figure:
+    """
+    The ensemble mean per LDZ (gas-weighted), lead day by lead day: each LDZ coloured by its mean and
+    labelled with it; a slider (and play button) steps through the run's 14 days. Hover gives P10–P90.
+    """
+    from ldz_demand.charts import coastline, geography
+    from ldz_demand.charts.era5 import HEATING_THRESHOLD, _mercator_mid
+    from ldz_demand.geo import boundaries
+    from ldz_demand.geo.ldz_membership import read_table
+
+    t = active()
+    las = read_table("ldz_local_authority.csv")
+    _, labels = geography._ldz_shapes(geography._key(las))
+    v = da.sel(variant="/".join(REFERENCE), variable=variable).sel(ldz=list(LDZS))
+    leads = [lead for lead in MAP_LEADS if lead in v["lead"].values]
+    mean = v.mean("member").to_pandas()                                  # ldz x lead
+    p10, p90 = (v.quantile(q, "member").drop_vars("quantile").to_pandas() for q in (0.1, 0.9))
+    label, unit, _ = VARIABLES[variable]
+    centre = HEATING_THRESHOLD if variable == "t2m" else float(np.nanmean(mean.values))
+    # sized to this run (all 14 days on one scale), so differences between days and LDZs show
+    span = max(MAP_MIN_SPAN, float(np.ceil(np.nanmax(np.abs(mean[leads].values - centre)))))
+    stops = t.diverging
+    colorscale = [[i / (len(stops) - 1), c] for i, c in enumerate(stops)]
+    run = pd.Timestamp(run_date)
+
+    def layers(lead):
+        z = las["main_ldz"].map(mean[lead]).astype(float)
+        hover = [f"{ldz} · {run + pd.Timedelta(days=lead):%a %d %b}<br>mean {mean.at[ldz, lead]:.1f} {unit} "
+                 f"(10–90%: {p10.at[ldz, lead]:.1f} – {p90.at[ldz, lead]:.1f})" for ldz in las["main_ldz"]]
+        text = [f"{ldz}<br>{mean.at[ldz, lead]:.1f}°" if unit == "°C" else f"{ldz}<br>{mean.at[ldz, lead]:.1f}"
+                for ldz in LDZS]
+        return z, hover, text
+
+    z0, hover0, text0 = layers(leads[0])
+    coast_lon, coast_lat = coastline.load()
+    fig = go.Figure(
+        data=[
+            go.Choropleth(geojson=boundaries.load(), featureidkey="id", locations=las["lad23cd"], z=z0, text=hover0,
+                          zmin=centre - span, zmax=centre + span, colorscale=colorscale,
+                          marker=dict(line=dict(width=0.2, color=t.surface)),
+                          colorbar=dict(title=dict(text=unit), outlinewidth=0, thickness=10, len=0.6),
+                          hovertemplate="%{text}<extra></extra>"),
+            go.Scattergeo(lon=coast_lon, lat=coast_lat, mode="lines", line=dict(color=t.ink_2, width=1),
+                          hoverinfo="skip", showlegend=False),
+            go.Scattergeo(lon=[labels[z][1] for z in LDZS], lat=[labels[z][0] for z in LDZS], text=text0, mode="text",
+                          textfont=dict(color=t.ink, size=13, family=t.font), hoverinfo="skip", showlegend=False),
+        ],
+        frames=[go.Frame(name=str(lead), traces=[0, 2],
+                         data=[go.Choropleth(z=z, text=hover), go.Scattergeo(text=text)])
+                for lead, (z, hover, text) in ((lead, layers(lead)) for lead in leads)],
+    )
+    south, north, west, east = 49.85, 59.0, -8.2, 1.9
+    fig.update_geos(projection_type="mercator", resolution=50, lataxis_range=[south, north], lonaxis_range=[west, east],
+                    center=dict(lat=_mercator_mid(south, north), lon=(west + east) / 2), showland=True,
+                    landcolor=t.surface, showocean=True, oceancolor=t.page, showcoastlines=False, showcountries=False,
+                    showlakes=False, bgcolor=t.surface, showframe=False)
+    steps = [dict(method="animate", label=f"{run + pd.Timedelta(days=lead):%a %d}",
+                  args=[[str(lead)], dict(mode="immediate", frame=dict(duration=0, redraw=True), transition=dict(duration=0))])
+             for lead in leads]
+    fig.update_layout(
+        title=f"{label}, ensemble mean per LDZ — 00z run of {run:%a %d %b %Y}",
+        height=820, margin=dict(l=8, r=8, t=64, b=8),
+        sliders=[dict(active=0, steps=steps, x=0.08, len=0.9, y=0.02, pad=dict(t=8),
+                      currentvalue=dict(prefix="Gas day ", xanchor="right", font=dict(color=t.ink, size=14)),
+                      font=dict(color=t.ink_2, size=10), bgcolor=t.axis, activebgcolor=t.accent, bordercolor=t.axis,
+                      tickcolor=t.muted)],
+        updatemenus=[dict(type="buttons", direction="left", x=0.0, y=0.02, xanchor="left", yanchor="top", pad=dict(t=8),
+                          bgcolor=t.surface, bordercolor=t.axis, font=dict(color=t.ink_2),
+                          buttons=[dict(label="▶", method="animate",
+                                        args=[None, dict(frame=dict(duration=700, redraw=True), fromcurrent=True,
+                                                         transition=dict(duration=0))]),
+                                   dict(label="❚❚", method="animate",
+                                        args=[[None], dict(mode="immediate", frame=dict(duration=0, redraw=False))])])])
+    return fig

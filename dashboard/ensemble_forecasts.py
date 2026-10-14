@@ -70,6 +70,25 @@ def _(ens, mo):
 
 
 @app.cell(hide_code=True)
+def _(ENS_LDZ_DAILY, ens, mo, runs, store):
+    # the latest run only: one variable, our gas-weighted LDZ weather (a light read)
+    _latest = runs[0]
+    _rows = store.read(ENS_LDZ_DAILY, start=_latest, end=_latest, variable="t2m", membership=ens.REFERENCE[0])
+    mo.vstack([
+        mo.md(r"""
+        ## The next two weeks at a glance
+
+        The latest run's **ensemble mean** temperature for each LDZ — the average of the 50 members, on our
+        LDZ map and weighted by where gas is used. Drag the slider, or press ▶, to step through the 14 gas
+        days; hover an LDZ for the spread (P10–P90). Blue is colder than about 15.5 °C, roughly where
+        heating comes on. The sections below take one run and one LDZ at a time, in more detail.
+        """),
+        ens.mean_map(ens.cube(_rows), _latest),
+    ])
+    return
+
+
+@app.cell(hide_code=True)
 def _(ens, mo, runs):
     run_picker = mo.ui.dropdown(options={f"{r:%a %d %b %Y}": r for r in runs}, value=f"{runs[0]:%a %d %b %Y}",
                                 label="Run (00z)")
