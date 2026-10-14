@@ -96,3 +96,18 @@ def test_gas_day_temperature_profiles_and_steps():
     steady = pd.Series(5.0, index=times)
     assert averaging.gas_day_temperature(steady, "peaks", step_hours=3).iloc[0] == pytest.approx(5.0)
     assert len(averaging.gas_day_temperature(hourly.iloc[:-5])) == 2        # an incomplete last day is dropped
+
+
+def test_final_fit_saves_and_loads_to_the_same_predictions(tmp_path):
+    from ldz_demand.models import fit as final
+
+    shape = np.array([0.3, 0.05, -0.1])
+    frames = {ldz: synthetic(ldz, cwv.CWVParams(y=0.45, I2=0.02, W0=2.0, T0=15.0, S0=0.0, V0=3.0, I3=0.1, V1=14.0,
+                                                dV=4.0, q=0.4, Sc=sc), "calendar", shape, seed=i)
+              for i, (ldz, sc) in enumerate((("NT", -2.5), ("SO", -1.5)))}
+    fits = demand.fit_joint({k: (f, np.ones(len(f), bool)) for k, f in frames.items()}, "calendar")
+    loaded = final.load(final.save(fits, out_dir=tmp_path))
+    assert set(loaded) == set(fits)
+    for ldz, f in fits.items():
+        assert demand.predict(loaded[ldz], frames[ldz]) == pytest.approx(demand.predict(f, frames[ldz]), rel=1e-6)
+    assert (tmp_path / final.OUTPUT).read_text().startswith("# Derived by ldz-demand")

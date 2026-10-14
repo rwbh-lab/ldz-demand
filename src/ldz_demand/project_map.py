@@ -170,14 +170,17 @@ NODES: tuple[Node, ...] = (
     # --- CWV model -------------------------------------------------------------------------------------------
     Node("c_demand", 3, 3.4, "CWV demand model",
          "Our CWV per LDZ from gas-weighted weather, and demand as a straight line in it plus calendar terms.",
-         modules=("models.cwv", "models.calendar", "models.demand", "models.averaging"),
+         modules=("models.cwv", "models.calendar", "models.demand", "models.averaging", "models.fit"),
+         files=("src/ldz_demand/models/data/final_fit.csv",),
          docs=("docs/methodology.md: 5", "docs/results.md"),
          details=(("Temperature", "gas-day mean with the heating hours weighted up (06–09, 16–22 double; 23–05 half)"),
                   ("CWV", "effective temperature, wind chill, solar, a seasonal shape shared by all LDZs; "
                           "summer cut-off and cold-weather upturn"),
                   ("Demand", "a + b · CWV + day of week + bank holidays + Christmas; recent years weighted more (half-life 1 year)"),
                   ("Fit", "robust (soft L1) least squares; CWV parameters bounded near the published values"),
-                  ("Benchmark", "the official CWV through the same regression")),
+                  ("Benchmark", "the official CWV through the same regression"),
+                  ("Final fit", "python -m ldz_demand.models.fit: every usable day, all LDZs together, saved "
+                                "with the package (models/data/final_fit.csv)")),
          at=(1.1, 4.15)),
 
     # --- Outputs ---------------------------------------------------------------------------------------------

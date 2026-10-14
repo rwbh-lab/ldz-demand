@@ -359,6 +359,23 @@ Chosen: **temperature averaged with the heating-hours profile; solar kept; min /
 
 ---
 
+## The final model
+
+Fitted on every usable day of 2021/22 – 2025/26 (about 1,800 per LDZ, target B), all 13 LDZs together:
+`python -m ldz_demand.models.fit`, saved with the package as `src/ldz_demand/models/data/final_fit.csv`
+(one row per LDZ: CWV parameters, linear terms, the shared shape). `models.fit.load()` rebuilds the
+fitted models for prediction; they expect the heating-hours gas-day temperature (`models.averaging`).
+
+- **All 13 converged.** In-sample RMSE (all training days, unweighted) 0.9 (WN) – 9.7 (NW) GWh/day.
+- **The cold-weather upturn sits on its bound in 8 of 13 LDZs** (I3 = 0.4). Only the final fit sees
+  2025/26 — January 2026's cold spell, weighted most as the latest year — and it wants a stronger upturn
+  than any forward fold did (median 0.28, never at the bound). With the bound raised to 1.5, I3 comes out
+  0.27 – 0.60, but the coldest days barely change (bias within 0.3, RMSE within 0.1 GWh/day per LDZ-day),
+  and forward scores are identical. **Kept at the bound:** a deliberate guard with few cold days in five
+  years; to revisit as cold winters accrue.
+
+---
+
 ## Open
 
 - **Shoulder months** (see above): spring 2025 in particular.
@@ -367,5 +384,6 @@ Chosen: **temperature averaged with the heating-hours profile; solar kept; min /
 - **The heating-hours profile is fixed,** not fitted: its weights could be estimated (e.g. per LDZ).
 - **The National Gas comparison** above uses experiment 4's per-gas-year model on target A; to rerun with
   the final model.
+- **The cold-weather upturn's bound** binds in the final fit (see above).
 - **Against National Gas's forecasts, like for like** — our model on the ensemble (needs the archive
   backfill).
