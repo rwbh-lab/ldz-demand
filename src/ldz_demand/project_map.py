@@ -186,14 +186,15 @@ NODES: tuple[Node, ...] = (
     # --- Outputs ---------------------------------------------------------------------------------------------
     Node("o_results", 4, 3.4, "Experiment results",
          "Held-out and forward predictions, scores and fitted parameters for each experiment.",
-         modules=("models.experiment",), docs=("docs/decisions.md: V1 – V3", "docs/results.md",),
+         modules=("models.experiment", "models.results"), page="results.py",
+         files=("src/ldz_demand/models/data/results/experiments.csv",), docs=("docs/decisions.md: V1 – V3", "docs/results.md",),
          details=(("Where", "data/results/<experiment>_{predictions,scores,params}.csv (not committed)"),
                   ("Experiments", "1 weather input, 2 variables, 3 seasonal term, 4 change over time, 5 gas-day averaging, 6 target A vs B"),
                   ("Best so far", "GB winter 2.5% per gas day, 2024/25 (official CWV 3.3%)")),
          at=(1.1, 5.15)),
     Node("o_benchmark", 4, 2.4, "National Gas benchmark",
          "Our model against National Gas's published day-ahead forecasts.",
-         modules=("models.benchmark",), docs=("docs/decisions.md: V4", "docs/results.md: Against National Gas's day-ahead forecasts",),
+         modules=("models.benchmark",), page="results.py", docs=("docs/decisions.md: V4", "docs/results.md: Against National Gas's day-ahead forecasts",),
          details=(("Result", "level on average; winter 2.2% vs 3.2 – 3.6%; summer worse"),
                   ("Caveat", "ours on actual weather (small effect at day-ahead); theirs also forecasts DM"),
                   ("Where", "data/results/ng_forecast_comparison.csv")),
@@ -225,7 +226,7 @@ NODES: tuple[Node, ...] = (
          "The marimo pages, served together, and their shared charts and theme.",
          modules=("dashboard", "charts.pages", "charts.style", "charts.ng_ldz_daily", "charts.era5", "charts.geography",
                   "charts.coastline", "charts.weather_ldz", "charts.ensemble", "charts.project_map", "charts.demand_model",
-                  "project_map"),
+                  "charts.results", "project_map"),
          details=(("Command", "python -m ldz_demand.dashboard (http://localhost:2718)"),)),
 )
 

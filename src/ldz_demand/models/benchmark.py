@@ -2,15 +2,15 @@
 Our model against National Gas's own day-ahead forecasts (docs/results.md).
 
 National Gas publishes a total-demand forecast per LDZ, ~8 issues per gas day (ng_forecast_daily); the
-first day-ahead issue is at ~13:00 on D-1. It is compared with our best model from experiment 4
-(per_year, scored forward), both on total demand in GWh: theirs converted from mcm with the day's CV,
+first day-ahead issue is at ~13:00 on D-1. It is compared with our final model (experiment "final",
+scored forward — the model in models.fit), both on total demand in GWh: theirs converted from mcm with the day's CV,
 ours as our prediction of total - DM plus the actual DM (so the error is the same as on our target).
 
 Not like for like, in two directions: ours uses actual weather (ERA5), theirs a day-ahead forecast; and
 theirs includes forecasting DM, ours doesn't. The weather part is estimated from their forecast CWV
 (the 12:00 day-ahead issue) against the actual CWV.
 
-Run (after `python -m ldz_demand.models.experiment change`):
+Run (after `python -m ldz_demand.models.experiment final`):
     python -m ldz_demand.models.benchmark
 Writes data/results/ng_forecast_comparison.csv.
 """
@@ -30,7 +30,7 @@ from ldz_demand.models.experiment import RESULTS
 
 logger = logging.getLogger(__name__)
 
-MODEL = "per_year"
+EXPERIMENT, MODEL = "final", "final"
 CWV_ISSUE_HOUR = 12
 
 
@@ -48,7 +48,7 @@ def comparison(store=None, predictions: pd.DataFrame | None = None) -> pd.DataFr
     e = e[e["ldz"] != le.GB][["gas_day", "ldz", "total", "dm", "target", "cv", "cwv"]]
     e["gas_day"] = pd.to_datetime(e["gas_day"])
     if predictions is None:
-        predictions = pd.read_csv(RESULTS / "change_predictions.csv", parse_dates=["gas_day"])
+        predictions = pd.read_csv(RESULTS / f"{EXPERIMENT}_predictions.csv", parse_dates=["gas_day"])
     ours = predictions[predictions["input"] == MODEL][["gas_day", "ldz", "held_out", "predicted"]]
     x = e.merge(demand, on=["gas_day", "ldz"]).merge(cwv, on=["gas_day", "ldz"], how="left").merge(ours, on=["gas_day", "ldz"])
     x = x[x["target"].notna()].copy()

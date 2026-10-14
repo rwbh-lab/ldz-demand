@@ -25,6 +25,7 @@ PAGES = {  # file -> page, in reading order
     "ldz_weather.py": Page("Pre-CWV models", "LDZ weather", "/ldz-weather"),
     "ensemble_forecasts.py": Page("Pre-CWV models", "Ensemble LDZ weather", "/ensemble-forecasts"),
     "demand_model.py": Page("CWV model", "Demand model", "/demand-model"),
+    "results.py": Page("Outputs", "Results", "/results"),
 }
 
 

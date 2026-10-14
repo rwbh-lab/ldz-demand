@@ -33,6 +33,9 @@ Experiments "variables" (2) and "averaging" (5), forward, on the model chosen af
 with / without solar, with the day's min / max temperature; and the gas-day temperature rebuilt from
 the hourly table — flat, or with the heating hours weighted up — hourly and from 3-hourly steps.
 
+Experiment "final": the model in models.fit (FINAL: BEST with the daily table's heating-hours
+temperature, t2m_heat) and the official CWV, forward on target B — the headline scores.
+
 Run:
     python -m ldz_demand.models.experiment cwv_inputs              # all LDZs (a few minutes)
     python -m ldz_demand.models.experiment cwv_inputs --ldz NT WS  # some LDZs
@@ -41,6 +44,7 @@ Run:
     python -m ldz_demand.models.experiment target
     python -m ldz_demand.models.experiment variables
     python -m ldz_demand.models.experiment averaging
+    python -m ldz_demand.models.experiment final
 Writes data/results/<experiment>_{predictions,scores,scores_2025_26,params}.csv.
 """
 
@@ -86,6 +90,7 @@ class Model:
     target: str = "target"           # "target" (A) or "target_repaired" (B)
     extremes: bool = False           # daily min / max temperature in the CWV's temperature
     solar: bool = True               # the solar term (else held at 0)
+    temperature: str = "t2m"         # the daily table's temperature: "t2m" (flat mean) or "t2m_heat" (heating hours)
 
 
 MODELS = {  # experiment -> models
@@ -111,8 +116,10 @@ MODELS["variables"] = [replace(BEST, label="base"), replace(BEST, label="no_sola
                        replace(BEST, label="extremes", extremes=True)]
 AVERAGING = [(f"{profile}_{step}h", profile, step) for step in (1, 3) for profile in averaging.PROFILES]
 MODELS["averaging"] = [replace(BEST, label="daily_table")] + [replace(BEST, label=label) for label, _, _ in AVERAGING]
+FINAL = replace(BEST, label="final", temperature="t2m_heat")  # after experiment 5: the model in models.fit
+MODELS["final"] = [Model("official", "official", breaks=(_B, _O), target="target_repaired"), FINAL]
 SCHEME = {"cwv_inputs": "held_out", "seasonal": "held_out", "change": "forward", "target": "forward",
-          "variables": "forward", "averaging": "forward"}
+          "variables": "forward", "averaging": "forward", "final": "forward"}
 FORWARD_FROM = "2023/24"  # forward scheme: the first year predicted (from at least two years before it)
 
 
@@ -128,7 +135,7 @@ def _year_starts(years) -> tuple:
     return tuple(pd.Timestamp(f"{y[:4]}-10-01") for y in sorted(years)[1:])
 RESULTS = get_project_root() / "data" / "results"
 MIN_REGIME_DAYS = 90  # training days needed in each regime a held-out year contains (SE 2022/23 has ~5)
-WEATHER_VARIABLES = ("t2m", "ws10", "ssrd", "tmin", "tmax")
+WEATHER_VARIABLES = ("t2m", "t2m_heat", "ws10", "ssrd", "tmin", "tmax")
 COLD_SHARE = 0.05  # "coldest days": this share of each LDZ's days, by its gas-weighted temperature
 
 
@@ -161,7 +168,7 @@ def _variant_frame(frame: pd.DataFrame, variant) -> pd.DataFrame:
     return out
 
 
-def _prepared(frame: pd.DataFrame, name: str, target: str = "target"):
+def _prepared(frame: pd.DataFrame, name: str, target: str = "target", temperature: str = "t2m"):
     """(data, gas years, usable) for one input: weather inputs keep the full consecutive span. target:
     "target" (A) or "target_repaired" (B, which adds days whose total was repaired); "repaired" marks those."""
     years = le.gas_year(frame.index)
@@ -169,6 +176,8 @@ def _prepared(frame: pd.DataFrame, name: str, target: str = "target"):
     data["repaired"] = data["target"].isna() & data["target_repaired"].notna()
     if target == "target_repaired":
         data["target"] = data["target_repaired"]
+    if temperature != "t2m" and temperature in data:
+        data["t2m"] = data[temperature]
     weather_ok = data[["t2m"]].notna().all(axis=1).to_numpy() if INPUTS[name] else np.ones(len(data), bool)
     usable = data["target"].notna().to_numpy() & weather_ok & np.isin(years, GAS_YEARS)
     if name == "official":
@@ -190,7 +199,7 @@ def run(frames: dict[str, pd.DataFrame], ldzs=LDZS, models=None, scheme: str = "
     for m in models or MODELS["cwv_inputs"]:
         label, name, seasonal = m.label, m.input, m.seasonal
         t0 = time.monotonic()
-        prepared = {ldz: _prepared(frames[ldz], name, m.target) for ldz in ldzs}
+        prepared = {ldz: _prepared(frames[ldz], name, m.target, m.temperature) for ldz in ldzs}
         for held, train_years in _folds(scheme):
             breaks = tuple(sorted(set(m.breaks) | set(_year_starts(train_years) if m.per_year else ())))
             folds = {}

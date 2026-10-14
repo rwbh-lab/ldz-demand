@@ -31,7 +31,7 @@ where = ["src"]
 [tool.setuptools.package-data]
 "ldz_demand.charts" = ["data/*.json"]
 "ldz_demand.geo" = ["data/*.csv", "data/*.geojson"]
-"ldz_demand.models" = ["data/*.csv"]
+"ldz_demand.models" = ["data/*.csv", "data/results/*.csv"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
