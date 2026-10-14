@@ -70,7 +70,7 @@ def ens_run(run=RUN, t2m_kelvin=280.15, members=(1, 2)):
 
 def test_ens_ldz_daily_rows_per_member_lead_and_variant():
     out = ens_ldz_daily(ens_run(), weights(), RUN)
-    assert len(out) == 2 * 15 * 2 * 2  # members x lead days x variants x variables (one LDZ)
+    assert len(out) == 2 * 15 * 2 * 3  # members x lead days x variants x variables (t2m, t2m_heat, ws10; one LDZ)
     assert sorted(out["lead_days"].unique()) == list(range(15))
     t = out[(out["variable"] == "t2m") & (out["membership"] == "sampled")].set_index(["member", "lead_days"])
     assert t.loc[(1, 3), "value"] == pytest.approx(8.0) and t.loc[(2, 3), "value"] == pytest.approx(9.0)
@@ -91,7 +91,7 @@ def test_ens_builder_builds_new_runs_only(tmp_path, monkeypatch):
     assert set(store.read(ENS_LDZ_DAILY)["run_date"].dt.date) == {RUN.date(), datetime(2026, 10, 12).date()}
     assert builder.build() == 0
     runs[datetime(2026, 10, 14)] = None
-    assert builder.build() == 2 * 15 * 2  # only the new run
+    assert builder.build() == 2 * 15 * 3  # only the new run
 
 
 def test_ldz_hourly_is_the_weighted_mean_each_hour():
@@ -170,7 +170,7 @@ def test_ens_ldz_daily_extra_variables():
     assert v.loc[("tp", 14), "coverage_h"] < 24                  # lead day 14 is partly covered
     # a run archived before the extra variables still builds, with temperature and wind only
     old = ens_ldz_daily(ens_run(), weights([("sampled", "gas")]), RUN)
-    assert set(old["variable"]) == {"t2m", "ws10"}
+    assert set(old["variable"]) == {"t2m", "t2m_heat", "ws10"}
 
 
 def test_weather_ldz_daily_includes_extra_variables_where_archived(tmp_path):

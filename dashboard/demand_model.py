@@ -203,6 +203,29 @@ def _(dm, fit, frame, ldz, mo):
 
 
 @app.cell(hide_code=True)
+def _(mo):
+    bend_x = mo.ui.radio(options={"CW": "cw", "Gas-day temperature": "temperature"}, value="CW",
+                         label="Plot demand against", inline=True)
+    mo.vstack([
+        mo.md(r"""
+        **Why bend it? Look at demand before the bend.** Against CW, demand is a curve: it flattens as
+        heating switches off in summer, and steepens in the cold. The line is the model — §6's bend
+        followed by §7's straight line — tracing that curve. After the bend (§7) the same days lie on a
+        straight line. Switch to the plain gas-day temperature to see the raw relationship, before wind,
+        sun and season are folded in: the same shape, with more scatter.
+        """),
+        bend_x,
+    ])
+    return (bend_x,)
+
+
+@app.cell(hide_code=True)
+def _(bend_x, dm, fit, frame):
+    dm.demand_before_bend(fit, frame, bend_x.value)
+    return
+
+
+@app.cell(hide_code=True)
 def _(dm, fit, frame, mo):
     _c = dict(zip(fit.columns, fit.coef))
     mo.vstack([

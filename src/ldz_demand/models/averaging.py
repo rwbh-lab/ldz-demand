@@ -15,6 +15,7 @@ survive in forecasting.
 import numpy as np
 import pandas as pd
 
+from ldz_demand.data.build import gas_day
 from ldz_demand.data.build.gas_day import gas_day_labels
 
 PROFILES = ("flat", "peaks")
@@ -22,12 +23,8 @@ MIN_HOURS = 23  # a gas day is 23, 24 or 25 hours (clock changes); fewer means m
 
 
 def hour_weights(local_hour: np.ndarray, profile: str) -> np.ndarray:
-    """Weight per hour, by its UK local starting hour."""
-    if profile == "flat":
-        return np.ones(len(local_hour))
-    peak = ((local_hour >= 6) & (local_hour < 9)) | ((local_hour >= 16) & (local_hour < 22))
-    night = (local_hour >= 23) | (local_hour < 5)
-    return np.where(peak, 2.0, np.where(night, 0.5, 1.0))
+    """Weight per hour, by its UK local starting hour (the profile lives in data.build.gas_day)."""
+    return gas_day.hour_weights(local_hour, "heating" if profile == "peaks" else "flat")
 
 
 def gas_day_temperature(hourly: pd.Series, profile: str = "flat", step_hours: int = 1) -> pd.Series:

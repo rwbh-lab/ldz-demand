@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 LEAD_DAYS = range(0, 15)
 # how each variable becomes a gas-day value: values at each step, or statistics of each step's period
 PERIOD_STATS = {"ssrd": "mean", "tp": "sum", "tmin": "min", "tmax": "max"}
+DERIVED = {"t2m_heat": ("t2m", "heating")}  # variable -> (source field, gas_day_time_mean method)
 
 
 def ens_ldz_daily(run_data: xr.Dataset, weights: pd.DataFrame, run: datetime, method: str = "flat") -> pd.DataFrame:
@@ -53,16 +54,17 @@ def ens_ldz_daily(run_data: xr.Dataset, weights: pd.DataFrame, run: datetime, me
     gas_days = pd.DatetimeIndex([run_date + pd.Timedelta(days=k) for k in LEAD_DAYS])
     frames = []
     for variable, unit in VARIABLES.items():
-        if variable not in run_data:  # runs archived before the extra variables
+        source, var_method = DERIVED.get(variable, (variable, method))
+        if source not in run_data:  # runs archived before the extra variables
             continue
         keys, w = arrays[variable]
-        field = run_data[variable].transpose("number", "time", "latitude", "longitude").values
+        field = run_data[source].transpose("number", "time", "latitude", "longitude").values
         series = np.einsum("ntij,kij->nkt", np.nan_to_num(field, nan=0.0), w)  # member x variant-LDZ x step
         if variable in PERIOD_STATS:
             series[..., 0] = np.nan  # the first step has no period
             means, covered = gas_day_interval_stat(series, times, gas_days, PERIOD_STATS[variable])
         else:
-            means, covered = gas_day_time_mean(series, times, gas_days, method)  # member x variant-LDZ x gas day
+            means, covered = gas_day_time_mean(series, times, gas_days, var_method)  # member x variant-LDZ x gas day
         n, k, d = np.meshgrid(np.arange(len(members)), np.arange(len(keys)), np.arange(len(gas_days)), indexing="ij")
         frame = keys.iloc[k.ravel()].reset_index(drop=True)
         frame["member"] = members[n.ravel()]

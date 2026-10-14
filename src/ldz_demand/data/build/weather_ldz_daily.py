@@ -31,7 +31,8 @@ from ldz_demand.data.store import Store, get_store
 
 logger = logging.getLogger(__name__)
 
-VARIABLES = {"t2m": "degC", "ws10": "m s-1", "tmin": "degC", "tmax": "degC", "ssrd": "W m-2", "tp": "mm"}
+VARIABLES = {"t2m": "degC", "t2m_heat": "degC", "ws10": "m s-1", "tmin": "degC", "tmax": "degC", "ssrd": "W m-2",
+             "tp": "mm"}  # t2m_heat: the gas-day temperature weighted to the heating hours (gas_day.hour_weights)
 # the cell weights to use for each variable (the weights table has temperature and wind; WM takes its
 # wind from a different station): everything that isn't wind uses the temperature weights
 WEIGHTS_FOR = {"ws10": "ws10"}

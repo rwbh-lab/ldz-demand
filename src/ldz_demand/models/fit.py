@@ -109,24 +109,31 @@ def model_inputs(ldzs=LDZS, store=None) -> dict[str, pd.DataFrame]:
     """
     Per LDZ, consecutive gas days with what the final model uses: t2m (the heating-hours gas-day
     temperature), ws10, ssrd (gas-weighted), target (B), and for reference t2m_flat (the flat mean),
-    target_a and cwv_official. Ready for demand.predict with a fit from load(). One read per table for all
-    LDZs (filtering a table on LDZ scans it whole, so per-LDZ reads are no faster).
+    target_a and cwv_official. Ready for demand.predict with a fit from load(). The heating-hours
+    temperature is the weather table's t2m_heat; tables built before it existed fall back to the hourly
+    table (slow: filtering a table on LDZ scans it whole, so it is read once for all LDZs).
     """
     store = store or get_store(create_config())
     membership, weighting = ex.INPUTS[MODEL.input]
-    daily = store.read(WEATHER_LDZ_DAILY, membership=membership, variable=["t2m", "ws10", "ssrd"])
+    daily = store.read(WEATHER_LDZ_DAILY, membership=membership, variable=["t2m", "t2m_heat", "ws10", "ssrd"])
     daily = daily[(daily["weighting"] == weighting) & daily["ldz"].isin(ldzs)]
     daily = daily.pivot_table(index=["ldz", "gas_day"], columns="variable", values="value")
-    hourly = store.read(WEATHER_LDZ_HOURLY, membership=membership, variable="t2m")
-    hourly = hourly[(hourly["weighting"] == weighting) & hourly["ldz"].isin(ldzs)]
+    hourly = None
+    if "t2m_heat" not in daily or daily["t2m_heat"].isna().mean() > 0.01:
+        logger.info("weather_ldz_daily has no t2m_heat yet (rebuild it): using the hourly table")
+        hourly = store.read(WEATHER_LDZ_HOURLY, membership=membership, variable="t2m")
+        hourly = hourly[(hourly["weighting"] == weighting) & hourly["ldz"].isin(ldzs)]
     e = energy(store)
     out = {}
     for ldz in ldzs:
-        h = hourly[hourly["ldz"] == ldz].set_index("time")["value"]
-        h.index = pd.DatetimeIndex(h.index)
-        peaks = averaging.gas_day_temperature(h, *TEMPERATURE)
         d = daily.xs(ldz, level="ldz")
         d.index = pd.DatetimeIndex(d.index)
+        if hourly is None:
+            peaks = d["t2m_heat"].dropna()
+        else:
+            h = hourly[hourly["ldz"] == ldz].set_index("time")["value"]
+            h.index = pd.DatetimeIndex(h.index)
+            peaks = averaging.gas_day_temperature(h, *TEMPERATURE)
         en = e.xs(ldz, level="ldz")
         en.index = pd.DatetimeIndex(en.index)
         days = pd.date_range(peaks.first_valid_index(), d.index.max())

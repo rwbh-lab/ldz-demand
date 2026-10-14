@@ -153,6 +153,41 @@ def cw_series(fit: demand.Fit, frame: pd.DataFrame) -> np.ndarray:
     return demand._cw(fit, frame)
 
 
+def demand_before_bend(fit: demand.Fit, frame: pd.DataFrame, x: str = "cw") -> go.Figure:
+    """
+    Demand against CW (x="cw") with the model's curve — the bend of §6 times the line of §7, for an
+    ordinary weekday — or against the gas-day temperature (x="temperature") with its binned median.
+    """
+    t = active()
+    y = frame["target"].to_numpy()
+    if x == "cw":
+        xv, xlabel = cw_series(fit, frame), "CW (°C)"
+    else:
+        xv, xlabel = frame["t2m"].to_numpy(), "Gas-day temperature, heating hours (°C)"
+    ok = ~np.isnan(xv) & ~np.isnan(y)
+    fig = go.Figure(go.Scattergl(x=xv[ok], y=y[ok], mode="markers", name="Gas days",
+                                 marker=dict(size=5, color=_alpha(t.muted, 0.45), line=dict(width=0)),
+                                 customdata=frame.index[ok].strftime("%d %b %Y"),
+                                 hovertemplate="%{customdata}<br>%{x:.1f} °C → %{y:,.1f} GWh<extra></extra>"))
+    if x == "cw":
+        coef = dict(zip(fit.columns, fit.coef))
+        grid = np.linspace(np.nanmin(xv[ok]), np.nanmax(xv[ok]), 200)
+        fig.add_trace(go.Scatter(x=grid, y=coef["intercept"] + coef["cwv"] * demand.transform(grid, fit.params),
+                                 name="Model (bend × line), ordinary weekday", line=dict(color=t.series[0], width=2.5),
+                                 hovertemplate="CW %{x:.1f} °C → %{y:,.1f} GWh<extra></extra>"))
+        for v in (fit.params.V0, fit.params.V1, fit.params.V2):
+            fig.add_vline(x=v, line=dict(color=t.series[0], width=1, dash="dot"))
+    else:
+        bins = pd.Series(y[ok]).groupby(np.floor(xv[ok])).median()
+        bins = bins[pd.Series(xv[ok]).groupby(np.floor(xv[ok])).size() >= 10]
+        fig.add_trace(go.Scatter(x=bins.index + 0.5, y=bins.values, name="Median per °C", mode="lines+markers",
+                                 line=dict(color=t.series[0], width=2.5), marker=dict(size=6),
+                                 hovertemplate="%{x:.1f} °C: median %{y:,.1f} GWh<extra></extra>"))
+    fig.update_layout(title="Before the bend: demand " + ("against CW" if x == "cw" else "against temperature"),
+                      xaxis_title=xlabel, yaxis_title="Total − DM (GWh / day)", height=420, hovermode="closest")
+    return fig
+
+
 def demand_line(fit: demand.Fit, frame: pd.DataFrame) -> go.Figure:
     """Demand against the fitted CWV, with the model's line for an ordinary weekday (Monday, no holiday)."""
     t = active()
@@ -264,5 +299,5 @@ def linear_table(fit: demand.Fit) -> pd.DataFrame:
 
 
 __all__ = ["heating_profile", "gas_day_temperature", "effective_temperature", "wind_chill", "solar", "seasonal_shape",
-           "transform", "demand_line", "calendar_effects", "recency", "drift", "parameter_table", "linear_table",
+           "transform", "demand_before_bend", "demand_line", "calendar_effects", "recency", "drift", "parameter_table", "linear_table",
            "markdown_table"]

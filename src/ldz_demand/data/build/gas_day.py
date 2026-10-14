@@ -94,14 +94,64 @@ def _hours(times) -> np.ndarray:
     return ((pd.DatetimeIndex(times) - pd.Timestamp(0)) / pd.Timedelta(hours=1)).to_numpy(dtype=float)
 
 
+def hour_weights(local_hour, profile: str = "heating") -> np.ndarray:
+    """
+    Weight of each hour (by its UK local starting hour) in a gas-day mean. "heating": 06–09 and 16–22
+    count double, 23–05 half — the hours homes heat (the demand model's temperature; experiment 5 in
+    docs/results.md). "flat": all the same.
+    """
+    local_hour = np.asarray(local_hour)
+    if profile == "flat":
+        return np.ones(local_hour.shape)
+    if profile != "heating":
+        raise ValueError(f"unknown hour profile {profile!r}")
+    peak = ((local_hour >= 6) & (local_hour < 9)) | ((local_hour >= 16) & (local_hour < 22))
+    night = (local_hour >= 23) | (local_hour < 5)
+    return np.where(peak, 2.0, np.where(night, 0.5, 1.0))
+
+
+def instant_weights(times, gas_days, profile: str = "heating") -> tuple[np.ndarray, np.ndarray]:
+    """
+    (weights [gas day, sample], hours covered [gas day]) for a gas-day mean over the day's hourly
+    instants, each interpolated linearly from the samples and weighted by hour_weights. With hourly
+    samples it is a weighted mean of the hours; with 3- or 6-hourly forecast steps it is the same
+    quantity from fewer samples (as tested in experiment 5).
+    """
+    t = _hours(times)
+    start, end = gas_day_bounds(gas_days)
+    w = np.zeros((len(start), len(t)))
+    covered = np.zeros(len(start))
+    for d, (s0, e0) in enumerate(zip(start, end)):
+        instants = pd.date_range(s0, e0, freq="h", inclusive="left")
+        x = _hours(instants)
+        inside = (x >= t[0]) & (x <= t[-1])
+        if not inside.any():
+            continue
+        local = instants.tz_localize("UTC").tz_convert(UK_TZ).hour.to_numpy()
+        h = hour_weights(local, profile)[inside]
+        x = x[inside]
+        if len(t) == 1:
+            w[d, 0] = h.sum()
+        else:
+            i = np.clip(np.searchsorted(t, x, side="right") - 1, 0, len(t) - 2)
+            frac = (x - t[i]) / (t[i + 1] - t[i])
+            np.add.at(w[d], i, h * (1 - frac))
+            np.add.at(w[d], i + 1, h * frac)
+        covered[d] = inside.sum()
+    return w, covered
+
+
 def gas_day_time_mean(values: np.ndarray, times, gas_days, method: str = "flat") -> tuple[np.ndarray, np.ndarray]:
     """
     Gas-day means of samples along the last axis of `values`: (means [..., gas day], hours covered [gas day]).
 
     method "flat" weights each sample by the time it stands for, interpolating linearly between
-    samples (time_weights). Other methods, such as
-    weighting by a within-day demand profile, slot in here once they are tested against demand.
+    samples (time_weights). "heating" weights the day's hours by hour_weights (instant_weights).
     """
+    if method == "heating":
+        w, covered = instant_weights(times, gas_days, "heating")
+        with np.errstate(invalid="ignore", divide="ignore"):
+            return (values @ w.T) / w.sum(axis=1), covered
     if method != "flat":
         raise ValueError(f"unknown gas-day averaging method {method!r}")
     w = time_weights(times, gas_days)
@@ -115,6 +165,7 @@ def gas_day_time_mean(values: np.ndarray, times, gas_days, method: str = "flat")
 # the hour ending at each time, so they are assigned to that hour, not to the instant it ends.
 DAILY_STATS = {
     "t2m": ("t2m", "mean"),
+    "t2m_heat": ("t2m", "heating"),  # weighted to the heating hours (hour_weights); the demand model's temperature
     "ws10": ("ws10", "mean"),
     "tmin": ("t2m", "min"),
     "tmax": ("t2m", "max"),
@@ -140,8 +191,15 @@ def gas_day_stats(hourly: xr.Dataset, stats: dict = DAILY_STATS) -> xr.Dataset:
         gas_day, _ = gas_day_labels(times)
         counts = pd.Series(1, index=gas_day).groupby(level=0).size()
         complete = counts.index[counts == gas_day_hours(counts.index)]
-        grouped = hourly[source].assign_coords(gas_day=("time", gas_day)).groupby("gas_day")
-        values = getattr(grouped, stat)("time", skipna=False)
+        if stat == "heating":  # weighted mean of the hours, by UK local hour
+            _, local = gas_day_labels(times)
+            h = xr.DataArray(hour_weights(local.hour.to_numpy()), dims="time", coords={"time": hourly["time"]})
+            num = (hourly[source] * h).assign_coords(gas_day=("time", gas_day)).groupby("gas_day").sum("time", skipna=False)
+            den = h.assign_coords(gas_day=("time", gas_day)).groupby("gas_day").sum("time")
+            values = num / den
+        else:
+            grouped = hourly[source].assign_coords(gas_day=("time", gas_day)).groupby("gas_day")
+            values = getattr(grouped, stat)("time", skipna=False)
         out[name] = values.sel(gas_day=values["gas_day"].isin(complete))
         complete_days = complete if complete_days is None else complete_days.union(complete)
     return xr.Dataset(out)

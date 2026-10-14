@@ -42,3 +42,34 @@ def test_gas_days_across_clock_changes_have_real_lengths():
     # a gas day missing an hour is dropped
     gappy = hourly("2026-01-01 05:00", 48).drop_isel(time=[10])
     assert list(pd.DatetimeIndex(gas_day_means(gappy)["gas_day"].values).strftime("%Y-%m-%d")) == ["2026-01-02"]
+
+
+def test_heating_hours_mean_matches_experiment_5():
+    """The builders' heating-hours mean is the one experiment 5 tested (models.averaging)."""
+    import xarray as xr
+
+    from ldz_demand.data.build import gas_day as gd
+    from ldz_demand.models import averaging
+
+    times = pd.date_range("2026-03-27 00:00", "2026-04-01 00:00", freq="h")  # spans the clock change (29 Mar)
+    rng = np.random.default_rng(1)
+    temp = 8 + 4 * np.sin(2 * np.pi * (times.hour.to_numpy() - 9) / 24) + rng.normal(0, 0.5, len(times))
+    expected = averaging.gas_day_temperature(pd.Series(temp, index=times), "peaks")
+    # daily builder: gas_day_stats over hourly fields
+    ds = xr.Dataset({"t2m": ("time", temp)}, coords={"time": times})
+    got = gd.gas_day_stats(ds)["t2m_heat"].to_series()
+    common = expected.index.intersection(got.index)
+    assert len(common) >= 4 and np.allclose(got.loc[common], expected.loc[common])
+    # ensemble: from 3-hourly steps, as the thinned hourly series in experiment 5
+    steps = times[times.hour % 3 == 0]
+    means, covered = gd.gas_day_time_mean(temp[times.hour % 3 == 0], steps, common, "heating")
+    thinned = averaging.gas_day_temperature(pd.Series(temp, index=times), "peaks", step_hours=3)
+    assert np.allclose(means, thinned.loc[common]) and (covered >= 23).all()
+
+
+def test_hour_weights():
+    from ldz_demand.data.build import gas_day as gd
+
+    w = gd.hour_weights(np.arange(24))
+    assert w[7] == 2 and w[18] == 2 and w[2] == 0.5 and w[12] == 1 and w[23] == 0.5 and w[5] == 1
+    assert (gd.hour_weights(np.arange(24), "flat") == 1).all()
