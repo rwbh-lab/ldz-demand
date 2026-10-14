@@ -120,6 +120,20 @@ def flagged_days(energy: pd.DataFrame, pct: float = 5.0) -> pd.DataFrame:
     return flagged[cols].round(2).reset_index().sort_values(["gas_day", "ldz"])
 
 
+def target_summary(energy: pd.DataFrame) -> pd.DataFrame:
+    """Per LDZ: gas days with a published total, flagged days by reason, and the days each target keeps."""
+    e = energy.drop(index=GB, level="ldz")
+    e = e[e["total"].notna()]
+    g = e.groupby(level="ldz")
+    out = pd.DataFrame({"days": g.size()})
+    for f in FLAGS[1:]:
+        out[f] = g["flag"].apply(lambda s, f=f: int((s == f).sum()))
+    out["target_a"] = g["target"].count()
+    out["target_b"] = g["target_repaired"].count()
+    out["repaired"] = out["target_b"] - out["target_a"]
+    return out[[c for c in out.columns if c in ("days", "target_a", "target_b", "repaired") or out[c].any()]]
+
+
 def gas_year(days) -> np.ndarray:
     """Gas year (Oct-Sep) label for each day, e.g. '2025/26'."""
     days = pd.DatetimeIndex(days)

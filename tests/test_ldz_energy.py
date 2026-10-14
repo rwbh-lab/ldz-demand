@@ -84,3 +84,12 @@ def test_mismatch_and_invalid():
 
 def test_gas_year_runs_october_to_september():
     assert list(le.gas_year(pd.to_datetime(["2025-09-30", "2025-10-01", "2026-03-01"]))) == ["2024/25", "2025/26", "2025/26"]
+
+
+def test_target_summary_counts_the_days_each_target_keeps(monkeypatch):
+    monkeypatch.setattr(le, "FEED_MATERIAL", 2.0)
+    t = le.target_summary(le.energy_frame(raw_rows(se_total_day2=0.7), offtake_rows()))
+    assert list(t.index) == sorted(LDZS) or set(t.index) == set(LDZS)
+    assert t.loc["SE", ["days", "missing_feed", "target_a", "target_b", "repaired"]].tolist() == [3, 1, 2, 3, 1]
+    assert t.loc["EA", ["target_a", "target_b", "repaired"]].tolist() == [3, 3, 0]
+    assert "invalid" not in t.columns                                # flags that never occur are left out

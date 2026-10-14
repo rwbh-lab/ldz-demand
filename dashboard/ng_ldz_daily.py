@@ -30,12 +30,11 @@ def _(mo):
     # National Gas LDZ data
 
     Daily gas demand for each of GB's 13 Local Distribution Zones (LDZs), as published by National Gas.
-    This page checks the raw data before any modelling: **what is there, whether it adds up, and how
-    demand responds to weather.**
+    The page is in two parts:
 
-    The model's target is **total demand minus daily-metered (DM) demand** — the weather-sensitive
-    part, built from metered quantities rather than the published NDM allocation (which is itself
-    calculated from the official weather variable, so fitting to it would be circular).
+    - **Part I · Published data** — what National Gas publishes, and whether it adds up (§1–3).
+    - **Part II · From published data to the model target** — our own work: checking the published
+      totals, repairing what can be repaired, and building the variable the model predicts (§4–7).
     """)
     return
 
@@ -87,7 +86,7 @@ def _(has_offtakes, le, mo, offtakes, raw):
                     caption=" · ".join(f"{_flags.get(f, 0)} {f.replace('_', ' ')}" for f in le.FLAGS[1:] if _flags.get(f, 0))),
         ], widths="equal", gap=1),
         mo.md("") if has_offtakes else mo.callout(mo.md(
-            "Offtake data not loaded, so the offtake checks (§3b) are off and the simpler ratio rule is used. "
+            "Offtake data not loaded, so the offtake checks (§5) are off and the simpler ratio rule is used. "
             "Run `python -m ldz_demand.data.ingest.national_gas refresh --series offtakes` then "
             "`python -m ldz_demand.data.build.ng_offtake_daily`."), kind="info"),
     ])
@@ -97,6 +96,8 @@ def _(has_offtakes, le, mo, offtakes, raw):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
+    # Part I · Published data
+
     ## 1 · Coverage
 
     Every core series is complete from October 2021. Two things stand out: **unidentified gas (UIG)
@@ -126,7 +127,7 @@ def _(le, mo):
 
         The thin line is the published total; the space between it and the stacked parts is gas the parts
         don't account for (§3). Click *NTS offtakes* in the legend to compare with the metered gas entering
-        from the national transmission system (§3b). This zone picker drives §2 and §3; §3b and §4 have
+        from the national transmission system (§5). This zone picker drives §2 and §3; §5 and §7 have
         their own, since they work per LDZ.
         """),
         ldz_picker,
@@ -151,7 +152,7 @@ def _(mo):
         **Total − DM − NDM** is what the published parts don't explain: unidentified gas plus LDZ
         shrinkage (leakage and own use). Once UIG is published (March 2025) we can subtract it too,
         leaving **shrinkage alone** — a fairly steady ~0.6–1 GWh/day per LDZ, so ~0.3% of winter
-        demand but ~1.5% in summer. Flagged days (✕, see §3b) are excluded.
+        demand but ~1.5% in summer. Flagged days (✕, see §5) are excluded.
         """),
         gap_units,
     ])
@@ -167,7 +168,29 @@ def _(energy, gap_units, ldz_picker, ng):
 @app.cell(hide_code=True)
 def _(has_offtakes, mo):
     mo.md(r"""
-    ## 3b · Checking totals against NTS offtakes
+    ---
+
+    # Part II · From published data to the model target
+
+    /// admonition | Derived by this project
+        type: info
+
+    Everything from here on is our own processing of the published data: checks, a repair, and the
+    construction of the **target** — the demand the model is fitted to and forecasts (the dependent,
+    or endogenous, variable). Code: `ldz_demand.data.ldz_energy`. Decisions: `docs/decisions.md` P1, P2.
+    ///
+
+    ## 4 · The target: total − DM
+
+    The model predicts the **weather-sensitive part of LDZ demand**: total demand minus daily-metered
+    (DM) demand, both metered, in GWh/day at D+6 close-out. That is non-daily-metered demand (homes and
+    small business) plus unidentified gas and shrinkage.
+
+    Why not simply the published **NDM**? Because it isn't measured: National Gas *allocates* NDM using
+    the official CWV itself. Fitting a weather model to it would partly be fitting the CWV to its own
+    output. Total and DM are both metered, so their difference carries no model in it.
+
+    ## 5 · Checking the published totals
 
     National Gas also publishes the energy taken from the national transmission system (NTS) at each
     of the 122 LDZ offtake points — an independent meter of gas entering each LDZ. In most LDZs the
@@ -177,10 +200,18 @@ def _(has_offtakes, mo):
     From **September 2022 to February 2024 that input vanishes from SE's published total** — the total
     equals the offtakes alone — and then returns. Nothing else moves to compensate: the gas is simply
     missing from the published figure. Because the missing input is so steady, those days can be
-    **repaired** (offtakes + the usual input, uncertainty ~±5 GWh/day) or **excluded**; the model is
-    fitted both ways (§4) to check the result doesn't depend on the choice.
+    **repaired** (offtakes + the usual input, uncertainty ~±5 GWh/day) or **excluded** (§6).
     """ if has_offtakes else r"""
-    ## 3b · Checking totals against NTS offtakes
+    ---
+
+    # Part II · From published data to the model target
+
+    ## 4 · The target: total − DM
+
+    Total demand minus daily-metered demand, both metered — not the published NDM, which is allocated
+    using the official CWV.
+
+    ## 5 · Checking the published totals
 
     *Needs the offtake data — see the note at the top of the page.*
     """)
@@ -225,25 +256,57 @@ def _(energy, le, mo):
 
 
 @app.cell(hide_code=True)
+def _(energy, le, mo):
+    _t = le.target_summary(energy)
+    _names = {"days": "Days", "missing_feed": "Missing feed", "mismatch": "Mismatch", "invalid": "Invalid",
+              "suspect": "Suspect", "target_a": "Target A", "target_b": "Target B", "repaired": "Repaired"}
+    _rows = ["| LDZ | " + " | ".join(_names[c] for c in _t.columns) + " |", "|---" * (len(_t.columns) + 1) + "|"]
+    for _ldz, _r in _t.iterrows():
+        _cells = [f"{int(v):,}" for v in _r]
+        _b = "**" if _r["repaired"] else ""  # the LDZ whose target B differs
+        _rows.append(f"| {_b}{_ldz}{_b} | " + " | ".join(f"{_b}{c}{_b}" for c in _cells) + " |")
+    mo.vstack([
+        mo.md(r"""
+        ## 6 · Target A and target B
+
+        Flagged days can't be used as they stand. Two ways to build the target:
+
+        - **A** — drop every flagged day.
+        - **B** — as A, but repair the days where a feed is missing from the published total (offtakes +
+          that feed's usual level). In practice only SE's missing input, Sep 2022 – Feb 2024.
+
+        **The model uses B.** On days that are real in both, the two give the same scores; but A leaves SE
+        almost no data for 2022/23, and B gives it back — and with it a third test year for GB, which
+        changed the choice of how the model follows behaviour over time (`docs/results.md`, experiment 6).
+        Repaired days are rougher than measured ones (errors ~10 vs ~6 GWh/day), so they train the model
+        but are never used to score it.
+        """),
+        mo.md("\n".join(_rows)),
+        mo.md("*Gas days per LDZ with a published total; flagged days by reason; the days each target keeps.*"),
+    ])
+    return
+
+
+@app.cell(hide_code=True)
 def _(energy, le, mo, ng):
     year_picker = mo.ui.dropdown(options=ng.gas_years(energy), value=ng.gas_years(energy)[1],
                                  label="Highlight gas year")
     cwv_picker = mo.ui.dropdown(options=list(le.LDZS), value="SE", label="LDZ")
     target_picker = mo.ui.radio(options={"A · exclude flagged days": "target", "B · repair missing feed": "target_repaired"},
-                                value="A · exclude flagged days", label="Target", inline=True)
+                                value="B · repair missing feed", label="Target", inline=True)
     mo.vstack([
         mo.md(r"""
-        ## 4 · Weather drives demand
+        ## 7 · The target against the official CWV
 
         Each point is one gas day: the official **Composite Weather Variable** (CWV — a blend of
-        temperature and wind, roughly "how cold it feels") against the model target, total − DM.
+        temperature and wind, roughly "how cold it feels") against the target.
         Against the official CWV, demand is **close to a straight line**. That is by design: the CWV
         formula already bends temperature (warm-weather cut-offs, wind chill, blending with seasonal
         normals) into a variable that demand responds to linearly. Rebuilding that bending from raw
         weather is the core of the model.
 
-        Switch the target between **A** (flagged days excluded) and **B** (SE's missing feed repaired):
-        for SE, B fills in the 2022/23 and 2023/24 winters. Before the offtake check, SE showed two
+        Switch the target between **B** (used) and **A**: for SE, B fills in the 2022/23 and 2023/24
+        winters. Before the offtake check, SE showed two
         separate bands here — the lower one was the under-reported total, not a change in behaviour.
         The CWV is only published per LDZ.
         """),
