@@ -201,9 +201,12 @@ NODES: tuple[Node, ...] = (
          at=(0, 5.15)),
     Node("o_forecast", 4, 4.8, "Demand forecasts",
          "Demand per LDZ for the next 15 days from each ensemble member: a distribution, not a point.",
-         status="planned", docs=("docs/methodology.md: 8",),
-         details=(("Plan", "run the fitted model on every member; compare with National Gas by issue time"),
-                  ("Needs", "an ensemble archive covering at least one winter (the backfill)")),
+         modules=("models.forecast",), docs=("docs/methodology.md: 8",),
+         details=(("Now", "the final model on every member of a run: 50 demand paths per LDZ, lead days 0–13; "
+                          "GB summed member by member"),
+                  ("Warm-up", "ERA5, then earlier runs' ensemble mean, then a straight line, for the days before the run"),
+                  ("Not yet", "scheduled, stored as a table, or scored; comparing with National Gas by issue time "
+                              "needs an ensemble archive covering a winter")),
          at=(4.2, 5.15)),
 
     # --- Supporting strip ------------------------------------------------------------------------------------
@@ -299,8 +302,11 @@ EDGES: tuple[Edge, ...] = (
          commands=("python -m ldz_demand.models.benchmark",), modules=("models.benchmark",), runs="Mac (seconds)"),
     Edge("ds_ng_forecast", "o_benchmark", "benchmark", "Their first day-ahead issue (~13:00 on D−1), converted to GWh.",
          modules=("models.benchmark",)),
-    Edge("c_demand", "o_forecast", "forecast", "The fitted model, run on each ensemble member.", status="planned"),
-    Edge("m_ens", "o_forecast", "weather", "Member × lead-day LDZ weather.", status="planned"),
+    Edge("c_demand", "o_forecast", "forecast", "The fitted model, run on each ensemble member.",
+         commands=("python -m ldz_demand.models.forecast 2026-10-13 2026-10-14",), modules=("models.forecast", "models.fit"),
+         runs="Mac, by hand (seconds per run); outputs to data/results/forecasts/"),
+    Edge("m_ens", "o_forecast", "weather", "Member × lead-day LDZ weather, heating-hours temperature (t2m_heat).",
+         modules=("models.forecast",)),
 )
 
 
