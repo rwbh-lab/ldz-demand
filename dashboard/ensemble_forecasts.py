@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.25.1"
-app = marimo.App(width="medium", app_title="LDZ demand · Ensemble forecasts", css_file="theme.css")
+app = marimo.App(width="medium", app_title="LDZ demand · Ensemble LDZ weather", css_file="theme.css")
 
 
 @app.cell(hide_code=True)
@@ -26,7 +26,7 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    # Ensemble forecasts
+    # Ensemble LDZ weather
     *Fifty equally likely futures for each LDZ, every day, out to 15 days.*
 
     The official forecast gives one Composite Weather Variable per LDZ and gas day. The ECMWF

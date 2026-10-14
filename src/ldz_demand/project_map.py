@@ -171,7 +171,7 @@ NODES: tuple[Node, ...] = (
     Node("c_demand", 3, 3.4, "CWV demand model",
          "Our CWV per LDZ from gas-weighted weather, and demand as a straight line in it plus calendar terms.",
          modules=("models.cwv", "models.calendar", "models.demand", "models.averaging", "models.fit"),
-         files=("src/ldz_demand/models/data/final_fit.csv",),
+         files=("src/ldz_demand/models/data/final_fit.csv",), page="demand_model.py",
          docs=("docs/decisions.md: C1 – C9", "docs/methodology.md: 5", "docs/results.md"),
          details=(("Temperature", "gas-day mean with the heating hours weighted up (06–09, 16–22 double; 23–05 half)"),
                   ("CWV", "effective temperature, wind chill, solar, a seasonal shape shared by all LDZs; "
@@ -224,7 +224,8 @@ NODES: tuple[Node, ...] = (
     Node("x_dashboard", None, 4, "Dashboard",
          "The marimo pages, served together, and their shared charts and theme.",
          modules=("dashboard", "charts.pages", "charts.style", "charts.ng_ldz_daily", "charts.era5", "charts.geography",
-                  "charts.coastline", "charts.weather_ldz", "charts.ensemble", "charts.project_map", "project_map"),
+                  "charts.coastline", "charts.weather_ldz", "charts.ensemble", "charts.project_map", "charts.demand_model",
+                  "project_map"),
          details=(("Command", "python -m ldz_demand.dashboard (http://localhost:2718)"),)),
 )
 

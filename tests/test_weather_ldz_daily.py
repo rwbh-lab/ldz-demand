@@ -144,7 +144,8 @@ def test_page_menu_links_every_page_and_marks_the_current_one():
     lines = pages.contents_markdown("ldz_weather.py").split("  \n")
     assert lines == ["Project: [Project map](/project-map)",
                      "Data: [National Gas data](/ng-ldz-daily) | [ERA5 weather](/era5-weather)",
-                     "Models: [LDZ geography](/ldz-geography) | **LDZ weather** | [Ensemble forecasts](/ensemble-forecasts)"]
+                     "Pre-CWV models: [LDZ geography](/ldz-geography) | **LDZ weather** | [Ensemble LDZ weather](/ensemble-forecasts)",
+                     "CWV model: [Demand model](/demand-model)"]
     assert "(/)" in pages.nav("ldz_weather.py").text or 'href="/"' in pages.nav("ldz_weather.py").text
 
 

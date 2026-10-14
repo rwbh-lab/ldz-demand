@@ -21,9 +21,10 @@ PAGES = {  # file -> page, in reading order
     "project_map.py": Page("Project", "Project map", "/project-map"),
     "ng_ldz_daily.py": Page("Data", "National Gas data", "/ng-ldz-daily"),
     "era5_weather.py": Page("Data", "ERA5 weather", "/era5-weather"),
-    "ldz_geography.py": Page("Models", "LDZ geography", "/ldz-geography"),
-    "ldz_weather.py": Page("Models", "LDZ weather", "/ldz-weather"),
-    "ensemble_forecasts.py": Page("Models", "Ensemble forecasts", "/ensemble-forecasts"),
+    "ldz_geography.py": Page("Pre-CWV models", "LDZ geography", "/ldz-geography"),
+    "ldz_weather.py": Page("Pre-CWV models", "LDZ weather", "/ldz-weather"),
+    "ensemble_forecasts.py": Page("Pre-CWV models", "Ensemble LDZ weather", "/ensemble-forecasts"),
+    "demand_model.py": Page("CWV model", "Demand model", "/demand-model"),
 }
 
 

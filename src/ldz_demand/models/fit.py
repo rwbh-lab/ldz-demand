@@ -23,8 +23,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from ldz_demand.config import create_config
+from ldz_demand.data import ldz_energy as le
+from ldz_demand.data.datasets import NG_LDZ_DAILY, NG_OFFTAKE_DAILY, WEATHER_LDZ_DAILY, WEATHER_LDZ_HOURLY
 from ldz_demand.data.ingest.national_gas import LDZS
-from ldz_demand.models import cwv, demand
+from ldz_demand.data.store import get_store
+from ldz_demand.models import averaging, cwv, demand
 from ldz_demand.models import experiment as ex
 
 logger = logging.getLogger(__name__)
@@ -93,6 +97,59 @@ def load(path: Path = DATA_DIR / OUTPUT) -> dict[str, demand.Fit]:
                                     params, bool(r["success"]), int(r["n_train"]), str(r["seasonal"]),
                                     shape=r[shape_cols].to_numpy(dtype=float))
     return fits
+
+
+def energy(store=None) -> pd.DataFrame:
+    """The energy frame (all LDZs): demand in GWh, flags and both targets (data.ldz_energy)."""
+    store = store or get_store(create_config())
+    return le.energy_frame(store.read(NG_LDZ_DAILY), store.read(NG_OFFTAKE_DAILY))
+
+
+def model_inputs(ldzs=LDZS, store=None) -> dict[str, pd.DataFrame]:
+    """
+    Per LDZ, consecutive gas days with what the final model uses: t2m (the heating-hours gas-day
+    temperature), ws10, ssrd (gas-weighted), target (B), and for reference t2m_flat (the flat mean),
+    target_a and cwv_official. Ready for demand.predict with a fit from load(). One read per table for all
+    LDZs (filtering a table on LDZ scans it whole, so per-LDZ reads are no faster).
+    """
+    store = store or get_store(create_config())
+    membership, weighting = ex.INPUTS[MODEL.input]
+    daily = store.read(WEATHER_LDZ_DAILY, membership=membership, variable=["t2m", "ws10", "ssrd"])
+    daily = daily[(daily["weighting"] == weighting) & daily["ldz"].isin(ldzs)]
+    daily = daily.pivot_table(index=["ldz", "gas_day"], columns="variable", values="value")
+    hourly = store.read(WEATHER_LDZ_HOURLY, membership=membership, variable="t2m")
+    hourly = hourly[(hourly["weighting"] == weighting) & hourly["ldz"].isin(ldzs)]
+    e = energy(store)
+    out = {}
+    for ldz in ldzs:
+        h = hourly[hourly["ldz"] == ldz].set_index("time")["value"]
+        h.index = pd.DatetimeIndex(h.index)
+        peaks = averaging.gas_day_temperature(h, *TEMPERATURE)
+        d = daily.xs(ldz, level="ldz")
+        d.index = pd.DatetimeIndex(d.index)
+        en = e.xs(ldz, level="ldz")
+        en.index = pd.DatetimeIndex(en.index)
+        days = pd.date_range(peaks.first_valid_index(), d.index.max())
+        f = pd.DataFrame({"t2m": peaks.reindex(days), "t2m_flat": d["t2m"].reindex(days),
+                          "ws10": d["ws10"].reindex(days), "ssrd": d["ssrd"].reindex(days)}, index=days)
+        f["target"] = en[MODEL.target].reindex(days)
+        f["target_a"], f["cwv_official"] = en["target"].reindex(days), en["cwv"].reindex(days)
+        out[ldz] = f.loc[:f["t2m"].last_valid_index()]
+    return out
+
+
+def cached_model_inputs(max_age_hours: float = 24, store=None) -> dict[str, pd.DataFrame]:
+    """model_inputs() for every LDZ, kept in the local cache (data/cache/, not committed) for max_age_hours."""
+    from ldz_demand.config import resolve_path
+
+    path = resolve_path(create_config(), "storage", "cache_dir") / "model_inputs.csv"
+    if path.exists() and (pd.Timestamp.now() - pd.Timestamp(path.stat().st_mtime, unit="s")).total_seconds() < max_age_hours * 3600:
+        df = pd.read_csv(path, parse_dates=["gas_day"])
+        return {ldz: g.drop(columns="ldz").set_index("gas_day").rename_axis(None).asfreq("D") for ldz, g in df.groupby("ldz")}
+    frames = model_inputs(store=store)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pd.concat({k: v for k, v in frames.items()}, names=["ldz", "gas_day"]).reset_index().to_csv(path, index=False)
+    return frames
 
 
 def main(argv: list[str] | None = None) -> int:

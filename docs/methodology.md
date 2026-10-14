@@ -4,7 +4,7 @@
 recorded with their reasons and the evidence behind them; anything not yet tested is marked as such.
 Each choice in brief: [decisions](decisions.md); the scores behind them: [results](results.md).*
 
-Last updated: 13 October 2026.
+Last updated: 14 October 2026.
 
 ---
 
@@ -100,6 +100,9 @@ Two versions, to check results are robust to a data repair (`ldz_demand.data.ldz
 - **B (`target_repaired`)**: as A, but days with SE's missing feed (Sep 2022 – Feb 2024) repaired as
   offtakes plus the usual input.
 
+**The model uses B** (experiment 6; decisions P2): the same scores as A on shared days, and it gives SE
+its 2022/23 back.
+
 **Checked (October 2026): no step changes from sites changing metering class.** These would shift
 the target with no change in weather. Comparing summer levels year by year, DM and the target mostly
 move together (both fell in almost every LDZ from 2024 to 2025: lower demand generally), and the large
@@ -161,16 +164,16 @@ gas years. That changes what can be estimated, and the design below follows from
 
 ### 5.2 What we keep, change and add
 
-| | Decision | Why |
-|---|---|---|
-| Effective temperature | keep, `y` fitted per LDZ | thermal inertia of buildings; well identified in five years |
-| Wind chill | keep, form refitted | well identified on cold, windy days |
-| Solar radiation | **test** | in the official form since 2020; added to our weather data, so its value is an experiment |
-| Summer cut-off, transition | keep | demand flattens when heating is off |
-| Cold-weather upturn | keep simple (§5.5) | few cold days in five years |
-| Seasonal profile (pseudo-SNET) | **replace** (§5.3) | not public, and can't be estimated well from five years |
-| Day of week, holidays | add | standard demand calendar effects |
-| Level and sensitivity over time | add (§5.3) | behaviour changed after 2022 |
+| | Plan | Why | Outcome (decisions) |
+|---|---|---|---|
+| Effective temperature | keep, `y` fitted per LDZ | thermal inertia of buildings; well identified in five years | kept; y ≈ 0.4–0.55 (C1) |
+| Wind chill | keep, form refitted | well identified on cold, windy days | kept (C1) |
+| Solar radiation | **test** | in the official form since 2020; added to our weather data, so its value is an experiment | kept: 26% worse without (P6) |
+| Summer cut-off, transition | keep | demand flattens when heating is off | kept; no separate summer level (C5) |
+| Cold-weather upturn | keep simple (§5.5) | few cold days in five years | fitted, bounded (C4) |
+| Seasonal profile (pseudo-SNET) | **replace** (§5.3) | not public, and can't be estimated well from five years | a shape shared by all LDZs (C2, C3) |
+| Day of week, holidays | add | standard demand calendar effects | added, with the Christmas period (C6) |
+| Level and sensitivity over time | add (§5.3) | behaviour changed after 2022 | recency weighting, half-life 1 year (C7) |
 
 ### 5.3 Seasonal behaviour and the 2022 change
 
@@ -178,7 +181,7 @@ The official CW takes 24–40% from a fixed seasonal profile, which mostly stand
 heating switched on in autumn after a run of cold days, left on into spring. We can't use theirs
 (§2.4), and estimating a calendar shape from five years risks fitting the particular years we have.
 
-**Provisional design:**
+**Provisional design** (as planned; outcome below):
 
 1. **A slow "heating-season" temperature** — a second effective temperature with a long memory (1–3
    weeks), alongside the fast one. One or two parameters, physically interpretable, and it follows
@@ -191,6 +194,12 @@ heating switched on in autumn after a run of cold days, left on into spring. We 
 shared by all LDZs** with only its size fitted per LDZ — roughly a fitted, low-detail pseudo-SNET.
 Pooling gives about 13 times the data for the shape. Used only if it beats the design above on held-out
 years.
+
+**Outcome:** the pooled shape beat the slow temperature (narrowly) and became the seasonal term, written
+as `E + Sc · g` so it has a unique solution (decisions C2, C3). For change over time, recency weighting
+beat a 2022 break and per-gas-year terms over three forward years (C7). The station-siting hypothesis
+was partly supported: the station input needs about 15% more seasonal correction in 11 of 13 LDZs, but
+not most clearly in WS, SO and SE as expected (results, experiment 3).
 
 Not in the core model: prices (TTF) as an input. The price–demand link is weak and hard to separate
 from weather in five years; a possible later experiment.
@@ -211,6 +220,10 @@ The official CWV weights 24 hourly observations (weights not published). Variant
 day / night split. Forecast steps are 3-hourly to day 6 and 6-hourly after, so any method must also
 work at that resolution; its cost is measurable by applying the same sampling to hourly ERA5.
 
+**Outcome:** weighting the heating hours (06–09, 16–22 double; 23–05 half) cut error by 9%, and the
+gain survives 3- and 6-hourly sampling (decisions P5; results, experiment 5). Min / max are held back
+(N2).
+
 ### 5.5 The cold end
 
 The cold-weather upturn needs cold days, and five years have few (December 2022, January 2026). The
@@ -219,11 +232,15 @@ compared on those cold spells: a simple linear or single-kink upturn; constraini
 published parameters. Results on the coldest days will be reported separately and treated with
 caution.
 
+**Outcome:** a fitted upturn beats both a linear form and the published one; its strength is bounded,
+and the final fit reaches the bound in 8 LDZs without the coldest days being affected (decisions C4).
+
 ---
 
 ## 6. Experiments
 
-Each is a variant fitted the same way and judged on held-out years (§7):
+Each is a variant fitted the same way and judged on held-out years (§7). All six have been run; the
+outcomes are in [results.md](results.md) and, in brief, [decisions.md](decisions.md):
 
 1. **Weather input:** official CWV (benchmark; with a break at 1 Oct 2025, when its definition
    changed); ERA5 at the official station; sampled × gas use; sampled × area; other map methods.
@@ -237,9 +254,14 @@ Each is a variant fitted the same way and judged on held-out years (§7):
 5. **Gas-day averaging:** flat; heating-peak weighted; extremes.
 6. **Target:** A and B.
 
----
-
-Results, as they come in: [results.md](results.md).
+| Experiment | Outcome |
+|---|---|
+| 1 Weather input | gas-weighted LDZ beats the station everywhere; official CWV ahead until the seasonal term |
+| 2 Variables | solar kept; min / max held back |
+| 3 Seasonal term | shared calendar shape; slow temperature a close second |
+| 4, 6 Change over time | recency weighting, half-life 1 year (decided once target B gave a third forward year) |
+| 5 Gas-day averaging | heating-hours weighting, −9% |
+| 6 Target | B |
 
 ## 7. Validation
 
