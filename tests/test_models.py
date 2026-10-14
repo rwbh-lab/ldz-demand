@@ -133,3 +133,43 @@ def test_forecast_intervals_add_model_error_and_keep_ldzs_consistent():
     gb, nt = st[st["ldz"] == "GB"].iloc[0], st[st["ldz"] == "NT"].iloc[0]
     assert gb["p50"] == pytest.approx(150, rel=0.02)                  # centred errors: the median stays put
     assert (gb["p90"] - gb["p10"]) / gb["p50"] == pytest.approx((nt["p90"] - nt["p10"]) / nt["p50"], rel=0.2)  # correlated
+
+
+class _StubStore:
+    """read() returns canned frames per dataset name (empty with the schema otherwise)."""
+
+    def __init__(self, frames):
+        self.frames = frames
+
+    def read(self, dataset, start=None, end=None, **filters):
+        df = self.frames.get(dataset.name, pd.DataFrame(columns=list(dataset.columns)))
+        for k, v in filters.items():
+            df = df[df[k].isin(v if isinstance(v, (list, tuple, set)) else [v])]
+        return df
+
+
+def test_forecast_warm_up_uses_only_era5_available_at_issue():
+    from ldz_demand.models import forecast
+
+    run = pd.Timestamp("2026-10-13")
+    days = pd.date_range("2026-08-01", run - pd.Timedelta(days=1))
+    inputs = {"NT": pd.DataFrame({"t2m": np.arange(len(days), dtype=float), "ws10": 5.0, "ssrd": 100.0}, index=days)}
+    past, bridged = forecast.history(run, inputs, _StubStore({}), ldzs=["NT"])
+    cut = run - pd.Timedelta(days=forecast.ERA5_LAG_DAYS)
+    t = past["NT"]["t2m"]
+    assert t.loc[:cut].equals(inputs["NT"]["t2m"].reindex(t.loc[:cut].index))   # ERA5 up to the cut
+    assert (t.loc[cut + pd.Timedelta(days=1):] == t.loc[cut]).all()            # after it: not the later ERA5
+    assert bridged == forecast.ERA5_LAG_DAYS - 1
+
+
+def test_missing_runs_needs_inputs_and_no_stored_forecast():
+    from ldz_demand.models import forecast
+
+    def ens(run, variables):
+        return [{"run_date": pd.Timestamp(run), "ldz": "NT", "member": 1, "lead_days": 0, "membership": "sampled",
+                 "weighting": "gas", "variable": v, "value": 1.0} for v in variables]
+    e = pd.DataFrame(ens("2026-10-12", ["t2m_heat"]) + ens("2026-10-13", ["t2m_heat", "ssrd"])
+                     + ens("2026-10-14", ["t2m_heat", "ssrd"]))
+    stored = pd.DataFrame([{"run_date": pd.Timestamp("2026-10-13"), "ldz": "GB", "statistic": "p50", "lead_days": 0}])
+    store = _StubStore({"ens_ldz_daily": e, "demand_forecast_daily": stored})
+    assert forecast.missing_runs(store) == ["2026-10-14"]   # 12th has no solar; 13th already forecast

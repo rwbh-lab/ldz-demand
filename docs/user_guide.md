@@ -342,6 +342,38 @@ docker save ldz-demand:latest | gzip > /Volumes/Development/ldz-demand/images/ld
 Inside the container the config is `config/docker.ini` (`raw_dir = /data/raw`). Jobs that write to
 MySQL also need the database settings: add `--env-file <path to .env>` to the command.
 
+#### Weekly on the NAS: National Gas, ERA5 and demand forecasts
+
+Everything except the ensemble can run weekly: National Gas keeps five years and Copernicus all of ERA5,
+so nothing is lost by waiting, and the demand forecasts are made *as issued* (each uses only the ERA5
+that existed on its run date), so a weekly batch makes the same forecasts a daily job would have.
+`deploy/nas/weekly.sh` runs, each in its own container:
+
+1. National Gas: `national_gas refresh`, then `ng_ldz_daily`, `ng_offtake_daily`, `ng_forecast_daily`;
+2. ERA5: `era5 refresh`, then `weather_ldz_daily --recent 1` (this month and last);
+3. forecasts: `models.forecast --missing` — every built ensemble run without a stored forecast.
+
+Set-up, once:
+
+- **Image** — rebuild and import it as above (the image now includes the `forecast` extra: scipy, holidays).
+- **Copernicus key** — create `cds.env` on the share next to `docker.env`, readable by root only:
+  ```
+  CDSAPI_URL=https://cds.climate.copernicus.eu/api
+  CDSAPI_KEY=<your API token, from your CDS profile page>
+  ```
+- **Migration 007** (`demand_forecast_daily`) applied: `python -m ldz_demand.db migrate`.
+- **Script** — copy it to the share:
+  ```bash
+  cp deploy/nas/weekly.sh /Volumes/Development/ldz-demand/deploy/
+  ```
+- **Schedule** — Task Scheduler → Create → Scheduled Task → User-defined script: user `root`; weekly,
+  e.g. **Sunday 12:00** (after that day's ensemble job); Run command
+  `bash /volume1/Development/ldz-demand/deploy/weekly.sh`; email on abnormal termination, as for the
+  daily job.
+
+Each step runs even if an earlier one failed (a missing ERA5 week is bridged in the forecasts), and the
+task fails if any step does. Logs: Container Manager → Container → `ldz-weekly-*` → Details → Log.
+
 ---
 
 ## 6. What gets built
@@ -530,10 +562,13 @@ print((100 * (total_kwh - parts) / total_kwh).describe())   # SE 2026: mean ~1%,
 | `python -m ldz_demand.data.ingest.ecmwf_ens refresh` | Archive the latest ensemble run(s) not yet archived |
 | `python -m ldz_demand.data.ingest.ecmwf_ens pull DATE` | Archive one ensemble run (YYYY-MM-DD) |
 | `python -m ldz_demand.data.ingest.ecmwf_ens status` | List archived ensemble runs |
-| `python -m ldz_demand.data.build.weather_ldz_daily [--since MONTH]` | Build `weather_ldz_daily` from ERA5 |
+| `python -m ldz_demand.data.build.weather_ldz_daily [--since MONTH \| --recent N]` | Build `weather_ldz_daily` from ERA5 (`--recent 1`: this month and last) |
 | `python -m ldz_demand.data.build.weather_ldz_hourly [--since MONTH]` | Build `weather_ldz_hourly` from ERA5 |
 | `python -m ldz_demand.data.build.ens_ldz_daily [--since DATE]` | Build `ens_ldz_daily` from the ensemble archive |
-| `python -m ldz_demand.models.experiment cwv_inputs\|seasonal\|change [--ldz …]` | Run a model experiment → `data/results/` (see `results.md`) |
+| `python -m ldz_demand.models.experiment <name> [--ldz …]` | Run a model experiment (cwv_inputs, variables, seasonal, change, averaging, target, final) → `data/results/` (see `results.md`) |
+| `python -m ldz_demand.models.fit` | Fit the final model on every usable day → `models/data/final_fit.csv` |
+| `python -m ldz_demand.models.results` | Export the compact results bundle for the dashboard → `models/data/results/` |
+| `python -m ldz_demand.models.forecast DATE… \| --missing` | Demand forecasts from ensemble runs → `demand_forecast_daily` |
 | `python -m ldz_demand.dashboard` | Serve all dashboard pages (overview at /) |
 | `python -m ldz_demand.db status` | MySQL: connection check + migration status |
 | `python -m ldz_demand.db migrate [--dry-run]` | MySQL: apply pending migrations |

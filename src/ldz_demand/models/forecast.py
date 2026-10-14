@@ -5,9 +5,11 @@ For each LDZ and member, the member's gas-day weather (ens_ldz_daily: heating-ho
 solar; gas-weighted) goes through the fitted model, giving 50 equally likely demand paths for lead days
 0–13. GB is the sum of the LDZs member by member (members are consistent across LDZs).
 
-The effective temperature needs the days before the run. ERA5 runs about five days behind, so the days
-between the last ERA5 day and the run are bridged — with the ensemble mean of the most recent earlier run
-covering each day, and where no run does, a straight line between the nearest known days. The model
+The effective temperature needs the days before the run. ERA5 runs about five days behind, so only ERA5
+days that would have existed when the run was issued are used (ERA5_LAG_DAYS) — a forecast made later,
+in a weekly batch, is the same one a daily job would have made. The days between are bridged with the
+ensemble mean of the most recent earlier run covering each day, and where no run does, a straight line
+between the nearest known days. The model
 forgets fast (y ≈ 0.4–0.55: a day's weight halves in about a day), so the bridge matters little after the
 first days; each run records how many bridged days it used.
 
@@ -19,6 +21,7 @@ All LDZs take the same historical day, keeping their errors correlated, so GB is
 errors are centred within each pool: they widen the interval but don't move it (no bias correction yet).
 
     python -m ldz_demand.models.forecast 2026-10-13 2026-10-14   # -> demand_forecast_daily (+ CSVs)
+    python -m ldz_demand.models.forecast --missing               # every built run not yet forecast
 
 Demand here is total − DM (the model's target), in GWh/day.
 """
@@ -46,6 +49,7 @@ logger = logging.getLogger(__name__)
 LEAD_DAYS = range(0, 14)    # lead day 14 isn't fully covered by the 360-hour run
 MIN_COVERAGE_H = 23
 HISTORY_DAYS = 60           # warm-up for the effective temperature
+ERA5_LAG_DAYS = 6           # a run issued on day R could use ERA5 gas days up to R - ERA5_LAG_DAYS
 VARIABLES = {"t2m_heat": "t2m", "ws10": "ws10", "ssrd": "ssrd"}  # ensemble variable -> model input
 OUT = ex.RESULTS / "forecasts"
 POOL_DAYS = 30              # model errors from historical days within this many days of the day of year
@@ -92,6 +96,7 @@ def history(run_date, inputs: dict[str, pd.DataFrame], store=None, ldzs=LDZS) ->
     out, bridged = {}, 0
     for ldz in ldzs:
         f = inputs[ldz].reindex(days)[["t2m", "ws10", "ssrd"]].copy()
+        f.loc[f.index > run - pd.Timedelta(days=ERA5_LAG_DAYS), "t2m"] = np.nan  # not yet available at issue
         era5 = f["t2m"].notna()
         if ldz in bridge.index.get_level_values("ldz"):
             b = bridge.xs(ldz, level="ldz").reindex(days)
@@ -206,15 +211,36 @@ def actuals(store=None) -> pd.DataFrame:
     return out.dropna(subset=["actual"])[["gas_day", "ldz", "actual", "provisional"]]
 
 
+def missing_runs(store=None) -> list[str]:
+    """Built ensemble runs with the model's inputs (t2m_heat and solar) but no stored forecast, oldest first."""
+    store = store or get_store(create_config())
+    membership, weighting = ex.INPUTS[final.MODEL.input]
+    built = store.read(ENS_LDZ_DAILY, ldz="NT", member=1, lead_days=0, membership=membership, variable=["t2m_heat", "ssrd"])
+    built = built[built["weighting"] == weighting]
+    usable = built.groupby("run_date")["variable"].nunique()
+    runs = {pd.Timestamp(d).date() for d in usable[usable == 2].index}
+    try:
+        stored = store.read(DEMAND_FORECAST_DAILY, ldz="GB", statistic="p50", lead_days=0)
+        done = {pd.Timestamp(d).date() for d in stored["run_date"].unique()}
+    except Exception:  # no table yet
+        done = set()
+    return [d.isoformat() for d in sorted(runs - done)]
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m ldz_demand.models.forecast")
-    parser.add_argument("runs", nargs="+", help="run dates, YYYY-MM-DD")
+    parser.add_argument("runs", nargs="*", help="run dates, YYYY-MM-DD")
+    parser.add_argument("--missing", action="store_true", help="every built run not yet forecast")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     store = get_store(create_config())
+    runs = list(args.runs) + (missing_runs(store) if args.missing else [])
+    if not runs:
+        logger.info("No runs to forecast" + (" (every built run already has one)" if args.missing else ""))
+        return 0
     fits, inputs, pool = final.load(), final.cached_model_inputs(store=store), error_pool()
     OUT.mkdir(parents=True, exist_ok=True)
-    for run in args.runs:
+    for run in runs:
         fc = forecast(run, fits, inputs, store)
         stats = statistics(fc, pool)
         tag = date.fromisoformat(run).isoformat()

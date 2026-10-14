@@ -152,7 +152,11 @@ class WeatherLdzDailyBuilder:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m ldz_demand.data.build.weather_ldz_daily")
     parser.add_argument("--since", help="first month to build, YYYY-MM (default: every archived month)")
+    parser.add_argument("--recent", type=int, metavar="MONTHS",
+                        help="build this month and the MONTHS before it (for scheduled jobs; overrides --since)")
     args = parser.parse_args(argv)
+    if args.recent is not None:
+        args.since = (pd.Timestamp.today().to_period("M") - args.recent).strftime("%Y-%m")
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     config = create_config()
     builder = WeatherLdzDailyBuilder(get_store(config), resolve_path(config, "storage", "raw_dir"))
