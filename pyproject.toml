@@ -30,7 +30,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "ldz_demand.charts" = ["data/*.json"]
-"ldz_demand.geo" = ["data/*.csv"]
+"ldz_demand.geo" = ["data/*.csv", "data/*.geojson"]
 "ldz_demand.models" = ["data/*.csv"]
 
 [tool.pytest.ini_options]
