@@ -396,7 +396,7 @@ Key: `(gas_day, ldz, membership, weighting, variable)`.
 | `ldz` | str | |
 | `membership` | str | `authority`, `voronoi`, `hybrid`, `sampled` (map methods), or `station` |
 | `weighting` | str | `area`, `gas` (DESNZ gas use), or `point` (station) |
-| `variable` | str | `t2m` (2 m temperature, mean), `ws10` (10 m wind speed, mean), `tmin` / `tmax` (lowest / highest hourly temperature), `ssrd` (surface solar radiation, mean), `tp` (precipitation, total) |
+| `variable` | str | `t2m` (2 m temperature, mean), `t2m_heat` (2 m temperature weighted to the heating hours — 06–09 and 16–22 double, 23–05 half; the demand model's temperature), `ws10` (10 m wind speed, mean), `tmin` / `tmax` (lowest / highest hourly temperature), `ssrd` (surface solar radiation, mean), `tp` (precipitation, total) |
 | `value` | float | gas-day value: mean, minimum / maximum or total, by variable |
 | `unit` | str | `degC`, `m s-1`, `W m-2`, `mm` |
 | `source` | str | `era5` (final) or `era5t` (preliminary) |
@@ -415,7 +415,7 @@ Key: `(run_date, run_hour, member, gas_day, ldz, membership, weighting, variable
 | `member` | int | 1–50 |
 | `gas_day`, `lead_days` | date, int | `lead_days = gas_day − run_date`, 0–14 |
 | `ldz`, `membership`, `weighting`, `variable` | str | As `weather_ldz_daily` (detail variants) |
-| `variable` | str | As `weather_ldz_daily`: `t2m`, `ws10`, `tmin`, `tmax`, `ssrd`, `tp` (runs archived before 2026-10-13: `t2m`, `ws10` only) |
+| `variable` | str | As `weather_ldz_daily`: `t2m`, `t2m_heat` (from the hourly instants, interpolated between steps), `ws10`, `tmin`, `tmax`, `ssrd`, `tp` (runs archived before 2026-10-13: `t2m`, `t2m_heat`, `ws10` only) |
 | `method` | str | Gas-day averaging for `t2m` / `ws10`: `flat` |
 | `value`, `unit` | float, str | |
 | `coverage_h` | float | Hours of the gas day the forecast steps cover |
