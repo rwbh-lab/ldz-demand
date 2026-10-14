@@ -7,7 +7,9 @@ small tables the page needs, under ldz_demand/models/data/results/:
 - experiments.csv:   every experiment's scores, GB and per LDZ (RMSE / MAPE, all days, winter, coldest);
 - final_daily.csv:   GB per gas day, forward: actual, the final model, the official CWV;
 - final_monthly.csv: GB by month: bias, RMSE and MAPE, the final model and the official CWV;
-- benchmark.csv:     GB per gas day: total demand, National Gas's day-ahead forecast, ours.
+- benchmark.csv:     GB per gas day: total demand, National Gas's day-ahead forecast, ours;
+- final_residuals.csv: per LDZ and gas day, the final model's out-of-sample error as a ratio
+                     (actual / predicted - 1) — the model-error part of the forecast intervals.
 
     python -m ldz_demand.models.results     # after the experiments and the benchmark
 """
@@ -100,13 +102,22 @@ def benchmark() -> pd.DataFrame:
     return _round(gb[gb["n"] == len(LDZS)].drop(columns="n"))
 
 
+def final_residuals() -> pd.DataFrame:
+    """Per LDZ and gas day (real days, every LDZ present): actual / predicted - 1, the final model, forward."""
+    p = pd.read_csv(RESULTS / "final_predictions.csv", parse_dates=["gas_day"])
+    p = p[(p["input"] == "final") & ~p["repaired"].astype(bool) & (p["predicted"] > 0)]
+    p = p[p.groupby("gas_day")["ldz"].transform("nunique") == len(LDZS)]
+    out = p.assign(ratio=p["actual"] / p["predicted"] - 1)[["gas_day", "ldz", "ratio"]]
+    return out.round({"ratio": 5})
+
+
 def export(out_dir: Path = DATA_DIR) -> dict[str, Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     daily = final_daily()
     ours = final_daily_ours()
     both = ours.merge(daily[["gas_day", "official"]], on="gas_day", how="left")
     tables = {"experiments": experiments_table(), "final_daily": both, "final_monthly": monthly(both),
-              "benchmark": benchmark()}
+              "benchmark": benchmark(), "final_residuals": final_residuals()}
     paths = {}
     for name, df in tables.items():
         path = out_dir / f"{name}.csv"

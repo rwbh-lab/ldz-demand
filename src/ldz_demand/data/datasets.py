@@ -108,7 +108,24 @@ NG_FORECAST_DAILY = Dataset(
     keys=("gas_day", "ldz", "item", "issued_at"),
 )
 
+DEMAND_FORECAST_DAILY = Dataset(
+    "demand_forecast_daily",
+    columns={
+        "run_date": "date",           # date of the ensemble run
+        "run_hour": "int",            # UTC hour of the run (0)
+        "gas_day": "date",
+        "lead_days": "int",           # gas_day - run_date: 0 to 13
+        "ldz": "str",                 # an LDZ, or GB (their sum, member by member)
+        "statistic": "str",           # mean; p05 ... p95 (weather and model error); weather_p10 / weather_p90
+        "value": "float",
+        "unit": "str",                # GWh/day, total - DM (the model's target)
+        "model": "str",               # the fit used: models/data/final_fit.csv "fitted_on" date
+    },
+    keys=("run_date", "run_hour", "gas_day", "ldz", "statistic"),
+    date_col="run_date",
+)
+
 DATASETS: dict[str, Dataset] = {
     ds.name: ds for ds in (NG_LDZ_DAILY, NG_OFFTAKE_DAILY, WEATHER_LDZ_DAILY, WEATHER_LDZ_HOURLY, ENS_LDZ_DAILY,
-                           NG_FORECAST_DAILY)
+                           NG_FORECAST_DAILY, DEMAND_FORECAST_DAILY)
 }

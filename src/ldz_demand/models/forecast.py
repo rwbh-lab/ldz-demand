@@ -11,7 +11,14 @@ covering each day, and where no run does, a straight line between the nearest kn
 forgets fast (y ≈ 0.4–0.55: a day's weight halves in about a day), so the bridge matters little after the
 first days; each run records how many bridged days it used.
 
-    python -m ldz_demand.models.forecast 2026-10-13 2026-10-14   # -> data/results/forecasts/
+Intervals: the members alone give the weather's uncertainty, not the model's — at short leads that is
+far too narrow (verified on 13 Oct 2026: the actual fell outside the weather-only P10–P90 in 12 of 13
+LDZs). So each member is combined with the model's own out-of-sample errors (models/data/results/
+final_residuals.csv, as ratios), drawn from historical days within POOL_DAYS of the same day of the year.
+All LDZs take the same historical day, keeping their errors correlated, so GB isn't falsely precise. The
+errors are centred within each pool: they widen the interval but don't move it (no bias correction yet).
+
+    python -m ldz_demand.models.forecast 2026-10-13 2026-10-14   # -> demand_forecast_daily (+ CSVs)
 
 Demand here is total − DM (the model's target), in GWh/day.
 """
@@ -25,12 +32,14 @@ import numpy as np
 import pandas as pd
 
 from ldz_demand.config import create_config
-from ldz_demand.data.datasets import ENS_LDZ_DAILY
+from ldz_demand.data import ldz_energy as le
+from ldz_demand.data.datasets import DEMAND_FORECAST_DAILY, ENS_LDZ_DAILY
 from ldz_demand.data.ingest.national_gas import LDZS
 from ldz_demand.data.store import get_store
 from ldz_demand.models import demand
 from ldz_demand.models import experiment as ex
 from ldz_demand.models import fit as final
+from ldz_demand.models import results
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +48,9 @@ MIN_COVERAGE_H = 23
 HISTORY_DAYS = 60           # warm-up for the effective temperature
 VARIABLES = {"t2m_heat": "t2m", "ws10": "ws10", "ssrd": "ssrd"}  # ensemble variable -> model input
 OUT = ex.RESULTS / "forecasts"
-QUANTILES = (0.1, 0.5, 0.9)
+POOL_DAYS = 30              # model errors from historical days within this many days of the day of year
+DRAWS = 40                  # model-error draws per member
+PERCENTILES = (5, 10, 25, 50, 75, 90, 95)
 
 
 def ensemble(run_date, store=None, ldzs=LDZS) -> pd.DataFrame:
@@ -116,13 +127,83 @@ def forecast(run_date, fits=None, inputs=None, store=None, ldzs=LDZS) -> pd.Data
     return out
 
 
-def summary(fc: pd.DataFrame) -> pd.DataFrame:
-    """Per LDZ and gas day: mean and the P10 / P50 / P90 across members."""
-    g = fc.groupby(["run_date", "ldz", "gas_day", "lead_days"])["demand"]
-    out = g.mean().rename("mean").to_frame()
-    for q in QUANTILES:
-        out[f"p{int(q * 100)}"] = g.quantile(q)
-    return out.reset_index().round(2)
+def error_pool(residuals: pd.DataFrame | None = None) -> pd.DataFrame:
+    """The model's out-of-sample errors as ratios: index gas day (all LDZs present), one column per LDZ."""
+    r = results.load("final_residuals") if residuals is None else residuals
+    return r.pivot(index="gas_day", columns="ldz", values="ratio").dropna()
+
+
+def _pool_for(day: pd.Timestamp, pool: pd.DataFrame) -> pd.DataFrame:
+    doy = pool.index.dayofyear.to_numpy()
+    gap = np.abs(doy - day.dayofyear)
+    near = pool[np.minimum(gap, 365 - gap) <= POOL_DAYS]
+    return near - near.mean()  # centred: spread only
+
+
+def statistics(fc: pd.DataFrame, pool: pd.DataFrame | None = None, seed: int | None = None) -> pd.DataFrame:
+    """
+    Per LDZ (and GB) and gas day: the mean and P05 – P95 with model error, and the weather-only P10 / P90
+    (across members alone). Long rows (statistic, value), as demand_forecast_daily.
+    """
+    pool = error_pool() if pool is None else pool
+    run = pd.Timestamp(fc["run_date"].iloc[0])
+    rng = np.random.default_rng(seed if seed is not None else int(run.strftime("%Y%m%d")))
+    ldz_fc = fc[fc["ldz"] != "GB"]
+    ldzs = [c for c in pool.columns if c in set(ldz_fc["ldz"])]
+    rows = []
+    for day, g in ldz_fc.groupby("gas_day"):
+        paths = g.pivot(index="member", columns="ldz", values="demand")[ldzs]       # member x LDZ
+        near = _pool_for(pd.Timestamp(day), pool)[ldzs]
+        draws = near.to_numpy()[rng.integers(0, len(near), size=(len(paths), DRAWS))]  # member x draw x LDZ
+        samples = paths.to_numpy()[:, None, :] * (1 + draws)
+        for i, ldz in enumerate([*ldzs, "GB"]):
+            s = samples.sum(axis=2) if ldz == "GB" else samples[:, :, i]
+            w = paths.sum(axis=1) if ldz == "GB" else paths[ldz]
+            stats = {"mean": s.mean(), **{f"p{q:02d}": np.percentile(s, q) for q in PERCENTILES},
+                     "weather_p10": np.percentile(w, 10), "weather_p90": np.percentile(w, 90)}
+            rows += [{"gas_day": day, "ldz": ldz, "statistic": k, "value": v} for k, v in stats.items()]
+    out = pd.DataFrame(rows)
+    out["run_date"], out["run_hour"] = run.normalize(), 0
+    out["lead_days"] = (pd.to_datetime(out["gas_day"]) - run.normalize()).dt.days
+    out["unit"], out["model"] = "GWh/day", str(pd.read_csv(final.DATA_DIR / final.OUTPUT, comment="#")["fitted_on"].iloc[0])
+    return out.round({"value": 2})
+
+
+def summary(stats: pd.DataFrame) -> pd.DataFrame:
+    """statistics() as one row per LDZ and gas day."""
+    return stats.pivot_table(index=["run_date", "ldz", "gas_day", "lead_days"], columns="statistic",
+                             values="value").reset_index()
+
+
+def load_runs(store=None) -> pd.DataFrame:
+    """Every stored forecast (statistics() rows): demand_forecast_daily, or the CSVs in OUT if the table isn't there."""
+    store = store or get_store(create_config())
+    try:
+        stored = store.read(DEMAND_FORECAST_DAILY)
+    except Exception:
+        stored = pd.DataFrame()
+    if not stored.empty:
+        return stored
+    files = sorted(OUT.glob("demand_*_summary.csv"))
+    if not files:
+        return pd.DataFrame()
+    wide = pd.concat([pd.read_csv(f, parse_dates=["run_date", "gas_day"]) for f in files], ignore_index=True)
+    return wide.melt(id_vars=["run_date", "ldz", "gas_day", "lead_days"], var_name="statistic", value_name="value")
+
+
+def actuals(store=None) -> pd.DataFrame:
+    """Per LDZ and GB, gas day: the target (total - DM) at D+6 close-out, else the provisional D+1 figure."""
+    from ldz_demand.data.datasets import NG_LDZ_DAILY, NG_OFFTAKE_DAILY
+
+    store = store or get_store(create_config())
+    raw, offtakes = store.read(NG_LDZ_DAILY), store.read(NG_OFFTAKE_DAILY)
+    d6 = le.energy_frame(raw, offtakes)["target_repaired"].rename("d6")
+    d1 = le.energy_frame(raw, offtakes, closeout="d1")["target_repaired"].rename("d1")
+    out = pd.concat([d6, d1], axis=1).reset_index()
+    out["actual"] = out["d6"].fillna(out["d1"])
+    out["provisional"] = out["d6"].isna() & out["d1"].notna()
+    out["gas_day"] = pd.to_datetime(out["gas_day"])
+    return out.dropna(subset=["actual"])[["gas_day", "ldz", "actual", "provisional"]]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -131,17 +212,24 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     store = get_store(create_config())
-    fits, inputs = final.load(), final.cached_model_inputs(store=store)
+    fits, inputs, pool = final.load(), final.cached_model_inputs(store=store), error_pool()
     OUT.mkdir(parents=True, exist_ok=True)
     for run in args.runs:
         fc = forecast(run, fits, inputs, store)
-        s = summary(fc)
+        stats = statistics(fc, pool)
         tag = date.fromisoformat(run).isoformat()
         fc.to_csv(OUT / f"demand_{tag}_members.csv", index=False)
-        s.to_csv(OUT / f"demand_{tag}_summary.csv", index=False)
-        gb = s[s["ldz"] == "GB"].set_index("gas_day")[["mean", "p10", "p50", "p90"]].round(0)
-        logger.info(f"Run {tag} ({fc['bridged_days'].iloc[0]} warm-up days bridged): GB demand, GWh/day\n{gb.to_string()}")
-    logger.info(f"Written to {OUT}")
+        summary(stats).to_csv(OUT / f"demand_{tag}_summary.csv", index=False)
+        try:
+            n = store.write(DEMAND_FORECAST_DAILY, stats, on_conflict="replace")
+        except Exception as exc:  # e.g. the table doesn't exist yet in MySQL
+            n = 0
+            logger.warning(f"Not written to {DEMAND_FORECAST_DAILY.name} ({exc.__class__.__name__}: {str(exc)[:120]}); "
+                           "in MySQL mode apply the migration first: python -m ldz_demand.db migrate")
+        gb = summary(stats).query("ldz == 'GB'").set_index("gas_day")[["p10", "p50", "p90", "weather_p10", "weather_p90"]]
+        logger.info(f"Run {tag} ({fc['bridged_days'].iloc[0]} warm-up days bridged; {n} rows to "
+                    f"{DEMAND_FORECAST_DAILY.name}): GB demand, GWh/day\n{gb.round(0).to_string()}")
+    logger.info(f"Member paths and summaries also in {OUT}")
     return 0
 
 

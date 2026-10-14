@@ -201,12 +201,14 @@ NODES: tuple[Node, ...] = (
          at=(0, 5.15)),
     Node("o_forecast", 4, 4.8, "Demand forecasts",
          "Demand per LDZ for the next 15 days from each ensemble member: a distribution, not a point.",
-         modules=("models.forecast",), docs=("docs/methodology.md: 8",),
+         modules=("models.forecast",), datasets=("demand_forecast_daily",), page="demand_forecasts.py",
+         docs=("docs/methodology.md: 8",),
          details=(("Now", "the final model on every member of a run: 50 demand paths per LDZ, lead days 0–13; "
                           "GB summed member by member"),
                   ("Warm-up", "ERA5, then earlier runs' ensemble mean, then a straight line, for the days before the run"),
-                  ("Not yet", "scheduled, stored as a table, or scored; comparing with National Gas by issue time "
-                              "needs an ensemble archive covering a winter")),
+                  ("Intervals", "members × the model's own out-of-sample errors (same season, all LDZs from the "
+                                "same day), centred; the weather-only spread alone is far too narrow"),
+                  ("Not yet", "scheduled on the NAS; scoring against National Gas by issue time needs a winter of runs")),
          at=(4.2, 5.15)),
 
     # --- Supporting strip ------------------------------------------------------------------------------------
@@ -229,7 +231,7 @@ NODES: tuple[Node, ...] = (
          "The marimo pages, served together, and their shared charts and theme.",
          modules=("dashboard", "charts.pages", "charts.style", "charts.ng_ldz_daily", "charts.era5", "charts.geography",
                   "charts.coastline", "charts.weather_ldz", "charts.ensemble", "charts.project_map", "charts.demand_model",
-                  "charts.results", "project_map"),
+                  "charts.results", "charts.forecasts", "project_map"),
          details=(("Command", "python -m ldz_demand.dashboard (http://localhost:2718)"),)),
 )
 

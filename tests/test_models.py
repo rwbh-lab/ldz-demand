@@ -111,3 +111,25 @@ def test_final_fit_saves_and_loads_to_the_same_predictions(tmp_path):
     for ldz, f in fits.items():
         assert demand.predict(loaded[ldz], frames[ldz]) == pytest.approx(demand.predict(f, frames[ldz]), rel=1e-6)
     assert (tmp_path / final.OUTPUT).read_text().startswith("# Derived by ldz-demand")
+
+
+def test_forecast_intervals_add_model_error_and_keep_ldzs_consistent():
+    from ldz_demand.models import forecast
+
+    days = pd.date_range("2026-10-13", periods=3)
+    rng = np.random.default_rng(0)
+    rows = [{"ldz": ldz, "member": m, "gas_day": d, "demand": base * (1 + 0.01 * rng.normal()), "run_date": days[0]}
+            for ldz, base in (("NT", 100.0), ("SO", 50.0)) for m in range(1, 51) for d in days]
+    fc = pd.DataFrame(rows)
+    hist = pd.date_range("2024-09-01", "2025-11-30")
+    shock = rng.normal(0, 0.06, len(hist))                       # errors shared across LDZs (correlated)
+    pool = pd.DataFrame({"NT": shock + rng.normal(0, 0.01, len(hist)), "SO": shock + rng.normal(0, 0.01, len(hist))},
+                        index=hist)
+    st = forecast.summary(forecast.statistics(fc, pool, seed=1))
+    for ldz in ("NT", "SO", "GB"):
+        r = st[st["ldz"] == ldz].iloc[0]
+        assert r["p10"] < r["weather_p10"] and r["p90"] > r["weather_p90"]   # model error widens the interval
+        assert r["p05"] < r["p25"] < r["p50"] < r["p75"] < r["p95"]
+    gb, nt = st[st["ldz"] == "GB"].iloc[0], st[st["ldz"] == "NT"].iloc[0]
+    assert gb["p50"] == pytest.approx(150, rel=0.02)                  # centred errors: the median stays put
+    assert (gb["p90"] - gb["p10"]) / gb["p50"] == pytest.approx((nt["p90"] - nt["p10"]) / nt["p50"], rel=0.2)  # correlated
