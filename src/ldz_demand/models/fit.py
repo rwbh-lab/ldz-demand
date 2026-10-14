@@ -46,14 +46,21 @@ HEADER = (
 )
 
 
+def usable(frame: pd.DataFrame) -> np.ndarray:
+    """Training days: a target and weather, in the gas years the experiments used."""
+    ok = frame[["target", "t2m", "ws10"]].notna().all(axis=1).to_numpy()
+    return ok & np.isin(le.gas_year(frame.index), ex.GAS_YEARS)
+
+
 def fit(frames: dict[str, pd.DataFrame] | None = None, ldzs=LDZS) -> dict[str, demand.Fit]:
-    """The final model per LDZ, fitted on every usable day of the gas years in experiment.GAS_YEARS."""
-    frames = frames or ex.averaged_frames(ex.load(), *TEMPERATURE)
+    """The final model per LDZ, fitted on every usable day of the gas years in experiment.GAS_YEARS.
+    frames: model_inputs() (the default)."""
+    frames = frames or model_inputs(ldzs)
     data, weights = {}, {}
     for ldz in ldzs:
-        d, _, usable = ex._prepared(frames[ldz], MODEL.input, MODEL.target)
-        data[ldz] = (d, usable)
-        weights[ldz] = demand.recency_weights(d.index, usable, MODEL.half_life)
+        d, train = frames[ldz], usable(frames[ldz])
+        data[ldz] = (d, train)
+        weights[ldz] = demand.recency_weights(d.index, train, MODEL.half_life)
     return demand.fit_joint(data, MODEL.seasonal, MODEL.breaks, weights, MODEL.summer, MODEL.cold, MODEL.extremes,
                             MODEL.solar)
 
@@ -71,7 +78,7 @@ def to_frame(fits: dict[str, demand.Fit], frames: dict[str, pd.DataFrame] | None
     out["seasonal"], out["temperature"], out["target"] = MODEL.seasonal, f"{TEMPERATURE[0]}_{TEMPERATURE[1]}h", MODEL.target
     out["half_life_years"], out["fitted_on"] = MODEL.half_life, date.today().isoformat()
     if frames is not None:
-        out["train_from"] = [str(frames[ldz].index[frames[ldz]["target_repaired"].notna()].min().date()) for ldz in fits]
+        out["train_from"] = [str(frames[ldz].index[usable(frames[ldz])].min().date()) for ldz in fits]
     return out
 
 
@@ -162,13 +169,13 @@ def cached_model_inputs(max_age_hours: float = 24, store=None) -> dict[str, pd.D
 def main(argv: list[str] | None = None) -> int:
     argparse.ArgumentParser(prog="python -m ldz_demand.models.fit").parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    frames = ex.averaged_frames(ex.load(), *TEMPERATURE)
+    frames = model_inputs()
     fits = fit(frames)
     path = save(fits, frames)
     in_sample = {}
     for ldz, f in fits.items():
-        d, _, usable = ex._prepared(frames[ldz], MODEL.input, MODEL.target)
-        err = demand.predict(f, d)[usable] - d["target"].to_numpy()[usable]
+        d, ok = frames[ldz], usable(frames[ldz])
+        err = demand.predict(f, d)[ok] - d["target"].to_numpy()[ok]
         in_sample[ldz] = float(np.sqrt(np.mean(err ** 2)))
     logger.info(f"In-sample RMSE (GWh/day, all training days, unweighted): "
                 f"{', '.join(f'{k} {v:.2f}' for k, v in in_sample.items())}")
