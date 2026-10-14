@@ -2,7 +2,7 @@
 
 How to download the source data, archive it, and build the tables the models use. Everything here
 uses free, public data. For *why* the project is built this way, see `methodology.md`; for what the
-models found, `results.md`.
+models found, `results.md`; for each modelling choice and why, `decisions.md`.
 
 Sections marked **🚧 Coming soon** describe parts that are planned but not built yet.
 

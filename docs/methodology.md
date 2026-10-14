@@ -1,7 +1,8 @@
 # Methodology
 
 *Working document: what the model is, why it is built this way, and what is still open. Decisions are
-recorded with their reasons and the evidence behind them; anything not yet tested is marked as such.*
+recorded with their reasons and the evidence behind them; anything not yet tested is marked as such.
+Each choice in brief: [decisions](decisions.md); the scores behind them: [results](results.md).*
 
 Last updated: 13 October 2026.
 

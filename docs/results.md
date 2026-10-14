@@ -3,9 +3,9 @@
 *What the experiments in the [methodology](methodology.md) (§6) found. Each section gives the setup,
 the scores and what was decided. Numbers are from `python -m ldz_demand.models.experiment <name>`;
 the outputs (predictions, scores, fitted parameters) are written to `data/results/` and not
-committed.*
+committed. The choices these results led to: [decisions](decisions.md).*
 
-Last updated: 13 October 2026.
+Last updated: 14 October 2026.
 
 ---
 
