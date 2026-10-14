@@ -29,12 +29,18 @@ Experiment "target" (6): target A (total - DM on days that pass the checks) agai
 days a feed was missing from the total, repaired), scored forward. Scores use only days that are real in
 both (scores(repaired=False)): a repaired day's "actual" is our repair.
 
+Experiments "variables" (2) and "averaging" (5), forward, on the model chosen after experiment 6 (BEST):
+with / without solar, with the day's min / max temperature; and the gas-day temperature rebuilt from
+the hourly table — flat, or with the heating hours weighted up — hourly and from 3-hourly steps.
+
 Run:
     python -m ldz_demand.models.experiment cwv_inputs              # all LDZs (a few minutes)
     python -m ldz_demand.models.experiment cwv_inputs --ldz NT WS  # some LDZs
     python -m ldz_demand.models.experiment seasonal
     python -m ldz_demand.models.experiment change
     python -m ldz_demand.models.experiment target
+    python -m ldz_demand.models.experiment variables
+    python -m ldz_demand.models.experiment averaging
 Writes data/results/<experiment>_{predictions,scores,scores_2025_26,params}.csv.
 """
 
@@ -42,7 +48,7 @@ import argparse
 import logging
 import sys
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -50,10 +56,10 @@ import pandas as pd
 
 from ldz_demand.config import create_config, get_project_root
 from ldz_demand.data import ldz_energy as le
-from ldz_demand.data.datasets import NG_LDZ_DAILY, NG_OFFTAKE_DAILY, WEATHER_LDZ_DAILY
+from ldz_demand.data.datasets import NG_LDZ_DAILY, NG_OFFTAKE_DAILY, WEATHER_LDZ_DAILY, WEATHER_LDZ_HOURLY
 from ldz_demand.data.ingest.national_gas import LDZS
 from ldz_demand.data.store import get_store
-from ldz_demand.models import demand
+from ldz_demand.models import averaging, demand
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +84,8 @@ class Model:
     summer: bool = False             # a summer level, changing at each break like the rest
     cold: str = "fitted"             # cold-end form (cwv.COLD)
     target: str = "target"           # "target" (A) or "target_repaired" (B)
+    extremes: bool = False           # daily min / max temperature in the CWV's temperature
+    solar: bool = True               # the solar term (else held at 0)
 
 
 MODELS = {  # experiment -> models
@@ -98,7 +106,13 @@ MODELS = {  # experiment -> models
                Model(f"per_year/{tag}", "sampled_gas", "calendar", per_year=True, target=t),
                Model(f"adapting_1y/{tag}", "sampled_gas", "calendar", half_life=1.0, target=t))],
 }
-SCHEME = {"cwv_inputs": "held_out", "seasonal": "held_out", "change": "forward", "target": "forward"}
+BEST = Model("best", "sampled_gas", "calendar", half_life=1.0, target="target_repaired")  # after experiment 6
+MODELS["variables"] = [replace(BEST, label="base"), replace(BEST, label="no_solar", solar=False),
+                       replace(BEST, label="extremes", extremes=True)]
+AVERAGING = [(f"{profile}_{step}h", profile, step) for step in (1, 3) for profile in averaging.PROFILES]
+MODELS["averaging"] = [replace(BEST, label="daily_table")] + [replace(BEST, label=label) for label, _, _ in AVERAGING]
+SCHEME = {"cwv_inputs": "held_out", "seasonal": "held_out", "change": "forward", "target": "forward",
+          "variables": "forward", "averaging": "forward"}
 FORWARD_FROM = "2023/24"  # forward scheme: the first year predicted (from at least two years before it)
 
 
@@ -114,14 +128,15 @@ def _year_starts(years) -> tuple:
     return tuple(pd.Timestamp(f"{y[:4]}-10-01") for y in sorted(years)[1:])
 RESULTS = get_project_root() / "data" / "results"
 MIN_REGIME_DAYS = 90  # training days needed in each regime a held-out year contains (SE 2022/23 has ~5)
+WEATHER_VARIABLES = ("t2m", "ws10", "ssrd", "tmin", "tmax")
 COLD_SHARE = 0.05  # "coldest days": this share of each LDZ's days, by its gas-weighted temperature
 
 
 def load(store=None) -> dict[str, pd.DataFrame]:
-    """Per LDZ: consecutive gas days with target, cwv_official, and t2m / ws10 / ssrd for every variant used."""
+    """Per LDZ: consecutive gas days with target(s), cwv_official, and the weather variables for every variant used."""
     store = store or get_store(create_config())
     energy = le.energy_frame(store.read(NG_LDZ_DAILY), store.read(NG_OFFTAKE_DAILY))
-    weather = store.read(WEATHER_LDZ_DAILY, variable=["t2m", "ws10", "ssrd"],
+    weather = store.read(WEATHER_LDZ_DAILY, variable=list(WEATHER_VARIABLES),
                          membership=sorted({v[0] for v in INPUTS.values() if v}))
     weather = weather[weather[["membership", "weighting"]].apply(tuple, axis=1).isin([v for v in INPUTS.values() if v])]
     wide = weather.pivot_table(index=["ldz", "gas_day"], columns=["membership", "weighting", "variable"], values="value")
@@ -139,8 +154,9 @@ def load(store=None) -> dict[str, pd.DataFrame]:
 def _variant_frame(frame: pd.DataFrame, variant) -> pd.DataFrame:
     out = frame[["target", "target_repaired", "cwv_official"]].copy()
     if variant is not None:
-        for var in ("t2m", "ws10", "ssrd"):
-            out[var] = frame[(*variant, var)]
+        for var in WEATHER_VARIABLES:
+            if (*variant, var) in frame:
+                out[var] = frame[(*variant, var)]
     out.columns = [c if isinstance(c, str) else c for c in out.columns]
     return out
 
@@ -192,9 +208,10 @@ def run(frames: dict[str, pd.DataFrame], ldzs=LDZS, models=None, scheme: str = "
                 fits = {ldz: demand.fit_official(d, tr, ldz, breaks) for ldz, (d, tr, _) in folds.items()}
             elif "calendar" in seasonal:  # one shape shared by the LDZs: fitted together
                 fits = demand.fit_joint({ldz: (d, tr) for ldz, (d, tr, _) in folds.items()}, seasonal, breaks, weights,
-                                        m.summer, m.cold)
+                                        m.summer, m.cold, m.extremes, m.solar)
             else:
-                fits = {ldz: demand.fit_weather(d, tr, ldz, seasonal, breaks, weights and weights[ldz], m.summer, m.cold)
+                fits = {ldz: demand.fit_weather(d, tr, ldz, seasonal, breaks, weights and weights[ldz], m.summer, m.cold,
+                                                m.extremes, m.solar)
                         for ldz, (d, tr, _) in folds.items()}
             for ldz, (data, _, test) in folds.items():
                 fit = fits[ldz]
@@ -212,6 +229,30 @@ def run(frames: dict[str, pd.DataFrame], ldzs=LDZS, models=None, scheme: str = "
                 params.append(row)
         logger.info(f"{label}: {len(ldzs)} LDZs in {time.monotonic() - t0:.1f} s")
     return pd.concat(predictions, ignore_index=True), pd.DataFrame(params)
+
+
+def averaged_frames(frames: dict[str, pd.DataFrame], profile: str, step_hours: int, store=None) -> dict[str, pd.DataFrame]:
+    """Copies of frames with the gas-weighted temperature rebuilt from the hourly table (experiment 5)."""
+    store = store or get_store(create_config())
+    hourly = store.read(WEATHER_LDZ_HOURLY, variable="t2m", membership="sampled")
+    hourly = hourly[hourly["weighting"] == "gas"]
+    out = {}
+    for ldz, frame in frames.items():
+        h = hourly[hourly["ldz"] == ldz].set_index("time")["value"]
+        h.index = pd.DatetimeIndex(h.index)
+        f = frame.copy()
+        f[("sampled", "gas", "t2m")] = averaging.gas_day_temperature(h, profile, step_hours).reindex(f.index)
+        out[ldz] = f
+    return out
+
+
+def run_averaging(frames: dict[str, pd.DataFrame], ldzs=LDZS) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Experiment 5: the best model on each gas-day averaging, plus the daily table's own mean."""
+    store = get_store(create_config())
+    parts = [run(frames, ldzs, [MODELS["averaging"][0]], SCHEME["averaging"])]
+    for (label, profile, step), m in zip(AVERAGING, MODELS["averaging"][1:]):
+        parts.append(run(averaged_frames(frames, profile, step, store), ldzs, [m], SCHEME["averaging"]))
+    return pd.concat([p for p, _ in parts], ignore_index=True), pd.concat([q for _, q in parts], ignore_index=True)
 
 
 def scores(predictions: pd.DataFrame, frames: dict[str, pd.DataFrame] | None = None, common: bool = True,
@@ -261,7 +302,10 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     frames = load()
     models = MODELS[args.experiment]
-    predictions, params = run(frames, args.ldz, models, SCHEME[args.experiment])
+    if args.experiment == "averaging":
+        predictions, params = run_averaging(frames, args.ldz)
+    else:
+        predictions, params = run(frames, args.ldz, models, SCHEME[args.experiment])
     table = scores(predictions, frames)
     latest = scores(predictions[predictions["held_out"] == "2025/26"], frames).assign(period="2025/26")
     RESULTS.mkdir(parents=True, exist_ok=True)

@@ -61,14 +61,18 @@ COLD = {  # cold-end form -> parameters held fixed (from `fixed_values`)
 }
 
 
-def free_names(seasonal: str = "none", cold: str = "fitted") -> tuple[str, ...]:
-    """The parameters fitted for this seasonal term and cold-end form (the rest are fixed)."""
-    return tuple(n for n in NAMES + SEASONAL[seasonal] if n not in COLD[cold])
+EXTREMES = ("m_min", "m_max")
 
 
-def fixed_values(ldz: str, cold: str = "fitted") -> "CWVParams":
-    """Start values, with the cold-end parameters this form holds fixed."""
-    p = start(ldz)
+def free_names(seasonal: str = "none", cold: str = "fitted", extremes: bool = False, solar: bool = True) -> tuple[str, ...]:
+    """The parameters fitted for this seasonal term, cold-end form and variables (the rest are fixed)."""
+    names = NAMES + SEASONAL[seasonal] + (EXTREMES if extremes else ())
+    return tuple(n for n in names if n not in COLD[cold] and (solar or n != "S0"))
+
+
+def fixed_values(ldz: str, cold: str = "fitted", solar: bool = True) -> "CWVParams":
+    """Start values, with the parameters this form holds fixed (the cold end; S0 = 0 without solar)."""
+    p = start(ldz)  # S0 starts at 0 already
     if cold == "linear":
         return replace(p, I3=0.0)
     return p  # "published": start() already holds the published V0, I3
@@ -89,6 +93,8 @@ class CWVParams:
     I1: float = 1.0   # weight on the effective temperature; 1 - I1 on the seasonal term
     ys: float = 0.95  # memory of the slow heating-season temperature ("slow" only)
     Sc: float = 0.0   # size of the calendar shape, °C ("calendar" only)
+    m_min: float = 0.0  # weight on the day's minimum temperature (extremes only): T = mean + m_min·(min − mean) + …
+    m_max: float = 0.0  # … + m_max·(max − mean)
 
     @property
     def V2(self) -> float:
@@ -118,9 +124,9 @@ def bounds(ldz: str, names=NAMES, cold: str = "fitted") -> tuple[np.ndarray, np.
     first bounded more tightly (published V0 ± 2, T0 ≤ 25) and sat on those bounds in most fits."""
     p = PUBLISHED[ldz]
     lo = dict(y=0.05, I2=0.0, W0=-10.0, T0=5.0, S0=-0.05, V0=p["V0"] - 3.0, I3=0.0, V1=8.0, dV=0.5, q=0.0,
-              I1=0.2, ys=0.85, Sc=-8.0)
+              I1=0.2, ys=0.85, Sc=-8.0, m_min=0.0, m_max=0.0)
     hi = dict(y=0.95, I2=0.2, W0=15.0, T0=35.0, S0=0.05, V0=p["V0"] + 6.0, I3=max(0.4, 2 * p["I3"]), V1=22.0,
-              dV=12.0, q=1.0, I1=1.0, ys=0.98, Sc=8.0)
+              dV=12.0, q=1.0, I1=1.0, ys=0.98, Sc=8.0, m_min=1.0, m_max=1.0)
     if cold == "strong":
         hi["I3"] = 1.5  # ys 0.85-0.98: a time constant of about 1 week to 2 months
     return np.array([lo[n] for n in names]), np.array([hi[n] for n in names])

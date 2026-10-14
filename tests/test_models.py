@@ -82,3 +82,17 @@ def test_breaks_shift_level_and_slope():
     coef = dict(zip(fit.columns, fit.coef))
     assert coef["intercept_after_2022-10"] == pytest.approx(-20.0, abs=2.0)
     assert coef["cwv_after_2022-10"] == pytest.approx(1.5, abs=0.2)
+
+
+def test_gas_day_temperature_profiles_and_steps():
+    from ldz_demand.models import averaging
+
+    times = pd.date_range("2025-01-06 05:00", periods=24 * 3, freq="h")  # GMT: gas days start 05:00 UTC
+    hourly = pd.Series(np.where(times.hour.isin(range(6, 9)), 10.0, 0.0), index=times)  # warm mornings only
+    flat = averaging.gas_day_temperature(hourly, "flat")
+    peaks = averaging.gas_day_temperature(hourly, "peaks")
+    assert flat.iloc[0] == pytest.approx(30 / 24)
+    assert peaks.iloc[0] > flat.iloc[0]                                     # the morning peak counts double
+    steady = pd.Series(5.0, index=times)
+    assert averaging.gas_day_temperature(steady, "peaks", step_hours=3).iloc[0] == pytest.approx(5.0)
+    assert len(averaging.gas_day_temperature(hourly.iloc[:-5])) == 2        # an incomplete last day is dropped

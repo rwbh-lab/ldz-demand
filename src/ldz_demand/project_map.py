@@ -170,9 +170,10 @@ NODES: tuple[Node, ...] = (
     # --- CWV model -------------------------------------------------------------------------------------------
     Node("c_demand", 3, 3.4, "CWV demand model",
          "Our CWV per LDZ from gas-weighted weather, and demand as a straight line in it plus calendar terms.",
-         modules=("models.cwv", "models.calendar", "models.demand"),
+         modules=("models.cwv", "models.calendar", "models.demand", "models.averaging"),
          docs=("docs/methodology.md: 5", "docs/results.md"),
-         details=(("CWV", "effective temperature, wind chill, solar, a seasonal shape shared by all LDZs; "
+         details=(("Temperature", "gas-day mean with the heating hours weighted up (06–09, 16–22 double; 23–05 half)"),
+                  ("CWV", "effective temperature, wind chill, solar, a seasonal shape shared by all LDZs; "
                           "summer cut-off and cold-weather upturn"),
                   ("Demand", "a + b · CWV + day of week + bank holidays + Christmas; recent years weighted more (half-life 1 year)"),
                   ("Fit", "robust (soft L1) least squares; CWV parameters bounded near the published values"),
@@ -184,7 +185,7 @@ NODES: tuple[Node, ...] = (
          "Held-out and forward predictions, scores and fitted parameters for each experiment.",
          modules=("models.experiment",), docs=("docs/results.md",),
          details=(("Where", "data/results/<experiment>_{predictions,scores,params}.csv (not committed)"),
-                  ("Experiments", "1 weather input, 3 seasonal term, 4 change over time, 6 target A vs B; 2 and 5 open"),
+                  ("Experiments", "1 weather input, 2 variables, 3 seasonal term, 4 change over time, 5 gas-day averaging, 6 target A vs B"),
                   ("Best so far", "GB winter 2.5% per gas day, 2024/25 (official CWV 3.3%)")),
          at=(1.1, 5.15)),
     Node("o_benchmark", 4, 2.4, "National Gas benchmark",

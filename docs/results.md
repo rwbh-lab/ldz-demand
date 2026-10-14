@@ -16,14 +16,16 @@ Last updated: 13 October 2026.
 | Weather input | **ERA5 over the LDZ, weighted by gas use** | beats ERA5 at the official station in every LDZ (exp. 1, 3) |
 | Seasonal term | **a day-of-year shape shared by all LDZs** (slow heating-season temperature a close second) | cuts GB RMSE from 54.5 to 46.8 GWh/day; −21% on the coldest days (exp. 3) |
 | Target | **total − DM, with SE's missing-feed days repaired (target B)** | same scores on shared days; gives SE its 2022/23 and GB a third forward year (exp. 6) |
+| Gas-day temperature | **weighted to the heating hours** (06–09, 16–22 double; 23–05 half) | GB RMSE 48.2 → 43.7 GWh/day; holds at the ensemble's 3- and 6-hourly steps (exp. 5) |
+| Variables | **temperature, wind, solar**; daily min / max held back | without solar 60.8; min / max add 1.8% on top of the heating-hour weighting, but ERA5 and the ensemble define them differently (exp. 2) |
 | Change over time | **training days weighted by recency, half-life 1 year** | best over three forward years, 48.2 vs 48.7 GWh/day per gas year (exp. 6; per gas year led on two years, exp. 4) |
 | Against the official CWV | ours is better, mostly in the cold | GB coldest days 64.7 vs 92.6 GWh/day (exp. 3) |
 | Against National Gas's day-ahead forecasts | level on average, better in winter, worse in summer (not yet like for like) | GB winter 2.2% vs 3.2–3.6% per gas day |
 
 Current model, per LDZ: demand = a + b · CWV + day of week + bank holiday + Christmas, fitted with
 training days weighted by recency (half-life 1 year) so it follows changes in behaviour; CWV from
-gas-weighted ERA5 temperature, wind and solar, with the shared calendar shape. Target B. All fits use a
-robust (soft L1) loss.
+gas-weighted ERA5 temperature (averaged over the gas day with the heating hours weighted up), wind and
+solar, with the shared calendar shape. Target B. All fits use a robust (soft L1) loss.
 
 ---
 
@@ -311,11 +313,58 @@ dates. Experiment 6 is `python -m ldz_demand.models.experiment target`.
 
 ---
 
+## Experiments 2 and 5: variables and the gas-day temperature
+
+*Which weather variables earn their place, and how should the hours of a gas day be averaged?* The
+model chosen after experiment 6 (target B, recency weighting, calendar shape), scored forward on
+2023/24 – 2025/26 (GB 882 days). Run with `python -m ldz_demand.models.experiment variables` and
+`… averaging`.
+
+- **Experiment 2, variables:** the current inputs; without solar (S0 = 0); and with the day's minimum
+  and maximum temperature, the CWV's temperature becoming `T = mean + m_min·(min − mean) +
+  m_max·(max − mean)` with both weights fitted (0 – 1).
+- **Experiment 5, gas-day averaging,** from the hourly table: a flat mean of the gas day's hours; and
+  a heating-hours profile — 06–09 and 16–22 UK time count double, 23–05 half (`models/averaging.py`).
+  Each also from every third hour, interpolated back, as the ensemble gives (3-hourly to day 6, then
+  6-hourly).
+
+GB, RMSE in GWh/day:
+
+| Gas-day temperature | All | Winter | Coldest | MAPE |
+|---|---|---|---|---|
+| Flat mean (current; daily table) | 48.2 | 54.9 | 64.4 | 4.55% |
+| Flat mean, from hourly / 3-hourly | 48.3 / 48.3 | 55.0 / 54.9 | 64.5 / 64.7 | 4.57% / 4.56% |
+| Without solar | 60.8 | 66.5 | 70.4 | 5.44% |
+| With min / max | 45.0 | 52.2 | 60.5 | 4.27% |
+| **Heating hours, hourly** | **43.75** | **49.4** | **61.4** | **4.29%** |
+| Heating hours, 3-hourly | 43.72 | 49.2 | 61.3 | 4.28% |
+| Heating hours, 6-hourly | 44.4 | 49.3 | 60.7 | 4.34% |
+| Heating hours (3-hourly) + min / max | 42.95 | 48.75 | 59.5 | 4.17% |
+
+- **Weighting the heating hours is the largest single gain since the seasonal term:** −9% overall,
+  −10% in winter, in every LDZ. It moves the gas day's temperature by +0.3 °C on average (heating hours
+  are warmer than the night), ±0.3 °C day to day.
+- **It survives the forecast's resolution:** the same gain from 3-hourly steps, most of it (−8%) from
+  6-hourly.
+- **Solar matters:** without it, RMSE is 26% higher.
+- **Min / max say the same thing:** the fit puts more weight on the day's maximum (median 0.28) than its
+  minimum (0.11) — night-time temperature matters less to demand than the day's. On top of the
+  heating-hours profile they add only 1.8%.
+- **Min / max held back:** in ERA5 they are the extremes of the hourly values; in the ensemble they come
+  from its own period minimum / maximum (`mn2t` / `mx2t`), which run colder / warmer. A model trained on
+  one and run on the other would be off at exactly the days it leans on. Revisit with a consistent
+  definition (e.g. both from the temperature at the ensemble's steps).
+
+Chosen: **temperature averaged with the heating-hours profile; solar kept; min / max not used.**
+
+---
+
 ## Open
 
 - **Shoulder months** (see above): spring 2025 in particular.
 - **Winter 2025/26 level:** demand above every model's forecast in ordinary cold days; watch 2026/27.
-- **Remaining experiments:** variables (2) and gas-day averaging (5), before the final fit.
+- **Daily min / max on a definition shared by ERA5 and the ensemble** (experiment 2).
+- **The heating-hours profile is fixed,** not fitted: its weights could be estimated (e.g. per LDZ).
 - **The National Gas comparison** above uses experiment 4's per-gas-year model on target A; to rerun with
   the final model.
 - **Against National Gas's forecasts, like for like** — our model on the ensemble (needs the archive

@@ -99,6 +99,8 @@ class Fit:
     shape: np.ndarray | None = None  # calendar shape coefficients after the first (shared by the LDZs fitted together)
     summer: bool = False             # summer level term (weather fits)
     cold: str = "fitted"             # cold-end form (cwv.COLD)
+    extremes: bool = False           # daily min / max temperature in T (weights m_min, m_max)
+    solar: bool = True               # solar term S0 (else held at 0)
 
 
 def _design(x: np.ndarray, cal: pd.DataFrame, breaks=(), summer: np.ndarray | None = None) -> tuple[np.ndarray, list[str]]:
@@ -123,8 +125,18 @@ def _robust_scale(r: np.ndarray) -> float:
 
 
 def _inputs(frame: pd.DataFrame):
+    """(t, w, sr, tmin, tmax): tmin / tmax None if the frame has no extremes."""
     t, w, sr = (frame[c].to_numpy(dtype=float) for c in ("t2m", "ws10", "ssrd"))
-    return t, w, np.nan_to_num(sr, nan=float(np.nanmean(sr)))  # a few edge days without solar: use the mean
+    sr = np.nan_to_num(sr, nan=float(np.nanmean(sr)))  # a few edge days without solar: use the mean
+    ext = [frame[c].to_numpy(dtype=float) if c in frame else None for c in ("tmin", "tmax")]
+    return t, w, sr, *ext
+
+
+def temperature(t, tmin, tmax, p: cwv.CWVParams) -> np.ndarray:
+    """The temperature the CWV uses: the gas-day mean, moved towards the day's min / max by m_min / m_max."""
+    if (p.m_min == 0 and p.m_max == 0) or tmin is None:
+        return t
+    return t + p.m_min * (np.where(np.isnan(tmin), t, tmin) - t) + p.m_max * (np.where(np.isnan(tmax), t, tmax) - t)
 
 
 def calendar_shape(gas_days, shape, h=None) -> np.ndarray:
@@ -141,10 +153,11 @@ def _seasonal(t, gas_days, p: cwv.CWVParams, seasonal: str, shape=None, h=None):
 
 
 def fit_weather(frame: pd.DataFrame, train: np.ndarray, ldz: str, seasonal: str = "none", breaks=(),
-                weights: np.ndarray | None = None, summer: bool = False, cold: str = "fitted") -> Fit:
-    """frame: consecutive gas days with t2m, ws10, ssrd, target. Fits on rows where train is True."""
+                weights: np.ndarray | None = None, summer: bool = False, cold: str = "fitted",
+                extremes: bool = False, solar: bool = True) -> Fit:
+    """frame: consecutive gas days with t2m, ws10, ssrd (tmin, tmax), target. Fits on rows where train is True."""
     return fit_joint({ldz: (frame, train)}, seasonal, breaks, None if weights is None else {ldz: weights}, summer,
-                     cold)[ldz]
+                     cold, extremes, solar)[ldz]
 
 
 def recency_weights(gas_days, train: np.ndarray, half_life: float) -> np.ndarray:
@@ -156,21 +169,21 @@ def recency_weights(gas_days, train: np.ndarray, half_life: float) -> np.ndarray
 
 def fit_joint(data: dict[str, tuple[pd.DataFrame, np.ndarray]], seasonal: str = "none", breaks=(),
               weights: dict[str, np.ndarray] | None = None, summer: bool = False,
-              cold: str = "fitted") -> dict[str, Fit]:
+              cold: str = "fitted", extremes: bool = False, solar: bool = True) -> dict[str, Fit]:
     """
     Fit several LDZs in one problem: each has its own CWV parameters and linear terms; with the
     "calendar" seasonal term they share the day-of-year shape. Each LDZ's residuals are divided by its
     robust scale, so the large LDZs don't decide the shape. weights: per LDZ, per day (all rows of the
     frame), multiplying each day's share of the loss.
     """
-    names = cwv.free_names(seasonal, cold)
+    names = cwv.free_names(seasonal, cold, extremes, solar)
     k, n_shape = len(names), 2 * HARMONICS - 1 if "calendar" in seasonal else 0
     blocks = []
     for ldz, (frame, train) in data.items():
-        t, w, sr = _inputs(frame)
+        t, w, sr, tmin, tmax = _inputs(frame)
         lo, hi = cwv.bounds(ldz, names, cold)
-        base = cwv.fixed_values(ldz, cold)
-        blocks.append(dict(ldz=ldz, t=t, w=w, sr=sr, y=frame["target"].to_numpy(dtype=float), train=train,
+        base = cwv.fixed_values(ldz, cold, solar)
+        blocks.append(dict(ldz=ldz, t=t, w=w, sr=sr, tmin=tmin, tmax=tmax, y=frame["target"].to_numpy(dtype=float), train=train,
                            cal=calendar.features(frame.index, ldz), days=frame.index, lo=lo, hi=hi,
                            p0=np.clip(base.vector(names), lo, hi), base=base,
                            sw=np.sqrt(weights[ldz][train]) if weights else 1.0,
@@ -178,8 +191,9 @@ def fit_joint(data: dict[str, tuple[pd.DataFrame, np.ndarray]], seasonal: str = 
 
     def x_of(b, p_vec, shape):
         p = cwv.CWVParams.from_vector(p_vec, names, b["base"])
-        s, g = _seasonal(b["t"], b["days"], p, seasonal, shape, b["h"])
-        cw = composite_weather(b["t"], b["w"], b["sr"], p, s, g)
+        t = temperature(b["t"], b["tmin"], b["tmax"], p)
+        s, g = _seasonal(t, b["days"], p, seasonal, shape, b["h"])
+        cw = composite_weather(t, b["w"], b["sr"], p, s, g)
         return _design(transform(cw, p), b["cal"], breaks, summer_weight(cw, p) if summer else None)[0]
 
     theta0, lo, hi, slices, start = [np.zeros(n_shape)], [np.full(n_shape, -SHAPE_BOUND)], [np.full(n_shape, SHAPE_BOUND)], [], n_shape
@@ -212,7 +226,8 @@ def fit_joint(data: dict[str, tuple[pd.DataFrame, np.ndarray]], seasonal: str = 
     columns = _design(np.zeros(1), blocks[0]["cal"].iloc[:1], breaks, np.zeros(1) if summer else None)[1]
     shape = res.x[:n_shape] if n_shape else None
     return {b["ldz"]: Fit("weather", b["ldz"], res.x[bs], columns, cwv.CWVParams.from_vector(res.x[ps], names, b["base"]),
-                          bool(res.success), int(b["train"].sum()), seasonal, tuple(breaks), shape, summer, cold)
+                          bool(res.success), int(b["train"].sum()), seasonal, tuple(breaks), shape, summer, cold,
+                          extremes, solar)
             for b, (ps, bs) in zip(blocks, slices)}
 
 
@@ -227,7 +242,8 @@ def fit_official(frame: pd.DataFrame, train: np.ndarray, ldz: str, breaks=(BREAK
 
 
 def _cw(fit: Fit, frame: pd.DataFrame) -> np.ndarray:
-    t, w, sr = _inputs(frame)
+    t, w, sr, tmin, tmax = _inputs(frame)
+    t = temperature(t, tmin, tmax, fit.params)
     s, g = _seasonal(t, frame.index, fit.params, fit.seasonal, fit.shape)
     return composite_weather(t, w, sr, fit.params, s, g)
 
