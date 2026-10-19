@@ -49,7 +49,7 @@ def read_fake(path: Path) -> xr.Dataset:
 
 
 def ingestor(tmp_path, client, steps=(0, 3, 360)):
-    return ENSIngestor(tmp_path / "raw", AREA, steps=list(steps), client=client, reader=read_fake, pause=0)
+    return ENSIngestor(tmp_path / "raw", AREA, steps=list(steps), client=client, reader=read_fake, pause=0, retry_wait=0)
 
 
 def test_parse_steps():
@@ -153,3 +153,52 @@ def test_steps_download_in_parallel_and_still_archive_in_order(tmp_path):
     assert client.most == 3                                   # three at once, never more
     assert ds["step"].values.astype("timedelta64[h]").astype(int).tolist() == [0, 3, 6, 9, 12, 15]
     assert not list((tmp_path / "raw").rglob("*.grib2"))
+
+
+class FlakyClient(FakeClient):
+    """Fails each step's first `failures` attempts, leaving a half-written file, then works."""
+
+    def __init__(self, failures: int):
+        super().__init__()
+        self.failures, self.attempts = failures, {}
+
+    def retrieve(self, target, step, **request):
+        self.attempts[step] = self.attempts.get(step, 0) + 1
+        if self.attempts[step] <= self.failures:
+            Path(target).write_bytes(b"")                 # what a stalled download leaves behind
+            raise TimeoutError("timed out")
+        super().retrieve(target, step, **request)
+
+
+def test_a_stalled_step_is_retried_and_the_run_completes(tmp_path):
+    client = FlakyClient(failures=2)
+    path = ingestor(tmp_path, client).pull(RUN)
+    assert path.exists() and client.attempts == {0: 3, 3: 3, 360: 3}
+    assert not list((tmp_path / "raw").rglob("*.grib2"))
+
+
+def test_a_step_failing_every_attempt_stops_the_run_and_keeps_its_saved_steps(tmp_path):
+    from ldz_demand.data.ingest import ecmwf_ens
+
+    with pytest.raises(TimeoutError):
+        ingestor(tmp_path, FlakyClient(failures=ecmwf_ens.STEP_ATTEMPTS), steps=(0,)).pull(RUN)
+    assert not archived_runs(tmp_path / "raw")
+    assert not list((tmp_path / "raw").rglob("*.grib2"))     # no half-written file left to resume from
+
+
+def test_downloads_time_out_instead_of_hanging(tmp_path):
+    import socket
+
+    from ldz_demand.data.ingest import ecmwf_ens
+
+    ingestor(tmp_path, FakeClient(), steps=(0,)).pull(RUN)
+    assert socket.getdefaulttimeout() == ecmwf_ens.SOCKET_TIMEOUT_S
+
+
+def test_the_client_downloads_with_a_read_timeout():
+    import ecmwf.opendata.client
+
+    from ldz_demand.data.ingest import ecmwf_ens
+
+    ENSIngestor(Path("/tmp"), AREA, source="ecmwf").client  # a real client: patches the download function
+    assert ecmwf.opendata.client.download.keywords["timeout"] == ecmwf_ens.SOCKET_TIMEOUT_S

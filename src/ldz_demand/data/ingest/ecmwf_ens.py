@@ -33,6 +33,7 @@ import logging
 import os
 import shutil
 import sys
+import socket
 import threading
 import time
 import warnings
@@ -59,6 +60,11 @@ STEPS = list(range(0, 145, 3)) + list(range(150, 361, 6))  # hours: 3-hourly to 
 RUN_HOUR = 0
 DAYS_BACK = 3  # refresh looks for runs this many days back from the latest (the portal keeps a few days)
 DOWNLOADS = 3  # steps downloading at once (the portal allows 500 connections; per-connection speed varies)
+# A stalled connection must fail, not hang: on 17 Oct 2026 two steps' downloads went silent and the job
+# waited two days, blocking the next days' runs. Every socket read times out; each step is retried.
+SOCKET_TIMEOUT_S = 120   # no data for this long -> the read fails
+STEP_ATTEMPTS = 3        # tries per step before the run stops (its saved steps are kept for the next run)
+RETRY_WAIT_S = 30.0
 ATTRIBUTION = "Contains ECMWF open data (CC-BY-4.0), https://www.ecmwf.int/en/forecasts/datasets/open-data"
 
 
@@ -100,7 +106,7 @@ class ENSIngestor:
 
     def __init__(self, raw_dir: Path, area, source: str = "ecmwf", run_hour: int = RUN_HOUR,
                  steps: list[int] | None = None, client=None, reader=None, pause: float = 1.0,
-                 downloads: int = DOWNLOADS) -> None:
+                 downloads: int = DOWNLOADS, retry_wait: float = RETRY_WAIT_S) -> None:
         self.root = Path(raw_dir) / "ecmwf_ens"
         self.area = [float(x) for x in area]
         self.source = source
@@ -111,6 +117,7 @@ class ENSIngestor:
         self.reader = reader or functools.partial(read_step, area=self.area)
         self.pause = pause
         self.downloads = max(1, downloads)
+        self.retry_wait = retry_wait
 
     @property
     def client(self):
@@ -122,8 +129,7 @@ class ENSIngestor:
 
             # fail within minutes, not hours (the client's defaults are 500 retries, 2 minutes apart)
             self._local.client = Client(source=self.source, model="ifs", resol="0p25", maximum_retries=5, retry_after=30)
-            if os.environ.get("TQDM_DISABLE"):
-                _quiet_downloads()
+            _patch_downloads(quiet=bool(os.environ.get("TQDM_DISABLE")))
         return self._local.client
 
     # --- paths ---------------------------------------------------------------------------------
@@ -165,6 +171,7 @@ class ENSIngestor:
             return final
         work = self.partial_dir(run)
         work.mkdir(parents=True, exist_ok=True)
+        socket.setdefaulttimeout(SOCKET_TIMEOUT_S)  # a backstop; the downloads also get it directly (_patch_downloads)
         started = datetime.now(timezone.utc)
         todo = [s for s in self.steps if not (work / f"step_{s:03d}.nc").exists()]
         timing = {"mb": 0.0, "download_s": 0.0, "process_s": 0.0, "done": len(self.steps) - len(todo)}
@@ -202,11 +209,21 @@ class ENSIngestor:
         return final
 
     def _download(self, run: datetime, step: int, work: Path) -> tuple[int, Path, float, float]:
-        """One step's global fields -> work/step_NNN.grib2. Returns (step, path, MB, seconds)."""
+        """One step's global fields -> work/step_NNN.grib2, retried. Returns (step, path, MB, seconds)."""
         grib = work / f"step_{step:03d}.grib2"
         t = time.monotonic()
-        self.client.retrieve(date=run.strftime("%Y-%m-%d"), time=run.hour, stream="enfo", type="pf",
-                             param=step_params(step), step=step, target=str(grib))
+        for attempt in range(1, STEP_ATTEMPTS + 1):
+            try:
+                self.client.retrieve(date=run.strftime("%Y-%m-%d"), time=run.hour, stream="enfo", type="pf",
+                                     param=step_params(step), step=step, target=str(grib))
+                break
+            except Exception as exc:
+                grib.unlink(missing_ok=True)  # never resume from a half-written file
+                if attempt == STEP_ATTEMPTS:
+                    raise
+                logger.warning(f"{run:%Y-%m-%d %Hz} step {step}: {exc.__class__.__name__} ({exc}); "
+                               f"retrying ({attempt + 1}/{STEP_ATTEMPTS})")
+                time.sleep(self.retry_wait * attempt)
         seconds = time.monotonic() - t
         time.sleep(self.pause)
         return step, grib, grib.stat().st_size / 1e6, seconds
@@ -283,15 +300,20 @@ def read_step(path: Path, area=None) -> xr.Dataset:
 PARAMS_NAMES = ["t2m", "u10", "v10"]
 
 
-def _quiet_downloads() -> None:
-    """No per-file progress bars: multiurl draws them with disable=False, so TQDM_DISABLE alone can't."""
+def _patch_downloads(quiet: bool = True) -> None:
+    """
+    The client's downloads, with a read timeout (multiurl passes timeout=None to requests by default:
+    wait forever, overriding the socket default) and, if quiet, no per-file progress bars (multiurl draws
+    them with disable=False, so TQDM_DISABLE alone can't).
+    """
     import functools
 
     import ecmwf.opendata.client
     import multiurl
     from multiurl.base import NoBar
 
-    ecmwf.opendata.client.download = functools.partial(multiurl.download, progress_bar=NoBar)
+    options = {"timeout": SOCKET_TIMEOUT_S, **({"progress_bar": NoBar} if quiet else {})}
+    ecmwf.opendata.client.download = functools.partial(multiurl.download, **options)
 
 
 def crop(ds: xr.Dataset, area) -> xr.Dataset:
@@ -347,6 +369,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("refresh", help="archive the latest published runs not yet archived")
     pull_parser = sub.add_parser("pull", help="archive one run, YYYY-MM-DD (it must still be published)")
     pull_parser.add_argument("date")
+    pull_parser.add_argument("--source", help="ecmwf (portal: the last few days) or a mirror (aws, azure, google: "
+                                              "older runs); default [ecmwf_ens] source")
     sub.add_parser("status", help="list archived runs")
     args = parser.parse_args(argv)
 
@@ -361,7 +385,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{run:%Y-%m-%d %Hz}  {path.stat().st_size / 1e6:6.0f} MB  {path}")
         print(f"{len(runs)} runs archived")
         return 0
-    ingestor = ENSIngestor(raw_dir, [x.strip() for x in section["area"].split(",")], source=section["source"],
+    source = getattr(args, "source", None) or section["source"]
+    ingestor = ENSIngestor(raw_dir, [x.strip() for x in section["area"].split(",")], source=source,
                            run_hour=section.getint("run_hour"), steps=parse_steps(section["steps"]),
                            downloads=section.getint("downloads", DOWNLOADS))
     if args.command == "refresh":
