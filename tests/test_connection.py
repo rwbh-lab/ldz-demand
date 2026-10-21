@@ -2,6 +2,7 @@ import pytest
 
 from ldz_demand.db.connection import DbConfigError, DbSettings, resolve_host
 
+# Example addresses only: TEST-NET-1 (RFC 5737) for the LAN, the shared range (RFC 6598) for a VPN.
 LOCAL, REMOTE, HOME_GW = "192.0.2.10", "100.64.0.10", "192.0.2.1"
 
 

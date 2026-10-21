@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -9,6 +9,8 @@ description = "LDZ-level Composite Weather Variable (CWV) gas demand models with
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Robert Hemming" }]
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
     "numpy>=1.26",
     "pandas>=2.2",

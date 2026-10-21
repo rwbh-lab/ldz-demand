@@ -15,10 +15,10 @@
 # (Container Manager -> Container -> ldz-weekly-* -> Details -> Log).
 #
 # Task Scheduler -> Run command:
-#   bash /volume1/Development/ldz-demand/deploy/weekly.sh
+#   bash /volume1/<share>/ldz-demand/deploy/weekly.sh
 
 # --- settings -------------------------------------------------------------------------------------
-SHARE=/volume1/Development/ldz-demand       # the ldz-demand folder on the NAS
+SHARE="$(cd "$(dirname "$0")/.." && pwd)"   # the ldz-demand folder on the NAS (this script is in its deploy/)
 RAW="$SHARE/raw"                            # raw archive, mounted in the container at /data/raw
 DB_SETTINGS="$SHARE/docker.env"             # LDZ_DB_* database settings (NAS LAN address), root-only
 CDS_SETTINGS="$SHARE/cds.env"               # CDSAPI_URL and CDSAPI_KEY for ERA5, root-only
