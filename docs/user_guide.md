@@ -501,7 +501,9 @@ table first: in CSV mode remove `data/cache/ng_ldz_daily.csv`; in MySQL mode emp
   ```bash
   python -m ldz_demand.dashboard            # http://localhost:2718
   ```
-  Each page loads its data when first opened (a few seconds), then stays responsive.
+  Each page loads its data when first opened (a few seconds), then stays responsive. On start-up, any
+  built ensemble run without a demand forecast gets one first (a 1 s check when
+  there is none), so the Demand forecasts page shows the latest run; `--no-forecast` skips it.
   Theme: `python -m ldz_demand.charts.style
   <claude_dark | neutral_dark | light>`, and set `[tool.marimo.display] theme` in `pyproject.toml` to
   match (`dark` / `light`). More pages 🚧 coming soon.
@@ -570,7 +572,7 @@ print((100 * (total_kwh - parts) / total_kwh).describe())   # SE 2026: mean ~1%,
 | `python -m ldz_demand.models.fit` | Fit the final model on every usable day → `models/data/final_fit.csv` |
 | `python -m ldz_demand.models.results` | Export the compact results bundle for the dashboard → `models/data/results/` |
 | `python -m ldz_demand.models.forecast DATE… \| --missing` | Demand forecasts from ensemble runs → `demand_forecast_daily` |
-| `python -m ldz_demand.dashboard` | Serve all dashboard pages (overview at /) |
+| `python -m ldz_demand.dashboard` | Serve all dashboard pages (overview at /), forecasting new ensemble runs first |
 | `python -m ldz_demand.db status` | MySQL: connection check + migration status |
 | `python -m ldz_demand.db migrate [--dry-run]` | MySQL: apply pending migrations |
 | `python -m ldz_demand.db draft DATASET` | Print a `CREATE TABLE` for a dataset (developers) |
