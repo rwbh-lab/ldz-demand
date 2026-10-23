@@ -31,7 +31,7 @@ def _(mo, pages):
     winters scored, it is more accurate than National Gas's own published day-ahead forecasts.
     Everything uses free, public data.
 
-    {pages.contents_markdown()}
+    {pages.contents_html()}
 
     {pages.snapshot_note()}
 

@@ -141,12 +141,15 @@ def test_page_menu_links_every_page_and_marks_the_current_one():
 
     dashboard = Path(__file__).parent.parent / "dashboard"
     assert set(pages.PAGES) | {pages.INDEX} == {p.name for p in dashboard.glob("*.py")}
-    lines = pages.contents_markdown("ldz_weather.py").split("  \n")
-    assert lines == ["Project: [Project map](/project-map)",
-                     "Data: [National Gas data](/ng-ldz-daily) | [ERA5 weather](/era5-weather)",
-                     "Pre-CWV models: [LDZ geography](/ldz-geography) | **LDZ weather** | [Ensemble LDZ weather](/ensemble-forecasts)",
-                     "CWV model: [Demand model](/demand-model)",
-                     "Outputs: [Results](/results) | [Demand forecasts](/demand-forecasts)"]
+    assert pages.contents("ldz_weather.py") == {
+        "Project": [("Project map", "/project-map")],
+        "Data": [("National Gas data", "/ng-ldz-daily"), ("ERA5 weather", "/era5-weather")],
+        "Pre-CWV models": [("LDZ geography", "/ldz-geography"), ("LDZ weather", None),
+                           ("Ensemble LDZ weather", "/ensemble-forecasts")],
+        "CWV model": [("Demand model", "/demand-model")],
+        "Outputs": [("Results", "/results"), ("Demand forecasts", "/demand-forecasts")]}
+    html = pages.contents_html("ldz_weather.py")
+    assert "\n" not in html and "LDZ weather</strong>" in html and 'href="/results"' in html
     assert "(/)" in pages.nav("ldz_weather.py").text or 'href="/"' in pages.nav("ldz_weather.py").text
 
 

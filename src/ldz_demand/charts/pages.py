@@ -33,12 +33,33 @@ PAGES = {  # file -> page, in reading order
 }
 
 
-def contents_markdown(current: str | None = None) -> str:
-    """One line per section ('Data: A | B'), the current page in bold rather than linked."""
-    sections: dict[str, list[str]] = {}
+def contents(current: str | None = None) -> dict[str, list[tuple[str, str | None]]]:
+    """Section -> its pages as (title, path), in reading order; the current page has no path."""
+    sections: dict[str, list[tuple[str, str | None]]] = {}
     for file, page in PAGES.items():
-        sections.setdefault(page.section, []).append(f"**{page.title}**" if file == current else f"[{page.title}]({page.path})")
-    return "  \n".join(f"{section}: " + " | ".join(links) for section, links in sections.items())
+        sections.setdefault(page.section, []).append((page.title, None if file == current else page.path))
+    return sections
+
+
+def contents_html(current: str | None = None) -> str:
+    """The contents as a two-column panel: sections down the left, each one's pages stacked in the right
+    column; the current page in bold, marked with an accent bar, rather than linked. One line of HTML, so it
+    can sit inside markdown."""
+    from ldz_demand.charts import style
+
+    accent = style.active().accent
+    rows = []
+    for section, links in contents(current).items():
+        items = "".join(
+            f'<a href="{path}">{title}</a>' if path is not None else
+            f'<strong style="border-left: 2px solid {accent}; padding-left: 0.45em; margin-left: calc(-0.45em - 2px)">'
+            f"{title}</strong>"
+            for title, path in links)
+        rows.append(f'<span style="color: var(--muted-foreground); padding: 0.4em 2em 0.4em 0">{section}</span>'
+                    f'<span style="display: flex; flex-direction: column; padding: 0.4em 0">{items}</span>')
+    return ('<div style="display: grid; grid-template-columns: max-content max-content; width: fit-content; '
+            'background: var(--muted); border-radius: 8px; padding: 0.5em 1.4em 0.5em 1.1em">'
+            + "".join(rows) + "</div>")
 
 
 def snapshot_note() -> str:
@@ -56,4 +77,4 @@ def nav(current: str):
     import marimo as mo
 
     note = snapshot_note()
-    return mo.md(f"[← Overview](/)  \n{contents_markdown(current)}" + (f"\n\n{note}" if note else ""))
+    return mo.md(f"[← Overview](/)\n\n{contents_html(current)}" + (f"\n\n{note}" if note else ""))
