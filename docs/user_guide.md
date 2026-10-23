@@ -504,6 +504,18 @@ table first: in CSV mode remove `data/cache/ng_ldz_daily.csv`; in MySQL mode emp
   Each page loads its data when first opened (a few seconds), then stays responsive. On start-up, any
   built ensemble run without a demand forecast gets one first (a 1 s check when
   there is none), so the Demand forecasts page shows the latest run; `--no-forecast` skips it.
+
+  **The hosted snapshot** ([rwbh-lab.github.io/ldz-demand](https://rwbh-lab.github.io/ldz-demand/)) is the
+  same pages run once against the local data and saved with their outputs: charts keep hover and zoom,
+  marimo's controls stay at their defaults, and each page says what date its data runs to. To refresh it
+  (e.g. after the weekly job; the ERA5 page needs the raw archive, so mount the share first):
+  ```bash
+  python -m ldz_demand.publish          # build into site/ (~2 min) to look at first
+  python -m ldz_demand.publish --push   # build and replace the gh-pages branch on the `github` remote
+  ```
+  A page that shows a local path or a private address (usually one that couldn't find its data) stops the
+  build rather than being published. Once, on GitHub: Settings → Pages → Deploy from a branch →
+  `gh-pages`, `/ (root)`.
   Theme: `python -m ldz_demand.charts.style
   <claude_dark | neutral_dark | light>`, and set `[tool.marimo.display] theme` in `pyproject.toml` to
   match (`dark` / `light`). More pages 🚧 coming soon.

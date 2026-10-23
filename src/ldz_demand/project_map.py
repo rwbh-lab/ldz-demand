@@ -229,11 +229,12 @@ NODES: tuple[Node, ...] = (
          details=(("Daily", "the ensemble download and build, after the 00z run is published (~09:30 UTC)"),
                   ("Weekly", "National Gas and ERA5 refresh and builds, then demand forecasts for every new run"))),
     Node("x_dashboard", None, 4, "Dashboard",
-         "The marimo pages, served together, and their shared charts and theme.",
-         modules=("dashboard", "charts.pages", "charts.style", "charts.ng_ldz_daily", "charts.era5", "charts.geography",
+         "The marimo pages, served together, and their shared charts and theme; a static snapshot is hosted online.",
+         modules=("dashboard", "publish", "charts.pages", "charts.style", "charts.ng_ldz_daily", "charts.era5", "charts.geography",
                   "charts.coastline", "charts.weather_ldz", "charts.ensemble", "charts.project_map", "charts.demand_model",
                   "charts.results", "charts.forecasts", "project_map"),
-         details=(("Command", "python -m ldz_demand.dashboard (http://localhost:2718)"),)),
+         details=(("Command", "python -m ldz_demand.dashboard (http://localhost:2718)"),
+                  ("Hosted", "python -m ldz_demand.publish --push: a static snapshot on GitHub Pages"))),
 )
 
 EDGES: tuple[Edge, ...] = (

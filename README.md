@@ -9,6 +9,9 @@ station per LDZ — Heathrow for three of them. This project rebuilds the weathe
 averaged over each LDZ and weighted by local gas use, refits the CWV's form to five years of measured
 demand, and turns each day's 50-member ensemble into a demand distribution per LDZ.
 
+**Dashboard: [rwbh-lab.github.io/ldz-demand](https://rwbh-lab.github.io/ldz-demand/)** — a static snapshot of
+every page (charts hover and zoom; controls fixed). Run it locally for the live version.
+
 ## Results
 
 Out of sample — each gas year predicted only from the years before it — for GB (the 13 LDZs summed):
@@ -76,7 +79,9 @@ timings, the optional MySQL backend and the scheduled jobs — is in [docs/user_
 
 ## The dashboard
 
-`python -m ldz_demand.dashboard` serves every page from one local server (marimo):
+`python -m ldz_demand.dashboard` serves every page from one local server (marimo). The
+[hosted copy](https://rwbh-lab.github.io/ldz-demand/) is a static snapshot of the same pages, made with
+`python -m ldz_demand.publish --push`.
 
 | Section | Pages |
 |---|---|

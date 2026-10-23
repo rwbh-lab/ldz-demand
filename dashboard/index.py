@@ -33,6 +33,8 @@ def _(mo, pages):
 
     {pages.contents_markdown()}
 
+    {pages.snapshot_note()}
+
     ---
     """)
     return

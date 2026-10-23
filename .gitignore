@@ -33,3 +33,6 @@ dashboard/__marimo__/
 
 # Private notes: workstream tracker, internal learning documents — never published
 private/
+
+# Static dashboard snapshot (python -m ldz_demand.publish)
+/site/
