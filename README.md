@@ -137,4 +137,4 @@ with the package say what they come from in their headers.
 
 ---
 
-Robert Hemming, 2026.
+Robert Hemming, 2026. Planned and built with Claude as a development partner.

@@ -20,6 +20,9 @@ data/results/*
 !data/raw/.gitkeep
 *.pickle
 
+# AI assistant settings — never committed
+.claude/
+
 # Editors / OS
 .idea/
 .vscode/
