@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" crossorigin="anonymous" href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/favicon.ico" />
+    <!-- Preload is necessary because we show these images when we disconnect from the server,
+    but at that point we cannot load these images from the server -->
+    <link rel="preload" crossorigin="anonymous" href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/gradient-yHQUC_QB.png" as="image" />
+    <link rel="preload" crossorigin="anonymous" href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/noise-60BoTA8O.png" as="image" />
+    <!-- Preload the fonts -->
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/Lora-VariableFont_wght-CZceb_kH.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/PTSans-Regular-Bam3NpBI.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/PTSans-Bold-C_DwAp7Z.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/FiraMono-Regular-CEsLFVD9.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/FiraMono-Medium-D5MAsWEG.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/FiraMono-Bold-C6PDArdf.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="a marimo app" />
+    <link rel="apple-touch-icon" crossorigin="anonymous" href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/apple-touch-icon.png" />
+    <link rel="manifest" crossorigin="anonymous" href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/manifest.json" />
+
+    <script data-marimo="true">
+      function __resizeIframe(obj) {
+        const scrollbarHeight = 20; // Max between windows, mac, and linux
+
+        function setHeight() {
+          // Guard against race condition where iframe isn't ready
+          if (!obj.contentWindow?.document?.documentElement) {
+            return;
+          }
+          const element = obj.contentWindow.document.documentElement;
+          // If there is no vertical scrollbar, we don't need to resize the iframe
+          if (element.scrollHeight === element.clientHeight) {
+            return;
+          }
+
+          // Create a new height that includes the scrollbar height if it's visible
+          const hasHorizontalScrollbar = element.scrollWidth > element.clientWidth;
+          const newHeight = element.scrollHeight + (hasHorizontalScrollbar ? scrollbarHeight : 0);
+
+          // Only update the height if it's different from the current height
+          if (obj.style.height !== `${newHeight}px`) {
+            obj.style.height = `${newHeight}px`;
+          }
+        }
+
+        // Resize the iframe to the height of the content and bottom scrollbar height
+        setHeight();
+
+        // Resize the iframe when the content changes
+        const resizeObserver = new ResizeObserver((_entries) => {
+          setHeight();
+        });
+        // Only observe if iframe content is ready
+        if (obj.contentWindow?.document?.body) {
+          resizeObserver.observe(obj.contentWindow.document.body);
+        }
+      }
+    </script>
+    <marimo-filename hidden>index.py</marimo-filename>
+    <!-- TODO(Trevor): Legacy, required by VS Code plugin. Remove when plugin is updated (see marimo/server/_templates/template.py) -->
+    <marimo-version data-version="{{ version }}" hidden></marimo-version>
+    <marimo-user-config data-config="{{ user_config }}" hidden></marimo-user-config>
+    <marimo-server-token data-token="{{ server_token }}" hidden></marimo-server-token>
+    <!-- /TODO -->
+    <title>LDZ demand · Overview</title>
+    <script type="module" crossorigin src="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/index-DafnX1Xx.js"></script>
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/rolldown-runtime-B0Z9INg1.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/react-CUdNIagt.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/compiler-runtime-BQ9S8nyo.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/useEvent-Dc9HkKI2.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/react-dom-CKsE8sC1.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/schemas-BL-NsLlF.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/isObject-BCaOs5rp.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/isSymbol-oX0TOjjx.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/now-Cmx0b_zA.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/debounce-aFmHgJZY.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/isArrayLikeObject-DnwgSs_Z.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/_baseMerge-CQpUq7ep.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/objects-snlMn4yk.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/jsx-runtime-B74pBk57.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/useEventListener-BdZUApHd.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/invariant-Ci2dTZ72.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/config-BxZgoFvi.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/utils-B4K466FK.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/session-DXKMv4Bs.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/Deferred-CrTnjj37.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/config-DpGPGznL.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/clsx-DB0hHKMi.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/cn-ldLVeaqm.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/fullscreen-BmzAqMKq.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/dist-CyYN7zJg.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/menu-items-BBdeXCvU.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/use-restore-focus-B98SEiGc.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/button-BoklZTGL.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/createLucideIcon-rHn2EdoM.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/check-Wea4hZ6R.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/context-BFOBKCJB.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/useNumberFormatter-C4-_TnkF.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/select-BplWpfFo.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/circle-CeQt3rdW.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/toast-KNfsFUiB.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/tooltip-DR2Z2N4w.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/paths-CzfpItSz.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/useLifecycle-DKSBdWUf.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/toDate-BbJ1_N2T.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/database-zap-CrkOvbyN.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/alert-dialog-CeE3i3Qa.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/arrays-BqUx5USx.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/once-Haz_uxEL.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/numbers-DsgsDslU.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/useDebounce-DMbg9X18.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/input-BDakodZ2.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/use-toast-CC89xOwH.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/requests-yTHMxhVa.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/uuid-k9DpjH68.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/write-secret-modal-BiG2tahJ.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/plus-gbN72xHe.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/trash-2-BJG-7Qob.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/preload-helper-HclGiUj8.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/dist-BczecT6V.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/dist-BTskHGpb.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/capabilities-Bj3s1hGN.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/cjs-C49f7GXV.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/createReducer-BPvK7C_R.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/dist-Ccyblc8N.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/marked.esm-B_3iMIUq.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/strings-BHZPE0Mc.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/dist-BN-7G8qZ.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/badge-DFf033uX.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/dist-CiUBikfn.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/dist-MRn68vX1.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/dist-Bviq_Dee.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/dist-DBqBVprh.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/dist-DueXZKz9.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/stex-CJTNBbet.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/useTheme-DcnXlv0_.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/useAsyncData-DucTwMkf.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/purify.es-CYRiAeUx.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/cells-CzugpTQu.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/get-DjNf4SIX.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/copy-RyCOE8jo.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/copy-BhJktFeI.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/copy-icon-DFhUGBjO.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/ErrorBoundary-BeE1cdgM.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/config-B4VJJibu.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/chevron-right-DOPs2jx8.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/dropdown-menu-VuyoeQOD.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/LazyAnyLanguageCodeMirror-B_IYTCX5.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/hat-glasses-DVgK5i5l.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/package-BeYhVWvM.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/errors-D9vyuMar.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/defaultLocale-CNPGWpMu.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/precisionRound-Bq_nmf5u.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/defaultLocale-D5bOh7g6.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/vega-loader.browser-CLRkNgm7.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/tooltip-PLkI_UfK.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/filename-fxG7K_MU.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/micromark-factory-space-D9Dr-k4J.js">
+    <link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/chunk-YOKDWASO-CaoEAGJk.js">
+    <link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/cells-0PFKL3SH.css">
+    <link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.25.1/dist/assets/index--sT8xf-8.css">
+  
+<script data-marimo="true">
+    Object.defineProperty(window, "__MARIMO_STATIC__", {
+        value: Object.freeze({
+            files: Object.freeze({}),
+            modelNotifications: Object.freeze([]),
+        }),
+        writable: false,
+        configurable: false,
+    });
+</script>
+
+<script data-marimo="true">
+    Object.defineProperty(window, "__MARIMO_EXPORT_CONTEXT__", {
+        value: Object.freeze({
+            trusted: true,
+            notebookCode: "",
+        }),
+        writable: false,
+        configurable: false,
+    });
+</script>
+<style title='marimo-custom'>/* theme: claude_dark — generated by `python -m ldz_demand.charts.style claude_dark`; do not edit */
+:root, .dark, .dark-theme {
+  --background: #1f1e1d !important;
+  --foreground: #faf9f5 !important;
+  --muted: #262624 !important;
+  --muted-foreground: #8f8d85 !important;
+  --card: #262624 !important;
+  --card-foreground: #faf9f5 !important;
+  --popover: #262624 !important;
+  --popover-foreground: #faf9f5 !important;
+  --border: #45443f !important;
+  --input: #45443f !important;
+  --marimo-text-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif !important;
+  --marimo-heading-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif !important;
+}
+body, #App { background: #1f1e1d !important; color: #faf9f5; }
+.markdown a, a { color: #d97757; }
+.markdown h1, .markdown h2, .markdown h3 { color: #faf9f5; font-weight: 600; letter-spacing: -0.01em; }
+.markdown p, .markdown li { color: #c2c0b6; }
+.markdown table th, .markdown table td { text-align: left !important; }
+</style></head>
+  <body>
+    <div id="root"></div>
+    <script data-marimo="true">
+      Object.defineProperty(window, "__MARIMO_MOUNT_CONFIG__", {
+        value: Object.freeze({
+            "filename": "index.py",
+            "cwd": "",
+            "lspWorkspace": null,
+            "mode": "read",
+            "version": "0.25.1",
+            "serverToken": "static",
+            "config": {"ai": {"allow_provider_config": true, "custom_providers": {}, "enabled": true, "models": {"custom_models": [], "displayed_models": []}}, "completion": {"activate_on_typing": true, "auto_close_pairs": true, "copilot": false, "signature_hint_on_typing": false}, "diagnostics": {"sql_linter": true}, "display": {"cell_output": "below", "code_editor_font_size": 14, "code_lens": true, "custom_css": [], "dataframes": "rich", "default_table_max_columns": 50, "default_table_page_size": 10, "default_width": "medium", "reference_highlighting": true, "theme": "dark"}, "formatting": {"line_length": 79}, "keymap": {"overrides": {}, "preset": "default"}, "language_servers": {"pylsp": {"enable_flake8": false, "enable_mypy": true, "enable_pydocstyle": false, "enable_pyflakes": false, "enable_pylint": false, "enable_ruff": true, "enabled": false}}, "mcp": {"mcpServers": {}, "presets": []}, "package_management": {"manager": "pip"}, "runtime": {"auto_instantiate": false, "auto_reload": "off", "default_csv_encoding": "utf-8", "default_sql_output": "auto", "on_cell_change": "autorun", "output_max_bytes": 8000000, "reactive_tests": true, "show_tracebacks": false, "std_stream_max_bytes": 1000000, "watcher_on_save": "lazy"}, "save": {"autosave": "after_delay", "autosave_delay": 1000, "format_on_save": false}, "server": {"browser": "default", "follow_symlink": false}, "snippets": {"custom_paths": [], "include_default_snippets": true}},
+            "configOverrides": {},
+            "appConfig": {"app_title": "LDZ demand \u00b7 Overview", "css_file": "theme.css", "sql_output": "auto", "width": "medium"},
+            "layout": null,
+            "view": {"showAppCode": true},
+            "notebook": {"cells": [{"code": "", "code_hash": "12f0d965eb83bf4ad351ab71994b3ff8", "config": {"column": null, "disabled": false, "expand_output": false, "hide_code": true}, "id": "Hbol", "name": "_"}, {"code": "", "code_hash": "5ff93b2171a4649ae19915b4de0c650e", "config": {"column": null, "disabled": false, "expand_output": false, "hide_code": true}, "id": "MJUe", "name": "_"}, {"code": "", "code_hash": "8b82f846a7909dee4ea82e71b1fb10cc", "config": {"column": null, "disabled": false, "expand_output": false, "hide_code": true}, "id": "vblA", "name": "_"}, {"code": "", "code_hash": "be4ddba30ef3bef9a42bb5cdc8a265d3", "config": {"column": null, "disabled": false, "expand_output": false, "hide_code": true}, "id": "bkHC", "name": "_"}], "metadata": {"marimo_version": "0.25.1"}, "version": "1"},
+            "session": {"cells": [{"code_hash": "12f0d965eb83bf4ad351ab71994b3ff8", "console": [], "id": "Hbol", "outputs": [{"data": {"text/plain": ""}, "type": "data"}]}, {"code_hash": "5ff93b2171a4649ae19915b4de0c650e", "console": [], "id": "MJUe", "outputs": [{"data": {"text/markdown": "\u003Cspan class=\"markdown prose dark:prose-invert contents\"\u003E\u003Ch1 id=\"weather-driven-gas-demand-for-great-britains-local-distribution-zones\"\u003EWeather-driven gas demand for Great Britain's Local Distribution Zones\u003C/h1\u003E\n\u003Cspan class=\"paragraph\"\u003E\u003Cem\u003ERobert Hemming \u00b7 October 2026\u003C/em\u003E\u003C/span\u003E\n\u003Cspan class=\"paragraph\"\u003E\u003Cstrong\u003EAbstract.\u003C/strong\u003E Daily gas demand in each of Great Britain's 13 Local Distribution Zones (LDZs) is driven\nmainly by the weather. The industry measures that weather with a Composite Weather Variable (CWV)\nbuilt from one weather station per LDZ. This project rebuilds it from gridded reanalysis (ERA5),\naveraged over each LDZ and weighted to where gas is used, refits the CWV's form to five years of\nmeasured demand, and runs every member of the ECMWF ensemble through the fitted model to forecast\ndemand two weeks ahead as a distribution rather than a single number. Out of sample, the model's GB\nerror is 9% below the official CWV's over all days and 29% below it on the coldest days; in the\nwinters scored, it is more accurate than National Gas's own published day-ahead forecasts.\nEverything uses free, public data.\u003C/span\u003E\n\u003Cdiv style=\"display: grid; grid-template-columns: max-content max-content; width: fit-content; background: var(--muted); border-radius: 8px; padding: 0.5em 1.4em 0.5em 1.1em\"\u003E\u003Cspan style=\"color: var(--muted-foreground); padding: 0.4em 2em 0.4em 0\"\u003EProject\u003C/span\u003E\u003Cspan style=\"display: flex; flex-direction: column; padding: 0.4em 0\"\u003E\u003Ca href=\"/ldz-demand/project-map/\"\u003EProject map\u003C/a\u003E\u003C/span\u003E\u003Cspan style=\"color: var(--muted-foreground); padding: 0.4em 2em 0.4em 0\"\u003EData\u003C/span\u003E\u003Cspan style=\"display: flex; flex-direction: column; padding: 0.4em 0\"\u003E\u003Ca href=\"/ldz-demand/ng-ldz-daily/\"\u003ENational Gas data\u003C/a\u003E\u003Ca href=\"/ldz-demand/era5-weather/\"\u003EERA5 weather\u003C/a\u003E\u003C/span\u003E\u003Cspan style=\"color: var(--muted-foreground); padding: 0.4em 2em 0.4em 0\"\u003EPre-CWV models\u003C/span\u003E\u003Cspan style=\"display: flex; flex-direction: column; padding: 0.4em 0\"\u003E\u003Ca href=\"/ldz-demand/ldz-geography/\"\u003ELDZ geography\u003C/a\u003E\u003Ca href=\"/ldz-demand/ldz-weather/\"\u003ELDZ weather\u003C/a\u003E\u003Ca href=\"/ldz-demand/ensemble-forecasts/\"\u003EEnsemble LDZ weather\u003C/a\u003E\u003C/span\u003E\u003Cspan style=\"color: var(--muted-foreground); padding: 0.4em 2em 0.4em 0\"\u003ECWV model\u003C/span\u003E\u003Cspan style=\"display: flex; flex-direction: column; padding: 0.4em 0\"\u003E\u003Ca href=\"/ldz-demand/demand-model/\"\u003EDemand model\u003C/a\u003E\u003C/span\u003E\u003Cspan style=\"color: var(--muted-foreground); padding: 0.4em 2em 0.4em 0\"\u003EOutputs\u003C/span\u003E\u003Cspan style=\"display: flex; flex-direction: column; padding: 0.4em 0\"\u003E\u003Ca href=\"/ldz-demand/results/\"\u003EResults\u003C/a\u003E\u003Ca href=\"/ldz-demand/demand-forecasts/\"\u003EDemand forecasts\u003C/a\u003E\u003C/span\u003E\u003C/div\u003E\n\n\u003Cspan class=\"paragraph\"\u003E\u003Cem\u003EA static snapshot, with data to 20 October 2026: the charts respond to hover and zoom, but the controls are fixed. Run the dashboard locally for the live version (\u003Ca href=\"https://github.com/rwbh-lab/ldz-demand#quick-start\" rel=\"noopener noreferrer\" target=\"_blank\"\u003EREADME\u003C/a\u003E).\u003C/em\u003E\u003C/span\u003E\n\u003Chr /\u003E\u003C/span\u003E"}, "type": "data"}]}, {"code_hash": "8b82f846a7909dee4ea82e71b1fb10cc", "console": [], "id": "vblA", "outputs": [{"data": {"text/html": "\u003Cdiv style='display: flex;flex: 1;flex-direction: row;justify-content: space-between;align-items: normal;flex-wrap: wrap;gap: 1rem'\u003E\u003Cmarimo-stat data-value='\u0026quot;\u22129%\u0026quot;' data-label='\u0026quot;Error vs the official CWV\u0026quot;' data-caption='\u0026quot;GB RMSE, all days, out of sample\u0026quot;' data-bordered='false' data-target_direction='\u0026quot;increase\u0026quot;'\u003E\u003C/marimo-stat\u003E\u003Cmarimo-stat data-value='\u0026quot;\u221229%\u0026quot;' data-label='\u0026quot;On the coldest days\u0026quot;' data-caption='\u0026quot;GB RMSE, coldest 5% of days\u0026quot;' data-bordered='false' data-target_direction='\u0026quot;increase\u0026quot;'\u003E\u003C/marimo-stat\u003E\u003Cmarimo-stat data-value='\u0026quot;1.9\u20132.2%\u0026quot;' data-label='\u0026quot;Winter error per gas day\u0026quot;' data-caption='\u0026quot;2024/25 and 2025/26 \u00b7 National Gas 3.2\u20133.6%\u0026quot;' data-bordered='false' data-target_direction='\u0026quot;increase\u0026quot;'\u003E\u003C/marimo-stat\u003E\u003Cmarimo-stat data-value='\u0026quot;50 \u00d7 14\u0026quot;' data-label='\u0026quot;Members \u00d7 days\u0026quot;' data-caption='\u0026quot;every ensemble run, as a demand distribution\u0026quot;' data-bordered='false' data-target_direction='\u0026quot;increase\u0026quot;'\u003E\u003C/marimo-stat\u003E\u003C/div\u003E"}, "type": "data"}]}, {"code_hash": "be4ddba30ef3bef9a42bb5cdc8a265d3", "console": [], "id": "bkHC", "outputs": [{"data": {"text/markdown": "\u003Cspan class=\"markdown prose dark:prose-invert contents\"\u003E\u003Ch2 id=\"1-introduction\"\u003E1 \u00b7 Introduction\u003C/h2\u003E\n\u003Cspan class=\"paragraph\"\u003EGas demand in Great Britain swings with the weather: a January day takes nearly six times the gas\nof a summer one. Most of that swing is non-daily-metered demand \u2014 homes and small businesses heating\n\u2014 and the industry forecasts it per LDZ from the \u003Cstrong\u003EComposite Weather Variable\u003C/strong\u003E: a blend of\ntemperature, wind, sunshine and a seasonal profile, bent so that demand responds to it in a straight\nline. National Gas forecasts demand with it; Xoserve allocates gas to shippers with it.\u003C/span\u003E\n\u003Cspan class=\"paragraph\"\u003EThe official CWV takes its weather from \u003Cstrong\u003Eone station per LDZ\u003C/strong\u003E \u2014 Heathrow for East Anglia, North\nThames and South East alike. A station is one point, and not always a representative one: St Athan,\non the coast, reads up to 0.85 \u00b0C warmer in November than the places where Wales South's gas is\nused. This project asks how much better demand can be explained, and forecast, with weather averaged\nover the whole LDZ and weighted to where the gas goes \u2014 and builds the forecasts that follow.\u003C/span\u003E\n\u003Cspan class=\"paragraph\"\u003EThe whole chain, from public data to a demand forecast, with the code behind each step, is on the\n\u003Ca href=\"/ldz-demand/project-map/\"\u003EProject map\u003C/a\u003E.\u003C/span\u003E\n\u003Ch2 id=\"2-data\"\u003E2 \u00b7 Data\u003C/h2\u003E\n\u003Cspan class=\"paragraph\"\u003EThree free, public sources:\u003C/span\u003E\n\u003Cul\u003E\n\u003Cli\u003E\u003Cstrong\u003ENational Gas\u003C/strong\u003E (data portal): daily LDZ demand and its daily- and non-daily-metered parts, the\n  official CWV, the gas entering each LDZ from the national transmission system, and National Gas's\n  own demand forecasts \u2014 a rolling five years, from October 2021. \u003Ca href=\"/ldz-demand/ng-ldz-daily/\"\u003ENational Gas data\u003C/a\u003E\u003C/li\u003E\n\u003Cli\u003E\u003Cstrong\u003EERA5\u003C/strong\u003E (Copernicus): hourly reanalysis on a 0.25\u00b0 grid \u2014 temperature, wind, solar radiation,\n  precipitation. \u003Ca href=\"/ldz-demand/era5-weather/\"\u003EERA5 weather\u003C/a\u003E\u003C/li\u003E\n\u003Cli\u003E\u003Cstrong\u003EThe ECMWF ensemble\u003C/strong\u003E (open data): each day's 00z run, 50 members, 15 days, cropped to GB as it\n  downloads and archived daily on a home server.\u003C/li\u003E\n\u003C/ul\u003E\n\u003Cspan class=\"paragraph\"\u003EEverything is put on the \u003Cstrong\u003Egas day\u003C/strong\u003E, 05:00 to 05:00 UK time.\u003C/span\u003E\n\u003Ch2 id=\"3-pre-cwv-models\"\u003E3 \u00b7 Pre-CWV models\u003C/h2\u003E\n\u003Cspan class=\"paragraph\"\u003EThe steps that turn the published data into what the demand model needs.\u003C/span\u003E\n\u003Cspan class=\"paragraph\"\u003E\u003Cstrong\u003EThe target.\u003C/strong\u003E The model predicts total LDZ demand minus daily-metered demand: homes and small\nbusiness, plus unidentified gas. Not the published non-daily-metered figure \u2014 National Gas\n\u003Cem\u003Eallocates\u003C/em\u003E that using the official CWV, so fitting a weather model to it would be circular. Checking\nthe published totals against the gas metered into each LDZ found a 31 GWh/day feed missing from\nSouth East's total for 18 months (September 2022 \u2013 February 2024); those days are repaired for\ntraining and never used for scoring. \u003Ca href=\"/ldz-demand/ng-ldz-daily/\"\u003ENational Gas data, Part II\u003C/a\u003E\u003C/span\u003E\n\u003Cspan class=\"paragraph\"\u003E\u003Cstrong\u003EThe LDZ map.\u003C/strong\u003E There is no public map of the LDZs, so one is built: town lists per LDZ, placed with\nthe ONS place index, and \u2014 where a local authority is split between LDZs \u2014 postcodes sampled and\nchecked against the gas networks' own postcode checkers. \u003Ca href=\"/ldz-demand/ldz-geography/\"\u003ELDZ geography\u003C/a\u003E\u003C/span\u003E\n\u003Cspan class=\"paragraph\"\u003E\u003Cstrong\u003ELDZ weather.\u003C/strong\u003E Each LDZ's weather is a weighted average of the ERA5 grid cells over it, weighted by\nlocal gas use (DESNZ). The map method barely matters (0.01\u20130.05 \u00b0C day to day); the weighting matters\nmore; the official stations differ most \u2014 by season, by up to 0.85 \u00b0C. The gas day's temperature\nweights the hours when homes heat: 06\u201309 and 16\u201322 count double, the night half.\n\u003Ca href=\"/ldz-demand/ldz-weather/\"\u003ELDZ weather\u003C/a\u003E\u003C/span\u003E\n\u003Cspan class=\"paragraph\"\u003E\u003Cstrong\u003EEnsemble LDZ weather.\u003C/strong\u003E The same weights and gas-day rules for every ensemble member and lead day,\nso the forecasts see the same kind of weather the model was fitted on.\n\u003Ca href=\"/ldz-demand/ensemble-forecasts/\"\u003EEnsemble LDZ weather\u003C/a\u003E\u003C/span\u003E\n\u003Ch2 id=\"4-the-cwv-model\"\u003E4 \u00b7 The CWV model\u003C/h2\u003E\n\u003Cspan class=\"paragraph\"\u003EThe official CWV's structure, refitted per LDZ to our weather: an effective temperature with a few\ndays' memory, wind chill, solar, a seasonal shape, a summer cut-off and a cold-weather upturn. Demand\nis then a straight line in the CWV, plus day of week, bank holidays and the Christmas period. Three\nchoices carry most of the improvement:\u003C/span\u003E\n\u003Cul\u003E\n\u003Cli\u003E\u003Cstrong\u003EA seasonal shape shared by all 13 LDZs\u003C/strong\u003E, in place of the official seasonal profile (which isn't\n  public): one smooth shape through the year, sized per LDZ, so it is estimated from thirteen times\n  the data.\u003C/li\u003E\n\u003Cli\u003E\u003Cstrong\u003EThe heating-hours temperature\u003C/strong\u003E: 9% lower error than a flat daily mean, and the gain survives\n  the ensemble's 3- and 6-hourly steps.\u003C/li\u003E\n\u003Cli\u003E\u003Cstrong\u003ERecent years weighted more\u003C/strong\u003E (half-life one year), so the model follows the fall in demand after\n  the 2022 price shock, and the partial recovery since, without hand-picked break dates.\u003C/li\u003E\n\u003C/ul\u003E\n\u003Cspan class=\"paragraph\"\u003EWhat each part does, with its fitted values, is on the \u003Ca href=\"/ldz-demand/demand-model/\"\u003EDemand model\u003C/a\u003E page; every\nchoice, and the alternatives it beat, in \u003Ccode\u003Edocs/decisions.md\u003C/code\u003E.\u003C/span\u003E\n\u003Ch2 id=\"5-results\"\u003E5 \u00b7 Results\u003C/h2\u003E\n\u003Cspan class=\"paragraph\"\u003EEvery score is out of sample: each gas year is predicted only from the years before it.\u003C/span\u003E\n\u003Cul\u003E\n\u003Cli\u003E\u003Cstrong\u003EAgainst the official CWV\u003C/strong\u003E (the same regression, on the same days): GB error 46.2 against\n  50.8 GWh/day over all days (\u22129%), 52.6 against 67.2 in winter (\u221222%), 65.8 against 92.3 on the\n  coldest days (\u221229%). Better in 10 of the 13 LDZs.\u003C/li\u003E\n\u003Cli\u003E\u003Cstrong\u003EAgainst National Gas's published day-ahead forecasts\u003C/strong\u003E, on total demand: about level over all\n  days (3.2\u20133.3% error per gas day against 3.1\u20133.6%), with 7\u201330% lower RMSE; in the two full winters\n  scored, 1.9\u20132.2% against their 3.2\u20133.6%. They are better in summer \u2014 the shoulder months are this\n  model's weakest.\u003C/li\u003E\n\u003C/ul\u003E\n\u003Cspan class=\"paragraph\"\u003ENot yet like for like: ours uses actual weather and theirs a day-ahead forecast (a small difference\nat one day ahead), and theirs also forecasts the daily-metered part. \u003Ca href=\"/ldz-demand/results/\"\u003EResults\u003C/a\u003E\u003C/span\u003E\n\u003Ch2 id=\"6-forecasts\"\u003E6 \u00b7 Forecasts\u003C/h2\u003E\n\u003Cspan class=\"paragraph\"\u003EEach day's ensemble run goes through the fitted model member by member: 50 demand paths per LDZ for\nthe next 14 days, and GB as their sum. The intervals add the model's own error to the weather's \u2014 the\nspread of the members says how uncertain the weather is, not how far the model can be off when the\nweather is known, and at short leads that is most of the uncertainty. Each forecast is made as it\nwould have been issued, from only the data that existed on its run date, and verified as demand is\npublished. \u003Ca href=\"/ldz-demand/demand-forecasts/\"\u003EDemand forecasts\u003C/a\u003E\u003C/span\u003E\n\u003Ch2 id=\"7-limitations\"\u003E7 \u00b7 Limitations\u003C/h2\u003E\n\u003Cul\u003E\n\u003Cli\u003E\u003Cstrong\u003EFive years of demand\u003C/strong\u003E \u2014 the portal's rolling window. The 2022 change in behaviour and few cold\n  winters fall inside it, so findings on seasonal behaviour and the cold end are provisional.\u003C/li\u003E\n\u003Cli\u003E\u003Cstrong\u003EThe shoulder months\u003C/strong\u003E (spring and October) are the model's weakest; spring 2025 was missed by\n  every model, the official CWV included.\u003C/li\u003E\n\u003Cli\u003E\u003Cstrong\u003EExtreme cold\u003C/strong\u003E is too rare in five years to calibrate the cold-weather upturn, which sits on its\n  bound in most LDZs.\u003C/li\u003E\n\u003Cli\u003E\u003Cstrong\u003EThe forecasts\u003C/strong\u003E need a winter of runs to be scored properly, and to compare with National Gas\n  like for like.\u003C/li\u003E\n\u003C/ul\u003E\n\u003Ch2 id=\"references-and-data-sources\"\u003EReferences and data sources\u003C/h2\u003E\n\u003Cul\u003E\n\u003Cli\u003ENational Gas, \u003Cem\u003EGas Demand Forecasting Methodology\u003C/em\u003E (2016); data portal, data.nationalgas.com.\u003C/li\u003E\n\u003Cli\u003EXoserve, \u003Cem\u003EComposite Weather Variable\u003C/em\u003E and \u003Cem\u003ESeasonal Normal Composite Weather Variable\u003C/em\u003E (September 2026).\u003C/li\u003E\n\u003Cli\u003ECopernicus Climate Change Service, ERA5 hourly data on single levels (contains modified Copernicus\n  Climate Change Service information).\u003C/li\u003E\n\u003Cli\u003EECMWF open data, ensemble forecasts (CC BY 4.0).\u003C/li\u003E\n\u003Cli\u003EONS, Index of Place Names and local authority boundaries (Open Government Licence; contains OS data\n  \u00a9 Crown copyright and database right). DESNZ, sub-national gas consumption (Open Government\n  Licence). Ordnance Survey, Code-Point Open.\u003C/li\u003E\n\u003Cli\u003ELDZ town lists: energybrokers.co.uk. Postcode checks: SGN and Wales \u0026amp; West Utilities.\u003C/li\u003E\n\u003C/ul\u003E\n\u003Cspan class=\"paragraph\"\u003EThe method in full: \u003Ccode\u003Edocs/methodology.md\u003C/code\u003E; the choices: \u003Ccode\u003Edocs/decisions.md\u003C/code\u003E; the scores:\n\u003Ccode\u003Edocs/results.md\u003C/code\u003E.\u003C/span\u003E\u003C/span\u003E"}, "type": "data"}]}], "metadata": {"marimo_version": "0.25.1", "script_metadata_hash": null}, "version": "1"},
+            "runtimeConfig": null
+        }),
+        writable: false,
+        configurable: false,
+      });
+    </script>
+  <marimo-code hidden=""></marimo-code>
+<marimo-code-hash hidden="">48a4b8c957f9e445f3ecf250280f6364</marimo-code-hash>
+</body>
+</html>
