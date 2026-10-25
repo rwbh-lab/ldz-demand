@@ -142,15 +142,18 @@ def test_page_menu_links_every_page_and_marks_the_current_one():
     dashboard = Path(__file__).parent.parent / "dashboard"
     assert set(pages.PAGES) | {pages.INDEX} == {p.name for p in dashboard.glob("*.py")}
     assert pages.contents("ldz_weather.py") == {
-        "Project": [("Project map", "/project-map")],
-        "Data": [("National Gas data", "/ng-ldz-daily"), ("ERA5 weather", "/era5-weather")],
-        "Pre-CWV models": [("LDZ geography", "/ldz-geography"), ("LDZ weather", None),
-                           ("Ensemble LDZ weather", "/ensemble-forecasts")],
-        "CWV model": [("Demand model", "/demand-model")],
-        "Outputs": [("Results", "/results"), ("Demand forecasts", "/demand-forecasts")]}
+        "Project": [("Overview", "/"), ("Project map", "/project-map")],
+        "Datasets": [("National Gas data", "/ng-ldz-daily"), ("ERA5 weather", "/era5-weather")],
+        "Pre-CWV": [("LDZ geography", "/ldz-geography"), ("LDZ weather", None),
+                    ("LDZ Ens forecast", "/ensemble-forecasts")],
+        "CWV model": [("Model specification", "/model-specification"), ("Model calibration", "/model-calibration")],
+        "Outputs": [("Backtesting results", "/backtesting-results"), ("Live forecasts", "/live-forecasts")]}
     html = pages.contents_html("ldz_weather.py")
-    assert "\n" not in html and "LDZ weather</strong>" in html and 'href="/results"' in html
-    assert "(/)" in pages.nav("ldz_weather.py").text or 'href="/"' in pages.nav("ldz_weather.py").text
+    assert "\n" not in html and "LDZ weather</strong>" in html and 'href="/backtesting-results"' in html
+    import marimo as mo
+
+    head = pages.header("ldz_weather.py", mo.md("# LDZ weather"), mo.md("Intro text.")).text
+    assert 'href="/"' in head and "Intro text." in head and "LDZ weather</strong>" in head
 
 
 def test_dashboard_server_mounts_the_overview_at_root_and_every_page(monkeypatch):

@@ -1,5 +1,5 @@
 """
-A compact copy of the experiment results, shipped with the package for the dashboard's Results page.
+A compact copy of the experiment results, shipped with the package for the dashboard's Backtesting results page.
 
 The experiments write their full outputs to data/results/ (tens of MB, not committed). This keeps the
 small tables the page needs, under ldz_demand/models/data/results/:

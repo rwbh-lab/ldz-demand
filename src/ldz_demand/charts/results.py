@@ -1,5 +1,5 @@
 """
-Charts and tables for the Results page, from the compact results bundle (ldz_demand.models.results).
+Charts and tables for the Backtesting results page, from the compact results bundle (ldz_demand.models.results).
 All GB: the sum of the 13 LDZs, on days every LDZ has.
 """
 

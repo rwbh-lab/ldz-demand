@@ -95,6 +95,14 @@ def use(name: str | None = None) -> Theme:
     return theme
 
 
+TRANSPARENT_CHARTS = True  # charts sit on the page colour; False puts them on their own surface panel
+
+
+def chart_bg(theme: Theme) -> str:
+    """Background for chart paper, plot area and map frames."""
+    return "rgba(0,0,0,0)" if TRANSPARENT_CHARTS else theme.surface
+
+
 def plotly_template(theme: Theme):
     import plotly.graph_objects as go
 
@@ -106,8 +114,8 @@ def plotly_template(theme: Theme):
     )
     return go.layout.Template(
         layout=dict(
-            paper_bgcolor=theme.surface,
-            plot_bgcolor=theme.surface,
+            paper_bgcolor=chart_bg(theme),
+            plot_bgcolor=chart_bg(theme),
             font=dict(family=theme.font, color=theme.ink_2, size=13),
             title=dict(font=dict(color=theme.ink, size=16), x=0, xanchor="left", pad=dict(l=4)),
             colorway=list(theme.series),
@@ -149,7 +157,7 @@ def css(theme: Theme) -> str:
 {body}
 }}
 body, #App {{ background: {theme.page} !important; color: {theme.ink}; }}
-.markdown a, a {{ color: {theme.accent}; }}
+.markdown a, a, .markdown a:visited, a:visited {{ color: {theme.accent} !important; }}
 .markdown h1, .markdown h2, .markdown h3 {{ color: {theme.ink}; font-weight: 600; letter-spacing: -0.01em; }}
 .markdown p, .markdown li {{ color: {theme.ink_2}; }}
 .markdown table th, .markdown table td {{ text-align: left !important; }}

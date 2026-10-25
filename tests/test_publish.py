@@ -2,8 +2,8 @@ from ldz_demand.publish import BASE, PRIVATE, relink
 
 
 def test_relink_pages_and_overview():
-    html = r'<a href=\"/results\">R</a> <a href="/">O</a>'
-    assert relink(html) == rf'<a href=\"{BASE}/results/\">R</a> <a href="{BASE}/">O</a>'
+    html = r'<a href=\"/backtesting-results\">R</a> <a href="/">O</a>'
+    assert relink(html) == rf'<a href=\"{BASE}/backtesting-results/\">R</a> <a href="{BASE}/">O</a>'
 
 
 def test_relink_leaves_other_links():
@@ -17,5 +17,5 @@ def test_private_paths_and_addresses_caught():
 
 
 def test_ordinary_text_not_caught():
-    for text in [f"{BASE}/results/", "version 10.5", "100.5 GWh", "2026-10-20"]:
+    for text in [f"{BASE}/backtesting-results/", "version 10.5", "100.5 GWh", "2026-10-20"]:
         assert not PRIVATE.search(text), text

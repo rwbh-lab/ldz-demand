@@ -16,11 +16,11 @@ def _():
 
 @app.cell(hide_code=True)
 def _(mo, pages):
-    mo.md(rf"""
+    pages.header(pages.INDEX, mo.md(r"""
     # Weather-driven gas demand for Great Britain's Local Distribution Zones
 
     *Robert Hemming · October 2026*
-
+    """), mo.md(r"""
     **Abstract.** Daily gas demand in each of Great Britain's 13 Local Distribution Zones (LDZs) is driven
     mainly by the weather. The industry measures that weather with a Composite Weather Variable (CWV)
     built from one weather station per LDZ. This project rebuilds it from gridded reanalysis (ERA5),
@@ -30,24 +30,18 @@ def _(mo, pages):
     error is 9% below the official CWV's over all days and 29% below it on the coldest days; in the
     winters scored, it is more accurate than National Gas's own published day-ahead forecasts.
     Everything uses free, public data.
-
-    {pages.contents_html()}
-
-    {pages.snapshot_note()}
-
-    ---
-    """)
+    """))
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.hstack([
-        mo.stat("−9%", label="Error vs the official CWV", caption="GB RMSE, all days, out of sample"),
-        mo.stat("−29%", label="On the coldest days", caption="GB RMSE, coldest 5% of days"),
-        mo.stat("1.9–2.2%", label="Winter error per gas day", caption="2024/25 and 2025/26 · National Gas 3.2–3.6%"),
-        mo.stat("50 × 14", label="Members × days", caption="every ensemble run, as a demand distribution"),
-    ], wrap=True, gap=1)
+        mo.stat("−9%", label="Error vs official CWV", caption="GB RMSE, all days"),
+        mo.stat("−29%", label="On the coldest days", caption="coldest 5% of days"),
+        mo.stat("1.9–2.2%", label="Winter error per day", caption="National Gas 3.2–3.6%"),
+        mo.stat("50 × 14", label="Members × days", caption="per ensemble run"),
+    ], widths="equal", gap=0.25)
     return
 
 
@@ -108,7 +102,7 @@ def _(mo):
 
     **Ensemble LDZ weather.** The same weights and gas-day rules for every ensemble member and lead day,
     so the forecasts see the same kind of weather the model was fitted on.
-    [Ensemble LDZ weather](/ensemble-forecasts)
+    [LDZ Ens forecast](/ensemble-forecasts)
 
     ## 4 · The CWV model
 
@@ -125,7 +119,8 @@ def _(mo):
     - **Recent years weighted more** (half-life one year), so the model follows the fall in demand after
       the 2022 price shock, and the partial recovery since, without hand-picked break dates.
 
-    What each part does, with its fitted values, is on the [Demand model](/demand-model) page; every
+    What each part does is on [Model specification](/model-specification), and how it is fitted, with
+    every value per LDZ, on [Model calibration](/model-calibration); every
     choice, and the alternatives it beat, in `docs/decisions.md`.
 
     ## 5 · Results
@@ -141,7 +136,7 @@ def _(mo):
       model's weakest.
 
     Not yet like for like: ours uses actual weather and theirs a day-ahead forecast (a small difference
-    at one day ahead), and theirs also forecasts the daily-metered part. [Results](/results)
+    at one day ahead), and theirs also forecasts the daily-metered part. [Backtesting results](/backtesting-results)
 
     ## 6 · Forecasts
 
@@ -150,7 +145,7 @@ def _(mo):
     spread of the members says how uncertain the weather is, not how far the model can be off when the
     weather is known, and at short leads that is most of the uncertainty. Each forecast is made as it
     would have been issued, from only the data that existed on its run date, and verified as demand is
-    published. [Demand forecasts](/demand-forecasts)
+    published. [Live forecasts](/live-forecasts)
 
     ## 7 · Limitations
 

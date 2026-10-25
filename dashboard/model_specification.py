@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.25.1"
-app = marimo.App(width="medium", app_title="LDZ demand · Demand model", css_file="theme.css")
+app = marimo.App(width="medium", app_title="LDZ demand · Model specification", css_file="theme.css")
 
 
 @app.cell(hide_code=True)
@@ -16,19 +16,13 @@ def _():
 
 
 @app.cell(hide_code=True)
-def _():
+def _(mo):
     from ldz_demand.charts import pages as _pages
 
-    _pages.nav("demand_model.py")
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    # Demand model
+    _pages.header("model_specification.py", mo.md(r"""
+    # Model specification
     *How the model turns a day's weather into gas demand, one part at a time.*
-
+    """), mo.md(r"""
     The model has two stages. First, a day's weather becomes one number — the **Composite Weather
     Variable (CWV)**, roughly "how cold the day feels to gas demand", in °C. Then demand is a straight line
     in the CWV, plus calendar effects. The CWV is built in the same steps as the official one; every
@@ -39,16 +33,17 @@ def _(mo):
     E_t &= y \cdot E_{t-1} + (1-y)\,T_t && \text{§2}\\
     CW_t &= E_t - I_2 \max(0, W_t - W_0)\max(0, T_0 - T_t) + S_0\,SR_t + S_c\,g(\text{day}) && \text{§3–5}\\
     CWV_t &= f(CW_t;\ V_0, I_3, V_1, V_2, q) && \text{§6}\\
-    \text{demand}_t &= a + b\,CWV_t + \text{calendar}_t && \text{§7–8}
+    \text{demand}_t &= a + b\,CWV_t + \text{calendar}_t && \text{§7}
     \end{aligned}
     $$
 
     *T* is the gas day's temperature (§1), *W* the wind speed, *SR* solar radiation — all ERA5, averaged
     over the LDZ and weighted by where gas is used. The calendar is day of week, bank holidays and
-    Christmas; recent years count more in the fit (§8). This page shows what each part does, with the
-    **final fit** (`ldz_demand.models.fit`; `docs/decisions.md` C1 – C9). How well the model scores, and
-    why each part was chosen over the alternatives, is in `docs/results.md`.
-    """)
+    Christmas. This page shows what each part does, drawn with the **final fit**
+    (`ldz_demand.models.fit`; `docs/decisions.md` C1 – C9). How the values are fitted, and all of them per
+    LDZ, is on [Model calibration](/model-calibration); how well the model scores, on
+    [Backtesting results](/backtesting-results).
+    """))
     return
 
 
@@ -240,66 +235,6 @@ def _(dm, fit, frame, mo):
         dm.demand_line(fit, frame),
         dm.calendar_effects(fit),
     ])
-    return
-
-
-@app.cell(hide_code=True)
-def _(dm, final, fit, frame, mo):
-    mo.vstack([
-        mo.md(rf"""
-        ## 8 · Following behaviour: recent years count more
-
-        Demand fell after the 2022 price shock and has partly recovered since. Rather than pick break
-        dates, each training day is **weighted by its age, halving every {final.MODEL.half_life:g} year**,
-        so the model follows how people use gas now (`decisions.md` C7).
-        """),
-        dm.recency(fit, frame, final.MODEL.half_life),
-        mo.md("What that adjusts for: the gap between actual demand and today's model, month by month. "
-              "Earlier years sit above zero where demand was higher than now; recent months sit close to it."),
-        dm.drift(fit, frame),
-    ])
-    return
-
-
-@app.cell(hide_code=True)
-def _(dm, fit, ldz, mo):
-    mo.vstack([
-        mo.md(rf"""
-        ## 9 · All parameters for {ldz}
-
-        Ours against the published values for October 2025 onwards, in our units (wind in m/s). The
-        seasonal shape and solar have no published equivalent in these units.
-        """),
-        mo.md(dm.markdown_table(dm.parameter_table(fit, ldz))),
-        mo.md("And the line demand is fitted on (§7):"),
-        mo.md(dm.markdown_table(dm.linear_table(fit))),
-    ])
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## 10 · Alternatives tried
-
-    Each was fitted and scored the same way; the reasons are in `docs/decisions.md`, the scores in
-    `docs/results.md`.
-
-    - **No seasonal term** — 17% worse; a **slow "heating-season" temperature** instead of the shape —
-      close behind (C2).
-    - **The official form of the seasonal term** — no unique solution, so rewritten (C3).
-    - **A straight line instead of the cold upturn**, or **the published upturn** — both worse on cold days (C4).
-    - **A separate summer level** — better in July – August, worse in spring; no net gain (C5).
-    - **Fixed coefficients**, **a break in autumn 2022**, **a level per gas year** — recency weighting
-      beat them over three forward years (C7).
-    - **The day's minimum / maximum temperature** — a small gain, held back because ERA5 and the
-      ensemble define them differently (N2).
-
-    ---
-
-    *Interactivity here is kept light — an LDZ picker and one slider. More could be added (for example
-    sliders on the CW → CWV curve).*
-    """)
     return
 
 

@@ -16,19 +16,13 @@ def _():
 
 
 @app.cell(hide_code=True)
-def _():
+def _(mo):
     from ldz_demand.charts import pages as _pages
 
-    _pages.nav("ldz_weather.py")
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
+    _pages.header("ldz_weather.py", mo.md(r"""
     # LDZ weather
     *One temperature per LDZ, every gas day: how much does the way we draw and weight the LDZ matter?*
-
+    """), mo.md(r"""
     The demand model takes each LDZ's weather as a **weighted mean of ERA5 grid cells** (0.25°,
     roughly 28 × 17 km). Which cells count, and how much, is a modelling choice with two parts, and
     this page builds every combination rather than picking one:
@@ -47,7 +41,7 @@ def _(mo):
     **What matters for the model** is the *day-to-day* difference between variants. A constant offset,
     such as one variant always 0.3 °C warmer, is absorbed when the model is fitted. Noise that changes
     from day to day is not: it blurs the temperature–demand relationship.
-    """)
+    """))
     return
 
 

@@ -1,5 +1,5 @@
 """
-Charts for the Demand model page: each part of the CWV and the demand model, shown with the final fit
+Charts for the Model specification and Model calibration pages: each part of the CWV and the demand model, shown with the final fit
 (ldz_demand.models.fit) for one LDZ. They explain what each part does, not how well the model scores
 (that's the results).
 """

@@ -16,18 +16,12 @@ def _():
 
 
 @app.cell(hide_code=True)
-def _():
+def _(mo):
     from ldz_demand.charts import pages as _pages
 
-    _pages.nav("era5_weather.py")
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
+    _pages.header("era5_weather.py", mo.md(r"""
     # ERA5 weather
-
+    """), mo.md(r"""
     **ERA5** is ECMWF's reanalysis: a reconstruction of the weather every hour since 1940, made by
     combining observations with a weather model. It is what the demand model is trained on — the same
     kind of 2 m temperature and 10 m wind fields that the ECMWF ensemble will forecast later.
@@ -35,7 +29,7 @@ def _(mo):
     The raw grid is 0.25° (~28 km). Below, it is averaged into coarser square cells so each can be labelled,
     and you can step through the **gas day** — 05:00 to 05:00 UK time, the day gas demand is measured
     over. Pick one of a few days chosen from the archive for what they show.
-    """)
+    """))
     return
 
 

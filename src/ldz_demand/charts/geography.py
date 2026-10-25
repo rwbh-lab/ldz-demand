@@ -15,7 +15,7 @@ import plotly.graph_objects as go
 
 from ldz_demand.charts import coastline
 from ldz_demand.charts.era5 import _mercator_mid
-from ldz_demand.charts.style import active
+from ldz_demand.charts.style import active, chart_bg
 from ldz_demand.data.ingest.national_gas import LDZS
 from ldz_demand.geo import boundaries
 
@@ -114,7 +114,7 @@ def ldz_map(las: pd.DataFrame, towns: pd.DataFrame | None = None, view: str = "l
         projection_type="mercator", resolution=50, lataxis_range=[south, north], lonaxis_range=[west, east],
         center=dict(lat=_mercator_mid(south, north), lon=(west + east) / 2),
         showland=True, landcolor=t.surface, showocean=True, oceancolor=t.page, showcoastlines=False,
-        showcountries=False, showlakes=False, bgcolor=t.surface, showframe=False,
+        showcountries=False, showlakes=False, bgcolor=chart_bg(t), showframe=False,
     )
     titles = {"ldz": "LDZ membership", "confidence": "Confidence: share of town votes for the winning LDZ",
               "gap": "Gap to measured demand: LDZ share of gas use minus share of National Gas demand (pp)"}

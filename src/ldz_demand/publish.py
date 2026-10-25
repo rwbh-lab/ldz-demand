@@ -44,7 +44,7 @@ def snapshot_date() -> str:
 
 
 def relink(html: str) -> str:
-    """Links between pages ('/', '/results') -> the site's paths ('/ldz-demand/', '/ldz-demand/results/')."""
+    """Links between pages ('/', '/live-forecasts') -> the site's paths ('/ldz-demand/', '/ldz-demand/live-forecasts/')."""
     paths = {"/"} | {page.path for page in PAGES.values()}
 
     def site_path(match: re.Match) -> str:

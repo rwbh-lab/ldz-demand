@@ -16,19 +16,13 @@ def _():
 
 
 @app.cell(hide_code=True)
-def _():
+def _(mo):
     from ldz_demand.charts import pages as _pages
 
-    _pages.nav("ensemble_forecasts.py")
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
+    _pages.header("ensemble_forecasts.py", mo.md(r"""
     # Ensemble LDZ weather
     *Fifty equally likely futures for each LDZ, every day, out to 15 days.*
-
+    """), mo.md(r"""
     The official forecast gives one Composite Weather Variable per LDZ and gas day. The ECMWF
     ensemble gives **50 members**, each an equally likely version of the next 15 days, run through our
     LDZ map and gas-use weighting. The spread between them is the forecast's uncertainty, and its
@@ -37,7 +31,7 @@ def _(mo):
     shape before it goes into the demand model.
 
     Data: the 00z run each day (published ~09:30 UTC), per LDZ, gas days 0 (the run's own day) to 14.
-    """)
+    """))
     return
 
 

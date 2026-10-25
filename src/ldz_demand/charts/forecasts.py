@@ -1,5 +1,5 @@
 """
-Charts for the Demand forecasts page: the fan for one run, how the forecast for each day moved from run
+Charts for the Live forecasts page: the fan for one run, how the forecast for each day moved from run
 to run, and how forecasts verify against demand as it is published.
 """
 

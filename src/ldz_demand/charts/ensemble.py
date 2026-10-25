@@ -19,7 +19,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import xarray as xr
 
-from ldz_demand.charts.style import active
+from ldz_demand.charts.style import active, chart_bg
 from ldz_demand.data.ingest.national_gas import LDZS
 
 GB = "GB"
@@ -355,7 +355,7 @@ def mean_map(da: xr.DataArray, run_date, variable: str = "t2m") -> go.Figure:
     fig.update_geos(projection_type="mercator", resolution=50, lataxis_range=[south, north], lonaxis_range=[west, east],
                     center=dict(lat=_mercator_mid(south, north), lon=(west + east) / 2), showland=True,
                     landcolor=t.surface, showocean=True, oceancolor=t.page, showcoastlines=False, showcountries=False,
-                    showlakes=False, bgcolor=t.surface, showframe=False)
+                    showlakes=False, bgcolor=chart_bg(t), showframe=False)
     steps = [dict(method="animate", label=f"{run + pd.Timedelta(days=lead):%a %d}",
                   args=[[str(lead)], dict(mode="immediate", frame=dict(duration=0, redraw=True), transition=dict(duration=0))])
              for lead in leads]

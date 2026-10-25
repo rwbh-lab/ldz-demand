@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.25.1"
-app = marimo.App(width="medium", app_title="LDZ demand · Results", css_file="theme.css")
+app = marimo.App(width="medium", app_title="LDZ demand · Backtesting results", css_file="theme.css")
 
 
 @app.cell(hide_code=True)
@@ -17,25 +17,19 @@ def _():
 
 
 @app.cell(hide_code=True)
-def _():
+def _(mo):
     from ldz_demand.charts import pages as _pages
 
-    _pages.nav("results.py")
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    # Results
+    _pages.header("backtesting_results.py", mo.md(r"""
+    # Backtesting results
     *How well the model does, against the official CWV and against National Gas's own forecasts.*
-
+    """), mo.md(r"""
     Every score here is **out of sample**: each gas year from 2023/24 is predicted by a model fitted only on
     the years before it — as a forecaster would have had to. Scores are for **GB**, the sum of the 13
     LDZs, on days every LDZ has, with actual weather (ERA5). How the model works is on the
-    [Demand model](/demand-model) page; the reasoning behind each choice is in `docs/decisions.md`, and
+    [Model specification](/model-specification) page; the reasoning behind each choice is in `docs/decisions.md`, and
     the full write-up in `docs/results.md`.
-    """)
+    """))
     return
 
 

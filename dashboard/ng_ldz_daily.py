@@ -17,25 +17,19 @@ def _():
 
 
 @app.cell(hide_code=True)
-def _():
+def _(mo):
     from ldz_demand.charts import pages as _pages
 
-    _pages.nav("ng_ldz_daily.py")
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
+    _pages.header("ng_ldz_daily.py", mo.md(r"""
     # National Gas LDZ data
-
+    """), mo.md(r"""
     Daily gas demand for each of GB's 13 Local Distribution Zones (LDZs), as published by National Gas.
     The page is in two parts:
 
     - **Part I · Published data** — what National Gas publishes, and whether it adds up (§1–3).
     - **Part II · From published data to the model target** — our own work: checking the published
       totals, repairing what can be repaired, and building the variable the model predicts (§4–7).
-    """)
+    """))
     return
 
 

@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.25.1"
-app = marimo.App(width="medium", app_title="LDZ demand · Demand forecasts", css_file="theme.css")
+app = marimo.App(width="medium", app_title="LDZ demand · Live forecasts", css_file="theme.css")
 
 
 @app.cell(hide_code=True)
@@ -17,21 +17,15 @@ def _():
 
 
 @app.cell(hide_code=True)
-def _():
+def _(mo):
     from ldz_demand.charts import pages as _pages
 
-    _pages.nav("demand_forecasts.py")
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    # Demand forecasts
+    _pages.header("live_forecasts.py", mo.md(r"""
+    # Live forecasts
     *Gas demand for the next two weeks, per LDZ, from the ECMWF ensemble.*
-
+    """), mo.md(r"""
     Each day's 00z ensemble gives 50 equally likely versions of the next 15 days' weather. Each goes
-    through the [demand model](/demand-model), giving 50 demand paths per LDZ for lead days 0–13; GB is
+    through the [demand model](/model-specification), giving 50 demand paths per LDZ for lead days 0–13; GB is
     their sum, member by member.
 
     **The intervals include the model's own error, not just the weather's.** On its own, the spread of
@@ -43,7 +37,7 @@ def _(mo):
 
     Demand is total − DM (the model's target), GWh/day. Actual demand appears as it is published:
     provisional (D+1) as open circles, closed out (D+6) as filled.
-    """)
+    """))
     return
 
 

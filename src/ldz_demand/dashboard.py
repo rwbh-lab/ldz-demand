@@ -6,7 +6,7 @@ Serve every dashboard page from one local server, with the overview page at /.
     python -m ldz_demand.dashboard --no-forecast  # skip making forecasts for new ensemble runs on start-up
 
 On start-up, any built ensemble run without a demand forecast gets one first (as the weekly job would),
-so the Demand forecasts page shows the latest run.
+so the Live forecasts page shows the latest run.
 """
 
 import argparse

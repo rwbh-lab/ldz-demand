@@ -86,10 +86,10 @@ timings, the optional MySQL backend and the scheduled jobs — is in [docs/user_
 | Section | Pages |
 |---|---|
 | Project | Overview (a short write-up) · Project map |
-| Data | National Gas data (with how the model target is built) · ERA5 weather |
-| Pre-CWV models | LDZ geography · LDZ weather · Ensemble LDZ weather |
-| CWV model | Demand model — each part of the model, with its fitted values |
-| Outputs | Results · Demand forecasts |
+| Datasets | National Gas data (with how the model target is built) · ERA5 weather |
+| Pre-CWV | LDZ geography · LDZ weather · LDZ ensemble weather forecasts |
+| CWV model | Model specification — each part of the model · Model calibration — how it is fitted, every value |
+| Outputs | Backtesting results · Live forecasts |
 
 ## Documentation
 

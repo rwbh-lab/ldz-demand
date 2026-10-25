@@ -16,7 +16,7 @@ import plotly.graph_objects as go
 from plotly.colors import sample_colorscale
 
 from ldz_demand.charts import coastline
-from ldz_demand.charts.style import active
+from ldz_demand.charts.style import active, chart_bg
 from ldz_demand.data.build.gas_day import gas_day_slice
 from ldz_demand.data.ingest.era5 import load_hourly
 
@@ -157,7 +157,7 @@ def grid_map(hourly, variable: str = "t2m", lat_points: int = 4, title: str | No
         center=dict(lat=_mercator_mid(south, north), lon=(west + east) / 2),
         showland=True, landcolor=t.surface, showocean=True, oceancolor=t.page, showlakes=False,
         showcoastlines=False,  # replaced by the detailed coastline trace above
-        showcountries=True, countrycolor=t.muted, bgcolor=t.surface, showframe=False,
+        showcountries=True, countrycolor=t.muted, bgcolor=chart_bg(t), showframe=False,
     )
     steps = [dict(method="animate", label=f.name[:2],
                   args=[[f.name], dict(mode="immediate", frame=dict(duration=0, redraw=True), transition=dict(duration=0))])

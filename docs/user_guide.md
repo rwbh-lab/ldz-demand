@@ -503,7 +503,7 @@ table first: in CSV mode remove `data/cache/ng_ldz_daily.csv`; in MySQL mode emp
   ```
   Each page loads its data when first opened (a few seconds), then stays responsive. On start-up, any
   built ensemble run without a demand forecast gets one first (a 1 s check when
-  there is none), so the Demand forecasts page shows the latest run; `--no-forecast` skips it.
+  there is none), so the Live forecasts page shows the latest run; `--no-forecast` skips it.
 
   **The hosted snapshot** ([rwbh-lab.github.io/ldz-demand](https://rwbh-lab.github.io/ldz-demand/)) is the
   same pages run once against the local data and saved with their outputs: charts keep hover and zoom,

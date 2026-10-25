@@ -16,19 +16,13 @@ def _():
 
 
 @app.cell(hide_code=True)
-def _():
+def _(mo):
     from ldz_demand.charts import pages as _pages
 
-    _pages.nav("ldz_geography.py")
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
+    _pages.header("ldz_geography.py", mo.md(r"""
     # LDZ geography
     *Mapping the zones, and weighting the weather to where the gas is used.*
-
+    """), mo.md(r"""
     The official Composite Weather Variable (CWV) takes each LDZ's weather from **a single weather
     station** — and some stations serve several LDZs: **East Anglia, North Thames and the South East
     all use Heathrow**; North West and North Wales share Rostherne in Cheshire. A station is a point;
@@ -37,7 +31,7 @@ def _(mo):
     This model instead takes weather from a **grid** (ERA5, ~28 km cells) and averages it over each
     LDZ, weighted to where gas is actually used. That needs two things this page builds and checks:
     **which places belong to which LDZ**, and **how to weight the grid inside each LDZ**.
-    """)
+    """))
     return
 
 
