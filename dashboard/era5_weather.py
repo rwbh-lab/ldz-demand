@@ -21,6 +21,7 @@ def _(mo):
 
     _pages.header("era5_weather.py", mo.md(r"""
     # ERA5 weather
+    *The hourly weather the model is trained on: temperature and wind on a 0.25° grid over Great Britain.*
     """), mo.md(r"""
     **ERA5** is ECMWF's reanalysis: a reconstruction of the weather every hour since 1940, made by
     combining observations with a weather model. It is what the demand model is trained on — the same

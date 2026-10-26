@@ -22,6 +22,7 @@ def _(mo):
 
     _pages.header("ng_ldz_daily.py", mo.md(r"""
     # National Gas LDZ data
+    *Five years of daily demand per LDZ as published, and the target the model predicts, built from it.*
     """), mo.md(r"""
     Daily gas demand for each of GB's 13 Local Distribution Zones (LDZs), as published by National Gas.
     The page is in two parts:
