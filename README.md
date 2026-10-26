@@ -109,11 +109,12 @@ src/ldz_demand/
   geo/               the LDZ map and grid weights; small derived reference tables in geo/data/
   models/            CWV form, demand fit, experiments, final fit, forecasts, results bundle
   charts/            Plotly charts and the shared theme; the project map
+  jobs.py            the scheduled jobs: which steps, in what order
   project_map.py     the pipeline as data (a test checks it matches the code)
   db/                MySQL connection, DDL, migration runner
 dashboard/           marimo pages
 db/migrations/       versioned SQL migrations
-deploy/nas/          scheduled jobs for a home server (daily ensemble; weekly refresh + forecasts)
+deploy/docker/       the scheduled jobs on any Docker host (daily ensemble; weekly refresh + forecasts)
 docs/                methodology, decisions, results, user guide
 tests/
 ```

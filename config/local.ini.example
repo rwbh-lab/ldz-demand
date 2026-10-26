@@ -4,5 +4,5 @@
 [storage]
 # true -> processed tables go to MySQL (connection details in .env, see .env.example)
 database = true
-# Raw downloads (National Gas CSVs, ERA5 NetCDF, ECMWF GRIB) — e.g. a mounted NAS share
+# Raw downloads (National Gas CSVs, ERA5 NetCDF, ECMWF GRIB) — e.g. a mounted network share
 raw_dir = /Volumes/<share>/ldz-demand/raw

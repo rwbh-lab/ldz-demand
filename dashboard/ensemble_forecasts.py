@@ -218,7 +218,7 @@ def _(mo, runs):
 def _(mo):
     mo.accordion({
         "How this was built": mo.md(r"""
-        - Runs: `python -m ldz_demand.data.ingest.ecmwf_ens refresh` (daily on the NAS) → LDZ values:
+        - Runs: `python -m ldz_demand.data.ingest.ecmwf_ens refresh` (the daily scheduled job) → LDZ values:
           `python -m ldz_demand.data.build.ens_ldz_daily` → table `ens_ldz_daily`.
         - Each member's gas-day values use the same cell weights as the ERA5 tables (LDZ geography and
           LDZ weather pages); temperature and wind are averaged over the gas day, the extremes, solar

@@ -299,81 +299,67 @@ python -m ldz_demand.data.build.ens_ldz_daily --since 2026-10-10  # every run fr
   the periods at least half inside it.
 - The gridded runs stay archived, so the table can be rebuilt with another method or variant.
 
-#### Daily on a Synology NAS (Container Manager)
+### 5.4 Scheduled jobs (Docker)
 
-The `Dockerfile` builds a container for the scheduled jobs (default command: the ensemble refresh).
-The NAS needs an Intel/AMD image, built on the Mac and copied over. `<share>` below is the NAS shared
-folder holding `ldz-demand/` (seen on the NAS as `/volume1/<share>`, on the Mac as `/Volumes/<share>`):
+Two jobs keep everything current; `ldz_demand/jobs.py` lists their steps (`python -m ldz_demand.jobs
+daily --list`):
+
+| Job | When | Steps |
+|---|---|---|
+| `daily` | daily, after the 00z ensemble is published (~09:30 UTC) | `ecmwf_ens refresh` → `ens_ldz_daily` |
+| `weekly` | weekly, e.g. Sunday after that day's daily job | `national_gas refresh` → `ng_ldz_daily`, `ng_offtake_daily`, `ng_forecast_daily` → `era5 refresh` → `weather_ldz_daily --recent 1` → `models.forecast --missing` |
+
+Only the ensemble has to be daily: its runs leave the portal after a few days. National Gas keeps five
+years and Copernicus all of ERA5, and the forecasts are made *as issued* (each uses only the ERA5 that
+existed on its run date), so a weekly batch makes the same forecasts a daily job would have. Every step
+runs even if an earlier one failed (a missing ERA5 week is bridged in the forecasts); the job fails if
+any step does, so the scheduler can report it.
+
+**The image.** The `Dockerfile` packages the jobs (with the `weather`, `db` and `forecast` extras). In
+the container the config is `config/docker.ini`: the raw archive is mounted at `/data/raw` and tables go
+to MySQL, so the jobs need the database settings.
 
 ```bash
-docker build --platform linux/amd64 -t ldz-demand:latest .
-docker save ldz-demand:latest | gzip > /Volumes/<share>/ldz-demand/images/ldz-demand.tar.gz
+docker build -t ldz-demand .     # add --platform linux/amd64 to build on Apple silicon for an Intel/AMD host
 ```
 
-1. **Import** — Container Manager → Image → Action → Import → Add from file → choose
-   `ldz-demand.tar.gz` on the share. Repeat both steps after code changes.
-2. **Schedule** — Control Panel → Task Scheduler → Create → Scheduled Task → User-defined script:
-   - General: user `root` (Docker on DSM needs it).
-   - Schedule: daily, **11:00** UK time (the 00z run is complete by ~09:30 UTC).
-   - Task settings → Run command:
-     ```bash
-     bash /volume1/<share>/ldz-demand/deploy/ens_daily.sh
-     ```
-     The script is `deploy/nas/ens_daily.sh` in the repo (commented: settings at the top, then the two
-     steps). Copy it to the share after any change:
-     ```bash
-     mkdir -p /Volumes/<share>/ldz-demand/deploy && cp deploy/nas/ens_daily.sh /Volumes/<share>/ldz-demand/deploy/
-     ```
-     It downloads, then builds `ens_ldz_daily` (the build runs even if the download failed, so earlier
-     runs still get built), and fails if either step does. Each step's container is kept after it
-     finishes, so its log stays readable until the next run. The script finds the share from its own
-     location (`ldz-demand/deploy/`), so nothing needs editing.
-   - `docker.env` holds the database settings for the build (`LDZ_DB_HOST`, `LDZ_DB_PORT`, `LDZ_DB_NAME`,
-     `LDZ_DB_USER`, `LDZ_DB_PASSWORD`). Set `LDZ_DB_HOST` to the NAS's **LAN** address (e.g.
-     192.168.x.x): a container reaches it, but not necessarily a Tailscale address. Make the file
-     readable by root only.
-   - Tick *Send run details by email* and *only when the script terminates abnormally* (needs DSM
-     email notifications set up: Control Panel → Notification).
-3. **Logs**
-   - Latest run: Container Manager → Container → `ldz-ens-download` / `ldz-ens-build` → Details → Log.
-   - Every run: Task Scheduler → Settings → *Save output results* to a folder (e.g.
-     `<share>/ldz-demand/logs`); Action → View Result shows the latest.
-   - Archive contents: `docker run --rm -v /volume1/<share>/ldz-demand/raw:/data/raw ldz-demand:latest ldz_demand.data.ingest.ecmwf_ens status`.
+**Running a job.** `deploy/docker/compose.yaml` defines both jobs. Copy `deploy/docker/.env.example` to
+`deploy/docker/.env` (git-ignored) and set the paths for this host: `RAW_DIR` (the raw archive), `DB_ENV`
+(a file with `LDZ_DB_HOST`, `LDZ_DB_PORT`, `LDZ_DB_NAME`, `LDZ_DB_USER`, `LDZ_DB_PASSWORD`) and, for the
+weekly job, `CDS_ENV` (a file with `CDSAPI_URL` and `CDSAPI_KEY`). Keep the two settings files readable
+by their owner only. Then:
 
-Inside the container the config is `config/docker.ini` (`raw_dir = /data/raw`). Jobs that write to
-MySQL also need the database settings: add `--env-file <path to .env>` to the command.
+```bash
+docker compose -f deploy/docker/compose.yaml run --rm daily
+docker compose -f deploy/docker/compose.yaml run --rm weekly
+```
 
-#### Weekly on the NAS: National Gas, ERA5 and demand forecasts
+Without Compose, the same with `docker run`:
 
-Everything except the ensemble can run weekly: National Gas keeps five years and Copernicus all of ERA5,
-so nothing is lost by waiting, and the demand forecasts are made *as issued* (each uses only the ERA5
-that existed on its run date), so a weekly batch makes the same forecasts a daily job would have.
-`deploy/nas/weekly.sh` runs, each in its own container:
+```bash
+docker run --rm -v <raw dir>:/data/raw --env-file <db.env> ldz-demand ldz_demand.jobs daily
+docker run --rm -v <raw dir>:/data/raw --env-file <db.env> --env-file <cds.env> ldz-demand ldz_demand.jobs weekly
+```
 
-1. National Gas: `national_gas refresh`, then `ng_ldz_daily`, `ng_offtake_daily`, `ng_forecast_daily`;
-2. ERA5: `era5 refresh`, then `weather_ldz_daily --recent 1` (this month and last);
-3. forecasts: `models.forecast --missing` — every built ensemble run without a stored forecast.
+The database host must be reachable from inside a container: usually the server's LAN address rather
+than `localhost` or a VPN-only address. Migration 007 (`demand_forecast_daily`) must be applied
+(`python -m ldz_demand.db migrate`).
 
-Set-up, once:
+**Scheduling.** Use whatever the host has; the job is one command either way. For example:
 
-- **Image** — rebuild and import it as above (the image now includes the `forecast` extra: scipy, holidays).
-- **Copernicus key** — create `cds.env` on the share next to `docker.env`, readable by root only:
+- **cron** (Linux):
   ```
-  CDSAPI_URL=https://cds.climate.copernicus.eu/api
-  CDSAPI_KEY=<your API token, from your CDS profile page>
+  0 11 * * *  cd /path/to/ldz-demand && docker compose -f deploy/docker/compose.yaml run --rm daily  >> logs/daily.log 2>&1
+  0 12 * * 0  cd /path/to/ldz-demand && docker compose -f deploy/docker/compose.yaml run --rm weekly >> logs/weekly.log 2>&1
   ```
-- **Migration 007** (`demand_forecast_daily`) applied: `python -m ldz_demand.db migrate`.
-- **Script** — copy it to the share:
-  ```bash
-  cp deploy/nas/weekly.sh /Volumes/<share>/ldz-demand/deploy/
-  ```
-- **Schedule** — Task Scheduler → Create → Scheduled Task → User-defined script: user `root`; weekly,
-  e.g. **Sunday 12:00** (after that day's ensemble job); Run command
-  `bash /volume1/<share>/ldz-demand/deploy/weekly.sh`; email on abnormal termination, as for the
-  daily job.
+- **macOS:** a launchd agent running the same commands (`StartCalendarInterval`).
+- **A NAS** (Synology, QNAP, …): its task scheduler, running the `docker run` form as a user allowed to
+  use Docker, with email on failure if it offers it.
+- **Without Docker:** the same jobs run directly, `python -m ldz_demand.jobs daily`, with the
+  `weather,db,forecast` extras installed and `config/local.ini` pointing at the archive and the database.
 
-Each step runs even if an earlier one failed (a missing ERA5 week is bridged in the forecasts), and the
-task fails if any step does. Logs: Container Manager → Container → `ldz-weekly-*` → Details → Log.
+Archive contents at any time:
+`docker run --rm -v <raw dir>:/data/raw ldz-demand ldz_demand.data.ingest.ecmwf_ens status`.
 
 ---
 
@@ -461,7 +447,7 @@ Key: `(run_date, run_hour, member, gas_day, ldz, membership, weighting, variable
 |---|---|---|
 | National Gas | Weekly (or daily) | D+6 values close out a week behind; the 10-day lookback fills them in |
 | ERA5 | Monthly | Preliminary months are replaced by final data after ~3 months |
-| ECMWF ensemble | **Daily** | Runs leave the portal after a few days (§5.3: scheduled on the NAS) |
+| ECMWF ensemble | **Daily** | Runs leave the portal after a few days (§5.4: the daily job) |
 
 **Back up `raw_dir`.** For National Gas it will become the only copy of the oldest years.
 
@@ -585,6 +571,7 @@ print((100 * (total_kwh - parts) / total_kwh).describe())   # SE 2026: mean ~1%,
 | `python -m ldz_demand.models.results` | Export the compact results bundle for the dashboard → `models/data/results/` |
 | `python -m ldz_demand.models.forecast DATE… \| --missing` | Demand forecasts from ensemble runs → `demand_forecast_daily` |
 | `python -m ldz_demand.dashboard` | Serve all dashboard pages (overview at /), forecasting new ensemble runs first |
+| `python -m ldz_demand.jobs daily \| weekly [--list]` | The scheduled jobs (§5.4); usually run in the Docker image |
 | `python -m ldz_demand.db status` | MySQL: connection check + migration status |
 | `python -m ldz_demand.db migrate [--dry-run]` | MySQL: apply pending migrations |
 | `python -m ldz_demand.db draft DATASET` | Print a `CREATE TABLE` for a dataset (developers) |

@@ -283,7 +283,7 @@ outcomes are in [results.md](results.md) and, in brief, [decisions.md](decisions
 
 ## 8. Forecasting
 
-ECMWF ensemble, 50 members, 15 days, 00z run, archived daily (user guide §5.3). Each member through
+ECMWF ensemble, 50 members, 15 days, 00z run, archived daily (user guide §5.3, §5.4). Each member through
 the fitted model gives a demand distribution per LDZ and gas day. Still to design:
 
 - **Effective temperature at the start of a forecast** needs the days before the run; ERA5 runs ~5

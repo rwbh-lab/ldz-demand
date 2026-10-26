@@ -1,6 +1,7 @@
-# ldz-demand scheduled jobs: the daily ECMWF ensemble job and the weekly refresh + forecasts (deploy/nas/).
-#   docker build -t ldz-demand .                                  (or --platform linux/amd64 for the NAS)
-#   docker run --rm -v <raw dir>:/data/raw ldz-demand             (default: ensemble refresh)
+# ldz-demand scheduled jobs: the daily ECMWF ensemble job and the weekly refresh + forecasts
+# (ldz_demand/jobs.py; run them with deploy/docker/compose.yaml).
+#   docker build -t ldz-demand .                                  (--platform linux/amd64 for an Intel/AMD host)
+#   docker run --rm -v <raw dir>:/data/raw ldz-demand ldz_demand.jobs daily
 #   docker run --rm -v <raw dir>:/data/raw ldz-demand ldz_demand.data.ingest.ecmwf_ens status
 FROM python:3.12-slim
 

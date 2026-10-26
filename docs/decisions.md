@@ -73,7 +73,7 @@ Last updated: 14 October 2026.
 ### D4. Forecasts: the ECMWF ensemble, 00z, 15 days
 
 - **Chosen:** the 00z run of the ECMWF open-data ensemble (50 members), out to 15 days, cropped to GB
-  as each step downloads; archived daily by a container on the NAS.
+  as each step downloads; archived by the daily scheduled job.
 - **Instead of:** a deterministic forecast; the 12z run; storing global files.
 - **Why:** 50 members give a demand distribution, not a point, and its shape matters (a cold tail lifts
   expected demand); 15 days covers the gas prompt window despite lower skill at long leads; cropping

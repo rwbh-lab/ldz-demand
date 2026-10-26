@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 BASE = "/ldz-demand"  # GitHub Pages serves the repo at <user>.github.io/<repo>/
 REMOTE, BRANCH = "github", "gh-pages"
 LINK = re.compile(r'(href=\\?")(/[a-z0-9-]*)(\\?")')  # as markdown links appear in the exported HTML
-# never published: local paths (home folder, NAS share) and private network addresses
+# never published: local paths (home folder, mounted shares) and private network addresses
 PRIVATE = re.compile(r"/Users/|/Volumes/|/volume\d/|\b192\.168\.\d|\b10\.\d+\.\d+\.\d+|\b100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d")
 
 
@@ -69,7 +69,7 @@ def export(notebook: Path, target: Path, env: dict) -> None:
     if leak := PRIVATE.search(html):
         target.unlink()
         raise RuntimeError(f"{notebook.name}: the page shows a local path or address ({leak.group(0)!r}...), so it "
-                           "isn't published. Usually a page that couldn't find its data (e.g. the NAS share not mounted).")
+                           "isn't published. Usually a page that couldn't find its data (e.g. a network share not mounted).")
     target.write_text(html)
     logger.info(f"{notebook.name} -> {target} ({target.stat().st_size / 1e6:.1f} MB, {time.monotonic() - start:.0f} s)")
 
