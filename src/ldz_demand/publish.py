@@ -1,8 +1,8 @@
 """
 Publish the dashboard as a static snapshot for GitHub Pages (https://rwbh-lab.github.io/ldz-demand/).
 
-    python -m ldz_demand.publish            # export every page into site/ (git-ignored)
-    python -m ldz_demand.publish --push     # ... then push site/ to the gh-pages branch of the `github` remote
+    python -m ldz_demand.publish            # export every page into deploy/site/ (git-ignored)
+    python -m ldz_demand.publish --push     # ... then push deploy/site/ to the gh-pages branch of the `github` remote
 
 Each page is run once against the local data (marimo export html) and saved with its outputs: the Plotly
 charts keep hover and zoom, but marimo's controls are fixed at their defaults. Each page says it is a
@@ -109,7 +109,7 @@ def push(out: Path, date: str) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m ldz_demand.publish")
-    parser.add_argument("--out", type=Path, default=get_project_root() / "site", help="where to write the site")
+    parser.add_argument("--out", type=Path, default=get_project_root() / "deploy" / "site", help="where to write the site")
     parser.add_argument("--push", action="store_true", help=f"push the site to the {BRANCH} branch of `{REMOTE}`")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")

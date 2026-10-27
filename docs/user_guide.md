@@ -496,7 +496,7 @@ table first: in CSV mode remove `data/cache/ng_ldz_daily.csv`; in MySQL mode emp
   marimo's controls stay at their defaults, and each page says what date its data runs to. To refresh it
   (e.g. after the weekly job; the ERA5 page needs the raw archive, so mount the share first):
   ```bash
-  python -m ldz_demand.publish          # build into site/ (~2 min) to look at first
+  python -m ldz_demand.publish          # build into deploy/site/ (~2 min) to look at first
   python -m ldz_demand.publish --push   # build and replace the gh-pages branch on the `github` remote
   ```
   A page that shows a local path or a private address (usually one that couldn't find its data) stops the

@@ -32,7 +32,8 @@ data/results/*
 dashboard/__marimo__/
 
 # Private notes: workstream tracker, internal learning documents — never published
-private/
+# (deploy/ci/check.sh fails if anything here is tracked)
+/docs/private/
 
-# Static dashboard snapshot (python -m ldz_demand.publish)
-/site/
+# Static dashboard snapshot (python -m ldz_demand.publish), pushed to gh-pages — never on main
+/deploy/site/
