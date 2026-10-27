@@ -7,7 +7,7 @@ solar; gas-weighted) goes through the fitted model, giving 50 equally likely dem
 
 The effective temperature needs the days before the run. ERA5 runs about five days behind, so only ERA5
 days that would have existed when the run was issued are used (ERA5_LAG_DAYS) — a forecast made later,
-in a weekly batch, is the same one a daily job would have made. The days between are bridged with the
+in a batch or a catch-up, is the same one made on the day. The days between are bridged with the
 ensemble mean of the most recent earlier run covering each day, and where no run does, a straight line
 between the nearest known days. The model
 forgets fast (y ≈ 0.4–0.55: a day's weight halves in about a day), so the bridge matters little after the

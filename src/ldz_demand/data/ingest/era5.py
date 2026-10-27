@@ -10,8 +10,10 @@ licence accepted on the dataset page.
 Final vs preliminary data: ERA5 is published with ~5 days' latency as preliminary "ERA5T", which
 is replaced by final ERA5 about 2-3 months later (values can change slightly). Months older than
 FINAL_AFTER_DAYS are downloaded once to era5_gb_YYYY-MM.nc and never fetched again. More recent
-months are downloaded to a new era5t_gb_YYYY-MM_pulled_<UTC time>.nc on each pull; load_hourly
-uses the final file when present, else the latest preliminary one.
+months are downloaded to a new era5t_gb_YYYY-MM_pulled_<UTC time>.nc on each pull, unless an earlier
+pull already reaches the month's last day (then the next download is the final file); load_hourly uses the
+final file when present, else the latest preliminary one. So a daily refresh asks CDS for the current
+month (and the previous one for its last days), not every preliminary month again.
 
 Gas-day aggregation and LDZ weighting happen in ldz_demand.data.build, not here.
 
@@ -96,6 +98,9 @@ class ERA5Ingestor:
                 if path.exists():
                     logger.info(f"{month}: final file exists, skipping")
                     continue
+            elif self.complete_pull(month):
+                logger.info(f"{month}: preliminary file covers the whole month, skipping until final")
+                continue
             else:
                 pulled = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
                 path = self.raw_dir / month[:4] / f"{self.prefix}t_gb_{month}_pulled_{pulled}.nc"
@@ -108,6 +113,18 @@ class ERA5Ingestor:
         today = today or date.today()
         latest = (today - timedelta(days=LATENCY_DAYS)).strftime("%Y-%m")
         return self.pull(start, latest, today)
+
+    def complete_pull(self, month: str) -> bool:
+        """Whether the latest preliminary pull of month already reaches its last day."""
+        _, prelim_name = _names(self.group)
+        pulls = sorted((m.group(2), p) for p in (self.raw_dir / month[:4]).glob("*.nc")
+                       if (m := prelim_name.fullmatch(p.name)) and m.group(1) == month)
+        if not pulls:
+            return False
+        with xr.open_dataset(pulls[-1][1]) as ds:
+            time = ds["valid_time"] if "valid_time" in ds.variables else ds["time"]
+            last = pd.Timestamp(time.values.max())
+        return last.date() >= _month_end(month)
 
     def final_path(self, month: str) -> Path:
         return self.raw_dir / month[:4] / f"{self.prefix}_gb_{month}.nc"

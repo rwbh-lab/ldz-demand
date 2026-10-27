@@ -1,4 +1,4 @@
-# ldz-demand scheduled jobs: the daily ECMWF ensemble job and the weekly refresh + forecasts
+# ldz-demand scheduled job: the daily refresh of every source, the builds and the forecasts
 # (ldz_demand/jobs.py; run them with deploy/docker/compose.yaml).
 #   docker build -t ldz-demand .                                  (--platform linux/amd64 for an Intel/AMD host)
 #   docker run --rm -v <raw dir>:/data/raw ldz-demand ldz_demand.jobs daily

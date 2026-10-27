@@ -302,19 +302,27 @@ python -m ldz_demand.data.build.ens_ldz_daily --since 2026-10-10  # every run fr
 
 ### 5.4 Scheduled jobs (Docker)
 
-Two jobs keep everything current; `ldz_demand/jobs.py` lists their steps (`python -m ldz_demand.jobs
-daily --list`):
+One daily job keeps everything current; `ldz_demand/jobs.py` lists its steps (`python -m ldz_demand.jobs
+daily --list`). It runs in two stages, the first with two branches side by side:
 
-| Job | When | Steps |
+| Stage | Branch | Steps |
 |---|---|---|
-| `daily` | daily, after the 00z ensemble is published (~09:30 UTC) | `ecmwf_ens refresh` → `ens_ldz_daily` |
-| `weekly` | weekly, e.g. Sunday after that day's daily job | `national_gas refresh` → `ng_ldz_daily`, `ng_offtake_daily`, `ng_forecast_daily` → `era5 refresh` → `weather_ldz_daily --recent 1` → `models.forecast --missing` |
+| 1 | Ensemble | `ecmwf_ens refresh` → `ens_ldz_daily` |
+| 1 | Gas and weather | `national_gas refresh` → `ng_ldz_daily`, `ng_offtake_daily`, `ng_forecast_daily` → `era5 refresh` → `weather_ldz_daily --recent 1` |
+| 2 | Forecasts | `models.forecast --missing` (needs both branches) |
 
-Only the ensemble has to be daily: its runs leave the portal after a few days. National Gas keeps five
-years and Copernicus all of ERA5, and the forecasts are made *as issued* (each uses only the ERA5 that
-existed on its run date), so a weekly batch makes the same forecasts a daily job would have. Every step
-runs even if an earlier one failed (a missing ERA5 week is bridged in the forecasts); the job fails if
-any step does, so the scheduler can report it.
+The ensemble branch is the heavy one (~10 GB of download, then decoding, ~75 minutes). ERA5 is mostly
+waiting in the Copernicus queue, so running it alongside costs little, and the job takes about as long as
+the slower branch. Start it once the 00z run is complete (~09:30 UTC); 10:45 UK time is safe all year.
+The ERA5 refresh asks only for the current month (and the previous one for its last days), because a
+preliminary month already downloaded in full is skipped until its final version is due.
+
+Only the ensemble has to be downloaded every day: its runs leave the portal after a few days. The
+others are refreshed daily so the forecasts and their verification are current; the forecasts are made
+*as issued* (each uses only the ERA5 that existed on its run date), so a late or catch-up run makes the
+same forecast. Every step runs even if an earlier one failed (missing ERA5 days are bridged in the
+forecasts); the job fails if any step does, so the scheduler can report it. `weekly` is the same job
+under its earlier name.
 
 **The image.** The `Dockerfile` packages the jobs (with the `weather`, `db` and `forecast` extras). In
 the container the config is `config/docker.ini`: the raw archive is mounted at `/data/raw` and tables go
@@ -324,22 +332,19 @@ to MySQL, so the jobs need the database settings.
 docker build -t ldz-demand .     # add --platform linux/amd64 to build on Apple silicon for an Intel/AMD host
 ```
 
-**Running a job.** `deploy/docker/compose.yaml` defines both jobs. Copy `deploy/docker/.env.example` to
+**Running the job.** `deploy/docker/compose.yaml` defines it. Copy `deploy/docker/.env.example` to
 `deploy/docker/.env` (git-ignored) and set the paths for this host: `RAW_DIR` (the raw archive), `DB_ENV`
-(a file with `LDZ_DB_HOST`, `LDZ_DB_PORT`, `LDZ_DB_NAME`, `LDZ_DB_USER`, `LDZ_DB_PASSWORD`) and, for the
-weekly job, `CDS_ENV` (a file with `CDSAPI_URL` and `CDSAPI_KEY`). Keep the two settings files readable
-by their owner only. Then:
+(a file with `LDZ_DB_HOST`, `LDZ_DB_PORT`, `LDZ_DB_NAME`, `LDZ_DB_USER`, `LDZ_DB_PASSWORD`) and `CDS_ENV`
+(a file with `CDSAPI_URL` and `CDSAPI_KEY`). Keep the two settings files readable by their owner only. Then:
 
 ```bash
 docker compose -f deploy/docker/compose.yaml run --rm daily
-docker compose -f deploy/docker/compose.yaml run --rm weekly
 ```
 
 Without Compose, the same with `docker run`:
 
 ```bash
-docker run --rm -v <raw dir>:/data/raw --env-file <db.env> ldz-demand ldz_demand.jobs daily
-docker run --rm -v <raw dir>:/data/raw --env-file <db.env> --env-file <cds.env> ldz-demand ldz_demand.jobs weekly
+docker run --rm -v <raw dir>:/data/raw --env-file <db.env> --env-file <cds.env> ldz-demand ldz_demand.jobs daily
 ```
 
 The database host must be reachable from inside a container: usually the server's LAN address rather
@@ -350,8 +355,7 @@ than `localhost` or a VPN-only address. Migration 007 (`demand_forecast_daily`) 
 
 - **cron** (Linux):
   ```
-  0 11 * * *  cd /path/to/ldz-demand && docker compose -f deploy/docker/compose.yaml run --rm daily  >> logs/daily.log 2>&1
-  0 12 * * 0  cd /path/to/ldz-demand && docker compose -f deploy/docker/compose.yaml run --rm weekly >> logs/weekly.log 2>&1
+  45 10 * * *  cd /path/to/ldz-demand && docker compose -f deploy/docker/compose.yaml run --rm daily >> logs/daily.log 2>&1
   ```
 - **macOS:** a launchd agent running the same commands (`StartCalendarInterval`).
 - **A NAS** (Synology, QNAP, …): its task scheduler, running the `docker run` form as a user allowed to
@@ -446,8 +450,8 @@ Key: `(run_date, run_hour, member, gas_day, ldz, membership, weighting, variable
 
 | Source | How often | Why |
 |---|---|---|
-| National Gas | Weekly (or daily) | D+6 values close out a week behind; the 10-day lookback fills them in |
-| ERA5 | Monthly | Preliminary months are replaced by final data after ~3 months |
+| National Gas | Daily (the daily job) | D+6 values close out a week behind; the 10-day lookback fills them in |
+| ERA5 | Daily (the daily job) | Only the current month is requested; preliminary months are replaced by final data after ~3 months |
 | ECMWF ensemble | **Daily** | Runs leave the portal after a few days (§5.4: the daily job) |
 
 **Back up `raw_dir`.** For National Gas it will become the only copy of the oldest years.
@@ -495,7 +499,7 @@ table first: in CSV mode remove `data/cache/ng_ldz_daily.csv`; in MySQL mode emp
   **The hosted snapshot** ([rwbh-lab.github.io/ldz-demand](https://rwbh-lab.github.io/ldz-demand/)) is the
   same pages run once against the local data and saved with their outputs: charts keep hover and zoom,
   marimo's controls stay at their defaults, and each page says what date its data runs to. To refresh it
-  (e.g. after the weekly job; the ERA5 page needs the raw archive, so mount the share first):
+  (e.g. after the daily job; the ERA5 page needs the raw archive, so mount the share first):
   ```bash
   python -m ldz_demand.publish          # build into deploy/site/ (~2 min) to look at first
   python -m ldz_demand.publish --push   # build and replace the gh-pages branch on the `github` remote
@@ -572,7 +576,7 @@ print((100 * (total_kwh - parts) / total_kwh).describe())   # SE 2026: mean ~1%,
 | `python -m ldz_demand.models.results` | Export the compact results bundle for the dashboard → `models/data/results/` |
 | `python -m ldz_demand.models.forecast DATE… \| --missing` | Demand forecasts from ensemble runs → `demand_forecast_daily` |
 | `python -m ldz_demand.dashboard` | Serve all dashboard pages (overview at /), forecasting new ensemble runs first |
-| `python -m ldz_demand.jobs daily \| weekly [--list]` | The scheduled jobs (§5.4); usually run in the Docker image |
+| `python -m ldz_demand.jobs daily [--list]` | The scheduled daily job (§5.4); usually run in the Docker image |
 | `python -m ldz_demand.db status` | MySQL: connection check + migration status |
 | `python -m ldz_demand.db migrate [--dry-run]` | MySQL: apply pending migrations |
 | `python -m ldz_demand.db draft DATASET` | Print a `CREATE TABLE` for a dataset (developers) |

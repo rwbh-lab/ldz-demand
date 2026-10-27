@@ -133,7 +133,7 @@ src/ldz_demand/
 dashboard/           marimo pages
 data/sample/         the quick start's sample: one ensemble run, its inputs and the actuals
 db/migrations/       versioned SQL migrations
-deploy/docker/       the scheduled jobs on any Docker host (daily ensemble; weekly refresh + forecasts)
+deploy/docker/       the scheduled daily job on any Docker host (every source, the builds, forecasts)
 deploy/ci/check.sh   everything CI checks (lint, tests, private folders kept out of git)
 docs/                quick start, user guide, methodology, decisions, results
 tests/

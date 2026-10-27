@@ -63,6 +63,14 @@ def test_recent_months_are_preliminary_and_truncated_to_available_days(ingestor,
     assert not list(tmp_path.rglob("*.part"))
 
 
+def test_preliminary_months_already_pulled_in_full_are_skipped(ingestor):
+    ingestor.refresh("2026-09", date(2026, 10, 11))  # September in full, October to the 5th
+    paths = ingestor.refresh("2026-09", date(2026, 10, 12))
+
+    assert [p.name.split("_pulled_")[0] for p in paths] == ["era5t_gb_2026-10"]
+    assert len(ingestor.client.requests) == 3
+
+
 def test_is_final():
     assert is_final("2026-06", date(2026, 10, 11))
     assert not is_final("2026-08", date(2026, 10, 11))

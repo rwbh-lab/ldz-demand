@@ -1,12 +1,11 @@
-# The scheduled jobs on any Docker host: one image, two jobs (ldz_demand/jobs.py has the steps).
+# The scheduled job on any Docker host: one image, one daily job (ldz_demand/jobs.py has the steps).
 #
 #   docker build -t ldz-demand .                      (from the repo root; --platform linux/amd64 for an
 #                                                      Intel/AMD host built on Apple silicon)
 #   docker compose -f deploy/docker/compose.yaml run --rm daily
-#   docker compose -f deploy/docker/compose.yaml run --rm weekly
 #
 # Host-specific settings come from the environment, or from a .env file next to this one (see .env.example
-# here). Nothing about a particular machine lives in the repo; schedule the two commands with whatever the
+# here). Nothing about a particular machine lives in the repo; schedule the command with whatever the
 # host has (cron, launchd, a NAS task scheduler, ...) — examples in docs/user_guide.md.
 
 name: ldz-demand
@@ -17,11 +16,9 @@ x-job: &job
     - ${RAW_DIR:?set RAW_DIR to the raw archive folder on this host}:/data/raw
 
 services:
-  daily:                                # ECMWF ensemble: download, build ens_ldz_daily
+  daily:                                # every source, the builds, then forecasts for the new runs
     <<: *job
-    env_file: [ "${DB_ENV:-db.env}" ]   # LDZ_DB_* database settings (the container writes to MySQL)
+    env_file:
+      - ${DB_ENV:-db.env}                 # LDZ_DB_* database settings (the container writes to MySQL)
+      - ${CDS_ENV:-cds.env}               # CDSAPI_URL, CDSAPI_KEY for ERA5
     command: ["ldz_demand.jobs", "daily"]
-  weekly:                               # National Gas and ERA5 refresh and builds, demand forecasts
-    <<: *job
-    env_file: [ "${DB_ENV:-db.env}", "${CDS_ENV:-cds.env}" ]   # + CDSAPI_URL, CDSAPI_KEY for ERA5
-    command: ["ldz_demand.jobs", "weekly"]
