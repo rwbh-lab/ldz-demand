@@ -25,7 +25,7 @@ forecast = ["scipy", "holidays"]    # running the fitted model (the Docker image
 plot = ["matplotlib", "cartopy"]
 db = ["sqlalchemy>=2.0", "pymysql", "cryptography", "python-dotenv"]
 dashboard = ["marimo", "plotly"]
-dev = ["pytest"]
+dev = ["pytest", "ruff~=0.17.3"]
 all = ["ldz-demand[weather,geo,models,plot,db,dashboard]"]
 
 [tool.setuptools.packages.find]
@@ -38,6 +38,22 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = [
+    # our code must not use deprecated APIs: CI installs the latest libraries, so it sees them first
+    "error::DeprecationWarning:ldz_demand",
+    "error::FutureWarning:ldz_demand",
+    # not ours: xarray's netCDF writer on numpy >= 2.5; a harmless binary-compatibility notice
+    "ignore:Setting the shape on a NumPy array has been deprecated:DeprecationWarning:xarray",
+    "ignore:numpy.ndarray size changed:RuntimeWarning",
+]
+
+[tool.ruff]
+extend-exclude = ["dashboard/__marimo__"]
+
+[tool.ruff.lint]
+# ruff's classic defaults (pyflakes and pycodestyle's error checks): real mistakes, not style.
+# Listed so a new ruff release with wider defaults doesn't change what CI checks.
+select = ["E4", "E7", "E9", "F"]
 
 [tool.marimo.display]
 # Marimo widget theme; keep in step with the chart theme (python -m ldz_demand.charts.style <name>)

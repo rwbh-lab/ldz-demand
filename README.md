@@ -1,5 +1,7 @@
 # ldz-demand
 
+[![CI](https://github.com/rwbh-lab/ldz-demand/actions/workflows/ci.yml/badge.svg)](https://github.com/rwbh-lab/ldz-demand/actions/workflows/ci.yml)
+
 **Weather-driven gas demand for Great Britain's 13 Local Distribution Zones (LDZs)** — rebuilt from
 gridded weather, weighted to where gas is used, and forecast two weeks ahead from every member of the
 ECMWF ensemble. Free, public data only.
@@ -58,7 +60,7 @@ Python 3.12. No database or server needed: processed tables are written as CSV f
 ```bash
 python -m venv .venv && source .venv/bin/activate
 python -m pip install -e ".[all,dev]"
-python -m pytest
+deploy/ci/check.sh     # what CI runs: lint and tests (the MySQL tests need Docker, else skipped)
 ```
 
 Then get the data and build the tables (the fitted model and the LDZ geography ship with the package):
@@ -115,6 +117,7 @@ src/ldz_demand/
 dashboard/           marimo pages
 db/migrations/       versioned SQL migrations
 deploy/docker/       the scheduled jobs on any Docker host (daily ensemble; weekly refresh + forecasts)
+deploy/ci/check.sh   everything CI checks (lint, tests, private folders kept out of git)
 docs/                methodology, decisions, results, user guide
 tests/
 ```

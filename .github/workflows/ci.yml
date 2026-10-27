@@ -1,0 +1,18 @@
+# The checks themselves are in deploy/ci/check.sh, so they run the same here and locally.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e ".[all,dev]"
+      - run: deploy/ci/check.sh  # Docker is on the runner, so the MySQL tests run too

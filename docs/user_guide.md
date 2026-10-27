@@ -62,7 +62,7 @@ python -m pip install -e ".[all]"
 | `db` | MySQL mode (SQLAlchemy, PyMySQL, python-dotenv) |
 | `dashboard` | Interactive data pages (Marimo, Plotly) |
 | `geo`, `models`, `plot` | LDZ geometry, model fitting, figures |
-| `dev` | pytest |
+| `dev` | pytest, ruff (`deploy/ci/check.sh` runs what CI does) |
 
 ### 3.2 Local config
 
