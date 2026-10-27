@@ -201,15 +201,16 @@ NODES: tuple[Node, ...] = (
          at=(0, 5.15)),
     Node("o_forecast", 4, 4.8, "Demand forecasts",
          "Demand per LDZ for the next 15 days from each ensemble member: a distribution, not a point.",
-         modules=("models.forecast",), datasets=("demand_forecast_daily",), page="live_forecasts.py",
-         docs=("docs/methodology.md: 8",),
+         modules=("models.forecast", "quickstart"), datasets=("demand_forecast_daily",), page="live_forecasts.py",
+         files=("data/sample",), docs=("docs/methodology.md: 8", "docs/user_quickstart.md"),
          details=(("Now", "the final model on every member of a run: 50 demand paths per LDZ, lead days 0–13; "
                           "GB summed member by member"),
                   ("Warm-up", "ERA5, then earlier runs' ensemble mean, then a straight line, for the days before the run"),
                   ("Intervals", "members × the model's own out-of-sample errors (same season, all LDZs from the "
                                 "same day), centred; the weather-only spread alone is far too narrow"),
                   ("Scheduled", "the weekly job forecasts every new run"),
-                  ("Not yet", "scoring against National Gas by issue time needs a winter of runs")),
+                  ("Not yet", "scoring against National Gas by issue time needs a winter of runs"),
+                  ("Quick start", "python -m ldz_demand.quickstart: the final model on a sample run (5 Jan 2025)")),
          at=(4.2, 5.15)),
 
     # --- Supporting strip ------------------------------------------------------------------------------------

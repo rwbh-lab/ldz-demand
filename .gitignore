@@ -18,6 +18,8 @@ data/raw/*
 data/results/*
 !data/cache/.gitkeep
 !data/raw/.gitkeep
+# the quick start's working copy of data/sample/ (python -m ldz_demand.quickstart)
+data/quickstart/
 *.pickle
 
 # AI assistant settings — never committed

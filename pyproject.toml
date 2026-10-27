@@ -21,7 +21,7 @@ dependencies = [
 weather = ["xarray", "netCDF4", "cfgrib", "cdsapi", "ecmwf-opendata"]
 geo = ["geopandas", "shapely", "scipy", "openpyxl", "pyproj"]
 models = ["scikit-learn", "statsmodels", "optuna", "scipy", "holidays"]
-forecast = ["scipy", "holidays"]    # running the fitted model (the Docker image); models adds the experiment tools
+forecast = ["scipy", "holidays", "xarray"]    # running the fitted model (the Docker image); models adds the experiment tools
 plot = ["matplotlib", "cartopy"]
 db = ["sqlalchemy>=2.0", "pymysql", "cryptography", "python-dotenv"]
 dashboard = ["marimo", "plotly"]

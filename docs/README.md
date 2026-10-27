@@ -2,6 +2,7 @@
 
 | Doc | Read it to |
 |---|---|
+| [user_quickstart.md](user_quickstart.md) | Run the model on a sample forecast in minutes, then on today's |
 | [user_guide.md](user_guide.md) | Set everything up: every dataset, command, the MySQL option and the scheduled jobs |
 | [methodology.md](methodology.md) | Understand the method and why it is built this way |
 | [decisions.md](decisions.md) | See each modelling choice, the alternatives and the evidence |

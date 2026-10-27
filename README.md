@@ -55,10 +55,24 @@ The dashboard's **Project map** draws this flow interactively, with the code beh
 
 ## Quick start
 
-Python 3.12. No database or server needed: processed tables are written as CSV files by default.
+The final model on a sample ensemble run (5 January 2025, just before that winter's cold spell): no
+download, training, keys or database. Python 3.12.
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
+python3.12 -m venv .venv && source .venv/bin/activate
+python -m pip install -e ".[forecast,dashboard]"
+python -m ldz_demand.quickstart          # prints the GB forecast against what happened
+LDZ_DEMAND_CONFIG=config/quickstart.ini marimo run dashboard/live_forecasts.py
+```
+
+[docs/user_quickstart.md](docs/user_quickstart.md) explains the sample and runs the model on today's forecast.
+
+### Full setup
+
+Every extra, and the checks CI runs. No database or server needed: processed tables are written as CSV
+files by default.
+
+```bash
 python -m pip install -e ".[all,dev]"
 deploy/ci/check.sh     # what CI runs: lint and tests (the MySQL tests need Docker, else skipped)
 ```
@@ -95,6 +109,7 @@ timings, the optional MySQL backend and the scheduled jobs — is in [docs/user_
 
 ## Documentation
 
+- [docs/user_quickstart.md](docs/user_quickstart.md) — the model on a sample run in minutes, then on today's forecast
 - [docs/methodology.md](docs/methodology.md) — the method, and why it is built this way
 - [docs/decisions.md](docs/decisions.md) — each modelling choice, the alternatives, and the evidence
 - [docs/results.md](docs/results.md) — every experiment and its scores
@@ -112,13 +127,15 @@ src/ldz_demand/
   models/            CWV form, demand fit, experiments, final fit, forecasts, results bundle
   charts/            Plotly charts and the shared theme; the project map
   jobs.py            the scheduled jobs: which steps, in what order
+  quickstart.py      the final model on the sample run (data/sample/)
   project_map.py     the pipeline as data (a test checks it matches the code)
   db/                MySQL connection, DDL, migration runner
 dashboard/           marimo pages
+data/sample/         the quick start's sample: one ensemble run, its inputs and the actuals
 db/migrations/       versioned SQL migrations
 deploy/docker/       the scheduled jobs on any Docker host (daily ensemble; weekly refresh + forecasts)
 deploy/ci/check.sh   everything CI checks (lint, tests, private folders kept out of git)
-docs/                methodology, decisions, results, user guide
+docs/                quick start, user guide, methodology, decisions, results
 tests/
 ```
 
