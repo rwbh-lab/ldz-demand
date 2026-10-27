@@ -285,8 +285,8 @@ def station_gap_note(forecast_gap: pd.Series, offsets: pd.DataFrame, run_date, l
         return f"This run: the station reads {gap:+.2f} {unit} against our gas-weighted {ldz} on average."
     mean, sd = float(usual["mean"].iloc[0]), float(usual["sd"].iloc[0])
     usual_gap = abs(gap - mean) <= max(2 * sd / 3, 0.15)
-    context = (f"about what ERA5 shows for this station in this month: a steady gap from where the station is, not "
-               f"from the forecast (see *LDZ weather* §4)." if usual_gap else
+    context = ("about what ERA5 shows for this station in this month: a steady gap from where the station is, not "
+               "from the forecast (see *LDZ weather* §4)." if usual_gap else
                f"{'larger' if abs(gap) > abs(mean) else 'smaller'} than usual for this station in this month: "
                f"the weather pattern in this run (e.g. wind direction, cloud) is changing how the station compares.")
     return (f"This run: the station reads **{gap:+.2f} {unit}** against our gas-weighted {ldz} on average over the "

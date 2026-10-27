@@ -12,7 +12,7 @@ def _():
     from ldz_demand.charts import style
     from ldz_demand.models import results
 
-    theme = style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
+    style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
     return mo, rc, results
 
 

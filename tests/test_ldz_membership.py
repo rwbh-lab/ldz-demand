@@ -1,5 +1,4 @@
 import pandas as pd
-import pytest
 
 from ldz_demand.geo import ldz_membership as m
 

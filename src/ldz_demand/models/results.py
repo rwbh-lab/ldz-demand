@@ -21,7 +21,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from ldz_demand.data import ldz_energy as le
 from ldz_demand.data.ingest.national_gas import LDZS
 from ldz_demand.models.experiment import RESULTS
 

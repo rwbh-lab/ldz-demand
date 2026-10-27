@@ -1,6 +1,4 @@
-import pandas as pd
 import plotly.io as pio
-import pytest
 
 from ldz_demand.charts import ng_ldz_daily as ng
 from ldz_demand.charts import style

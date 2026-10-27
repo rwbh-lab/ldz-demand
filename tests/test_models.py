@@ -10,7 +10,7 @@ DAYS = pd.date_range("2021-10-01", "2025-09-30")
 def synthetic(ldz: str, p: cwv.CWVParams, seasonal="none", shape=None, seed=0, breaks=(), shift=(0.0, 0.0)):
     """A frame of weather and a target made from the model itself, plus small noise."""
     rng = np.random.default_rng(seed)
-    doy = 2 * np.pi * DAYS.dayofyear.to_numpy() / 365.25
+    doy = 2 * np.pi * DAYS.day_of_year.to_numpy() / 365.25
     t = 10 - 6 * np.cos(doy) + rng.normal(0, 3, len(DAYS))
     w = np.abs(rng.normal(5, 2, len(DAYS)))
     sr = np.clip(120 - 90 * np.cos(doy) + rng.normal(0, 30, len(DAYS)), 0, None)

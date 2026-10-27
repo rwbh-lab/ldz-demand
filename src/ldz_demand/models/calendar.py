@@ -24,7 +24,7 @@ def features(gas_days, ldz: str) -> pd.DataFrame:
     """0/1 columns per gas day: tue..sun, bank_holiday, christmas."""
     days = pd.DatetimeIndex(gas_days)
     out = pd.DataFrame(index=days)
-    weekday = days.dayofweek
+    weekday = days.day_of_week
     for i, name in enumerate(DAYS, start=1):
         out[name] = (weekday == i).astype(float)
     bank = _bank_holidays("SCT" if ldz == "SC" else "ENG", int(days.year.min()), int(days.year.max()))

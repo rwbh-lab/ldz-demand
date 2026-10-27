@@ -22,13 +22,13 @@ import xarray as xr
 
 from ldz_demand.config import create_config, resolve_path
 from ldz_demand.data.build.weather_ldz_daily import KEY, VARIABLES, weight_arrays
+from ldz_demand.data.datasets import WEATHER_LDZ_HOURLY
+from ldz_demand.data.ingest.era5 import FINAL_NAME, load_hourly, month_files
+from ldz_demand.data.store import Store, get_store
 
 # hourly values: temperature and wind at the hour; solar radiation (mean W m-2) and precipitation (mm)
 # over the hour ending then (where the ERA5 extra files exist)
 HOURLY_VARIABLES = {v: VARIABLES[v] for v in ("t2m", "ws10", "ssrd", "tp")}
-from ldz_demand.data.datasets import WEATHER_LDZ_HOURLY
-from ldz_demand.data.ingest.era5 import FINAL_NAME, load_hourly, month_files
-from ldz_demand.data.store import Store, get_store
 
 logger = logging.getLogger(__name__)
 

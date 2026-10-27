@@ -139,8 +139,8 @@ def error_pool(residuals: pd.DataFrame | None = None) -> pd.DataFrame:
 
 
 def _pool_for(day: pd.Timestamp, pool: pd.DataFrame) -> pd.DataFrame:
-    doy = pool.index.dayofyear.to_numpy()
-    gap = np.abs(doy - day.dayofyear)
+    doy = pool.index.day_of_year.to_numpy()
+    gap = np.abs(doy - day.day_of_year)
     near = pool[np.minimum(gap, 365 - gap) <= POOL_DAYS]
     return near - near.mean()  # centred: spread only
 

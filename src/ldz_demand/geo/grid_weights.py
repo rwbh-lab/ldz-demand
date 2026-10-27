@@ -30,7 +30,6 @@ import numpy as np
 import pandas as pd
 
 from ldz_demand.config import create_config
-from ldz_demand.data.ingest.national_gas import LDZS
 from ldz_demand.geo import boundaries
 from ldz_demand.geo.ldz_membership import DATA_DIR, read_table, vote_shares
 

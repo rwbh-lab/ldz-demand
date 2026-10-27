@@ -47,7 +47,7 @@ def effective_temperature(t: np.ndarray, y: float) -> np.ndarray:
 def harmonics(gas_days, n: int | None = None) -> np.ndarray:
     """(days, 2n): cos, sin of 1..n cycles a year, by day of year (n: HARMONICS)."""
     n = n or HARMONICS
-    w = 2 * np.pi * pd.DatetimeIndex(gas_days).dayofyear.to_numpy() / YEAR
+    w = 2 * np.pi * pd.DatetimeIndex(gas_days).day_of_year.to_numpy() / YEAR
     return np.column_stack([f(k * w) for k in range(1, n + 1) for f in (np.cos, np.sin)])
 
 

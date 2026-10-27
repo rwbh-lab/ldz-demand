@@ -196,7 +196,9 @@ def day_summary(hourly) -> dict:
 
 def _mercator_mid(south: float, north: float) -> float:
     """Latitude halfway between south and north on a Mercator map."""
-    y = lambda lat: np.log(np.tan(np.pi / 4 + np.radians(lat) / 2))
+    def y(lat):
+        return np.log(np.tan(np.pi / 4 + np.radians(lat) / 2))
+
     return float(np.degrees(2 * np.arctan(np.exp((y(south) + y(north)) / 2)) - np.pi / 2))
 
 

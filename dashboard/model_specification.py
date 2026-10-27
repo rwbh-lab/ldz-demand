@@ -11,7 +11,7 @@ def _():
     from ldz_demand.charts import demand_model as dm
     from ldz_demand.charts import style
 
-    theme = style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
+    style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
     return dm, mo
 
 

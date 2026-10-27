@@ -32,7 +32,7 @@ import xarray as xr
 
 from ldz_demand.config import create_config, resolve_path
 from ldz_demand.data.build.gas_day import gas_day_interval_stat, gas_day_time_mean
-from ldz_demand.data.build.weather_ldz_daily import KEY, VARIABLES, weight_arrays
+from ldz_demand.data.build.weather_ldz_daily import VARIABLES, weight_arrays
 from ldz_demand.data.datasets import ENS_LDZ_DAILY
 from ldz_demand.data.ingest.ecmwf_ens import archived_runs, load_run
 from ldz_demand.data.store import Store, get_store
