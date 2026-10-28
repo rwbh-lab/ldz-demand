@@ -1,7 +1,7 @@
 # dashboard
 
 The dashboard's pages, one [marimo](https://marimo.io) notebook each. They are plain Python files with
-no stored outputs, so they diff like code. `index.py` is the Overview; the charts they draw live in
+no stored outputs, so they diff like code. `index.py` is the Overview (the landing page) and `summary.py` the full summary; the charts they draw live in
 `src/ldz_demand/charts/`.
 
 ```bash

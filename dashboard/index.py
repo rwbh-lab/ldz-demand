@@ -8,170 +8,143 @@ app = marimo.App(width="medium", app_title="LDZ demand · Overview", css_file="t
 def _():
     import marimo as mo
 
+    from ldz_demand.charts import forecasts as fch
+    from ldz_demand.charts import overview as ov
     from ldz_demand.charts import pages, style
+    from ldz_demand.models import forecast as fcm
+    from ldz_demand.models import results
 
     _theme = style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
-    return mo, pages
+    return fch, fcm, mo, ov, pages, results
 
 
 @app.cell(hide_code=True)
 def _(mo, pages):
-    pages.header(pages.INDEX, mo.md(r"""
-    # Weather-driven gas demand for Great Britain's Local Distribution Zones
+    _note = pages.snapshot_note()
+    mo.vstack([
+        mo.md(r"""
+        # GB gas demand in the prompt window
+        *The next two weeks of gas demand for Great Britain, as a range, from today's ECMWF ensemble run.*
+        """),
+        mo.accordion({"Contents": mo.Html(pages.contents_html(pages.INDEX))}),
+    ] + ([mo.md(_note)] if _note else []), gap=0.5)
+    return
 
-    *Robert Hemming · October 2026*
-    """), mo.md(r"""
-    **Abstract.** Daily gas demand in each of Great Britain's 13 Local Distribution Zones (LDZs) is driven
-    mainly by the weather. The industry measures that weather with a Composite Weather Variable (CWV)
-    built from one weather station per LDZ. This project rebuilds it from gridded reanalysis (ERA5),
-    averaged over each LDZ and weighted to where gas is used, refits the CWV's form to five years of
-    measured demand, and runs every member of the ECMWF ensemble through the fitted model to forecast
-    demand two weeks ahead as a distribution rather than a single number. Out of sample, the model's GB
-    error is 9% below the official CWV's over all days and 29% below it on the coldest days; in the
-    winters scored, it is more accurate than National Gas's own published day-ahead forecasts.
-    Everything uses free, public data.
-    """))
+
+@app.cell(hide_code=True)
+def _(fch, fcm, mo):
+    with mo.status.spinner(title="Loading the latest forecast"):
+        runs = fch.wide(fcm.load_runs())
+        actual = fcm.actuals()
+    mo.stop(runs.empty, mo.callout(mo.md("**No forecasts yet.** See [Live forecasts](/live-forecasts)."), kind="warn"))
+    latest = runs[runs["run_date"] == runs["run_date"].max()]
+    _gb = latest[latest["ldz"] == "GB"].sort_values("gas_day")
+    _tomorrow = _gb[_gb["lead_days"] == 1].iloc[0]
+    _peak = _gb.loc[_gb["p50"].idxmax()]
+    _data_to = actual[actual["ldz"] == "GB"]["gas_day"].max()
+    mo.vstack([
+        fch.fan(latest, actual, "GB"),
+        mo.md(f"**Tomorrow** ({_tomorrow['gas_day']:%a %d %b}): {_tomorrow['p50']:,.0f} GWh/day, "
+              f"10–90% {_tomorrow['p10']:,.0f}–{_tomorrow['p90']:,.0f} · **peak** of the fortnight: "
+              f"{_peak['gas_day']:%a %d %b}, {_peak['p50']:,.0f} · actuals to {_data_to:%d %b %Y} · "
+              "all LDZs on [Live forecasts](/live-forecasts)"),
+    ])
+    return actual, runs
+
+
+@app.cell(hide_code=True)
+def _(mo, ov, results):
+    _h = ov.headline(results.load("experiments"))
+    mo.vstack([
+        mo.md(r"""
+        ## 1 · Headline
+        **A portfolio project:** the gas industry's weather-to-demand model rebuilt from free, public
+        data, then run on every member of the weather ensemble to forecast demand two weeks ahead. Scored
+        out of sample against the industry's own weather variable (the official CWV):
+        """),
+        mo.hstack([
+            mo.stat(f"{_h.cold:+.0f}%".replace("-", "−"), label="Error on the coldest days",
+                    caption="GB, against the official CWV"),
+            mo.stat(f"{_h.all_days:+.0f}%".replace("-", "−"), label="Error over all days",
+                    caption=f"better in {_h.ldz_better} of {_h.ldz_count} LDZs"),
+            mo.stat(f"{_h.winter:+.0f}%".replace("-", "−"), label="Error in winter",
+                    caption=f"{_h.days} days, scored forward"),
+        ], justify="start", gap=1),
+    ])
+    return
+
+
+@app.cell(hide_code=True)
+def _(fch, mo, ov):
+    with mo.status.spinner(title="Forecasting the sample run"):
+        _runs, _actual = ov.worked_example()
+    mo.vstack([
+        mo.md(r"""
+        ## 2 · It saw the cold coming
+        The ECMWF run of **5 January 2025**, three days before that winter's coldest spell, put through the
+        final model, with what happened laid over it. Demand climbs by about 750 GWh/day to the peak on
+        9–10 January; 10 of the 14 days fall inside the 10–90% range.
+        """),
+        fch.fan(_runs, _actual, "GB"),
+        mo.md("*This run is the [quick start](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/user_quickstart.md)'s "
+              "sample: anyone can reproduce it in a few minutes.*"),
+    ])
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.hstack([
-        mo.stat("−9%", label="Error vs official CWV", caption="GB RMSE, all days"),
-        mo.stat("−29%", label="On the coldest days", caption="coldest 5% of days"),
-        mo.stat("1.9–2.2%", label="Winter error per day", caption="National Gas 3.2–3.6%"),
-        mo.stat("50 × 14", label="Members × days", caption="per ensemble run"),
-    ], widths="equal", gap=0.25)
+    def _card(title, line, link, path):
+        return (f'<div style="border: 1px solid var(--border); border-radius: 8px; padding: 0.7em 0.9em">'
+                f'<div style="font-weight: 600; color: var(--foreground)">{title}</div>'
+                f'<div style="color: var(--muted-foreground); font-size: 0.9em">{line}</div>'
+                f'<a href="{path}" style="font-size: 0.9em">{link} →</a></div>')
+
+    _cards = [
+        _card("The problem", "one weather station per LDZ", "National Gas data", "/ng-ldz-daily"),
+        _card("The data", "three free sources, five years", "ERA5 weather", "/era5-weather"),
+        _card("Weather per LDZ", "St Athan reads +0.85 °C in Nov", "LDZ weather", "/ldz-weather"),
+        _card("The model", "the CWV refitted, all LDZs at once", "Model specification", "/model-specification"),
+        _card("Tested properly", "forward, three winters", "Backtesting results", "/backtesting-results"),
+    ]
+    mo.vstack([
+        mo.md("## 3 · What was done"),
+        mo.Html('<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(10em, 1fr)); gap: 0.75em">'
+                + "".join(_cards) + "</div>"),
+    ])
+    return
+
+
+@app.cell(hide_code=True)
+def _(actual, mo, ov, runs):
+    _r = ov.live_record(runs, actual)
+    _line = ("No published demand to check against yet." if _r is None else
+             f"**{_r.runs} runs** since {_r.first_run:%d %b %Y} · **{_r.coverage:.0f}%** of {_r.days} forecast days "
+             f"inside the 10–90% range (it should be about 80%) · lead day 1 off by **{_r.lead1_error:.1f}%** on "
+             "average. A short record so far: the days overlap, so read it as it grows.")
+    mo.md(f"""
+    ## 4 · The live record, so far
+    {_line} Every run and its verification: [Live forecasts](/live-forecasts).
+    """)
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## 1 · Introduction
+    ## 5 · How it's built
+    - A **daily job** in Docker on a home server: download the ensemble, National Gas and ERA5 side by
+      side, build the tables, forecast every new run.
+    - **MySQL** for the tables; this site is a **static snapshot** of the dashboard, rebuilt from them.
+    - **Tests on every push** (GitHub Actions); every step is on the [Project map](/project-map), and the
+      code is on [GitHub](https://github.com/rwbh-lab/ldz-demand).
 
-    Gas demand in Great Britain swings with the weather: a January day takes nearly six times the gas
-    of a summer one. Most of that swing is non-daily-metered demand — homes and small businesses heating
-    — and the industry forecasts it per LDZ from the **Composite Weather Variable**: a blend of
-    temperature, wind, sunshine and a seasonal profile, bent so that demand responds to it in a straight
-    line. National Gas forecasts demand with it; Xoserve allocates gas to shippers with it.
-
-    The official CWV takes its weather from **one station per LDZ** — Heathrow for East Anglia, North
-    Thames and South East alike. A station is one point, and not always a representative one: St Athan,
-    on the coast, reads up to 0.85 °C warmer in November than the places where Wales South's gas is
-    used. This project asks how much better demand can be explained, and forecast, with weather averaged
-    over the whole LDZ and weighted to where the gas goes — and builds the forecasts that follow.
-
-    The whole chain, from public data to a demand forecast, with the code behind each step, is on the
-    [Project map](/project-map).
-
-    ## 2 · Data
-
-    Three free, public sources:
-
-    - **National Gas** (data portal): daily LDZ demand and its daily- and non-daily-metered parts, the
-      official CWV, the gas entering each LDZ from the national transmission system, and National Gas's
-      own demand forecasts — a rolling five years, from October 2021. [National Gas data](/ng-ldz-daily)
-    - **ERA5** (Copernicus): hourly reanalysis on a 0.25° grid — temperature, wind, solar radiation,
-      precipitation. [ERA5 weather](/era5-weather)
-    - **The ECMWF ensemble** (open data): each day's 00z run, 50 members, 15 days, cropped to GB as it
-      downloads and archived daily on a home server.
-
-    Everything is put on the **gas day**, 05:00 to 05:00 UK time.
-
-    ## 3 · Pre-CWV models
-
-    The steps that turn the published data into what the demand model needs.
-
-    **The target.** The model predicts total LDZ demand minus daily-metered demand: homes and small
-    business, plus unidentified gas. Not the published non-daily-metered figure — National Gas
-    *allocates* that using the official CWV, so fitting a weather model to it would be circular. Checking
-    the published totals against the gas metered into each LDZ found a 31 GWh/day feed missing from
-    South East's total for 18 months (September 2022 – February 2024); those days are repaired for
-    training and never used for scoring. [National Gas data, Part II](/ng-ldz-daily)
-
-    **The LDZ map.** There is no public map of the LDZs, so one is built: town lists per LDZ, placed with
-    the ONS place index, and — where a local authority is split between LDZs — postcodes sampled and
-    checked against the gas networks' own postcode checkers. [LDZ geography](/ldz-geography)
-
-    **LDZ weather.** Each LDZ's weather is a weighted average of the ERA5 grid cells over it, weighted by
-    local gas use (DESNZ). The map method barely matters (0.01–0.05 °C day to day); the weighting matters
-    more; the official stations differ most — by season, by up to 0.85 °C. The gas day's temperature
-    weights the hours when homes heat: 06–09 and 16–22 count double, the night half.
-    [LDZ weather](/ldz-weather)
-
-    **Ensemble LDZ weather.** The same weights and gas-day rules for every ensemble member and lead day,
-    so the forecasts see the same kind of weather the model was fitted on.
-    [LDZ Ens forecast](/ensemble-forecasts)
-
-    ## 4 · The CWV model
-
-    The official CWV's structure, refitted per LDZ to our weather: an effective temperature with a few
-    days' memory, wind chill, solar, a seasonal shape, a summer cut-off and a cold-weather upturn. Demand
-    is then a straight line in the CWV, plus day of week, bank holidays and the Christmas period. Three
-    choices carry most of the improvement:
-
-    - **A seasonal shape shared by all 13 LDZs**, in place of the official seasonal profile (which isn't
-      public): one smooth shape through the year, sized per LDZ, so it is estimated from thirteen times
-      the data.
-    - **The heating-hours temperature**: 9% lower error than a flat daily mean, and the gain survives
-      the ensemble's 3- and 6-hourly steps.
-    - **Recent years weighted more** (half-life one year), so the model follows the fall in demand after
-      the 2022 price shock, and the partial recovery since, without hand-picked break dates.
-
-    What each part does is on [Model specification](/model-specification), and how it is fitted, with
-    every value per LDZ, on [Model calibration](/model-calibration); every
-    choice, and the alternatives it beat, in the [decisions](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/decisions.md).
-
-    ## 5 · Results
-
-    Every score is out of sample: each gas year is predicted only from the years before it.
-
-    - **Against the official CWV** (the same regression, on the same days): GB error 46.2 against
-      50.8 GWh/day over all days (−9%), 52.6 against 67.2 in winter (−22%), 65.8 against 92.3 on the
-      coldest days (−29%). Better in 10 of the 13 LDZs.
-    - **Against National Gas's published day-ahead forecasts**, on total demand: about level over all
-      days (3.2–3.3% error per gas day against 3.1–3.6%), with 7–30% lower RMSE; in the two full winters
-      scored, 1.9–2.2% against their 3.2–3.6%. They are better in summer — the shoulder months are this
-      model's weakest.
-
-    Not yet like for like: ours uses actual weather and theirs a day-ahead forecast (a small difference
-    at one day ahead), and theirs also forecasts the daily-metered part. [Backtesting results](/backtesting-results)
-
-    ## 6 · Forecasts
-
-    Each day's ensemble run goes through the fitted model member by member: 50 demand paths per LDZ for
-    the next 14 days, and GB as their sum. The intervals add the model's own error to the weather's — the
-    spread of the members says how uncertain the weather is, not how far the model can be off when the
-    weather is known, and at short leads that is most of the uncertainty. Each forecast is made as it
-    would have been issued, from only the data that existed on its run date, and verified as demand is
-    published. [Live forecasts](/live-forecasts)
-
-    ## 7 · Limitations
-
-    - **Five years of demand** — the portal's rolling window. The 2022 change in behaviour and few cold
-      winters fall inside it, so findings on seasonal behaviour and the cold end are provisional.
-    - **The shoulder months** (spring and October) are the model's weakest; spring 2025 was missed by
-      every model, the official CWV included.
-    - **Extreme cold** is too rare in five years to calibrate the cold-weather upturn, which sits on its
-      bound in most LDZs.
-    - **The forecasts** need a winter of runs to be scored properly, and to compare with National Gas
-      like for like.
-
-    ## References and data sources
-
-    - National Gas, *Gas Demand Forecasting Methodology* (2016); data portal, data.nationalgas.com.
-    - Xoserve, *Composite Weather Variable* and *Seasonal Normal Composite Weather Variable* (September 2026).
-    - Copernicus Climate Change Service, ERA5 hourly data on single levels (contains modified Copernicus
-      Climate Change Service information).
-    - ECMWF open data, ensemble forecasts (CC BY 4.0).
-    - ONS, Index of Place Names and local authority boundaries (Open Government Licence; contains OS data
-      © Crown copyright and database right). DESNZ, sub-national gas consumption (Open Government
-      Licence). Ordnance Survey, Code-Point Open.
-    - LDZ town lists: energybrokers.co.uk. Postcode checks: SGN and Wales & West Utilities.
-
-    The method in full: the [methodology](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/methodology.md); the choices: the [decisions](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/decisions.md); the scores:
-    the [results](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/results.md).
+    ## 6 · Limits, and where next
+    - **Weakest in the shoulder months** (spring and autumn, when heating switches on and off); **five
+      years of data**, so the post-2022 change and the cold end can't be fully separated.
+    - **Read on:** the [Summary](/summary) for the full story · the
+      [decisions](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/decisions.md) behind each choice ·
+      [run it yourself](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/user_quickstart.md) in a few minutes.
     """)
     return
 

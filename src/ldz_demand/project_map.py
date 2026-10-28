@@ -235,7 +235,7 @@ NODES: tuple[Node, ...] = (
          "The marimo pages, served together, and their shared charts and theme; a static snapshot is hosted online.",
          modules=("dashboard", "publish", "charts.pages", "charts.style", "charts.ng_ldz_daily", "charts.era5", "charts.geography",
                   "charts.coastline", "charts.weather_ldz", "charts.ensemble", "charts.project_map", "charts.demand_model",
-                  "charts.results", "charts.forecasts", "project_map"),
+                  "charts.results", "charts.forecasts", "charts.overview", "project_map"),
          details=(("Command", "python -m ldz_demand.dashboard (http://localhost:2718)"),
                   ("Hosted", "python -m ldz_demand.publish --push: a static snapshot on GitHub Pages"))),
 )

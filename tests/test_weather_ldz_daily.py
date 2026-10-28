@@ -142,7 +142,7 @@ def test_page_menu_links_every_page_and_marks_the_current_one():
     dashboard = Path(__file__).parent.parent / "dashboard"
     assert set(pages.PAGES) | {pages.INDEX} == {p.name for p in dashboard.glob("*.py")}
     assert pages.contents("ldz_weather.py") == {
-        "Project": [("Overview", "/"), ("Project map", "/project-map")],
+        "Project": [("Overview", "/"), ("Summary", "/summary"), ("Project map", "/project-map")],
         "Datasets": [("National Gas data", "/ng-ldz-daily"), ("ERA5 weather", "/era5-weather")],
         "Pre-CWV": [("LDZ geography", "/ldz-geography"), ("LDZ weather", None),
                     ("LDZ Ens forecast", "/ensemble-forecasts")],

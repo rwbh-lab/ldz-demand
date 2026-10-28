@@ -1,8 +1,8 @@
 """
 The dashboard's pages and the contents block shown on each of them.
 
-Serve every page from one server (python -m ldz_demand.dashboard): the overview (index.py) at /,
-and each page at its own path. The hosted copy is a static snapshot of the same pages
+Serve every page from one server (python -m ldz_demand.dashboard): the Overview (index.py, the
+landing page: the live forecast and a short guide to the project) at /, and each page at its own path. The hosted copy is a static snapshot of the same pages
 (python -m ldz_demand.publish), which sets SNAPSHOT_ENV so each page says so.
 """
 
@@ -21,6 +21,7 @@ class Page:
 
 
 PAGES = {  # file -> page, in reading order
+    "summary.py": Page("Project", "Summary", "/summary"),
     "project_map.py": Page("Project", "Project map", "/project-map"),
     "ng_ldz_daily.py": Page("Datasets", "National Gas data", "/ng-ldz-daily"),
     "era5_weather.py": Page("Datasets", "ERA5 weather", "/era5-weather"),
