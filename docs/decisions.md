@@ -50,7 +50,7 @@ Last updated: 14 October 2026.
 - **Why:** it is the only public source of daily LDZ demand; the portal keeps a rolling five years
   (from 12 October 2021).
 - **Cost:** five years hold the 2022 behaviour change and few cold winters — the main limit on every
-  finding (methodology §9).
+  finding ([methodology §9](methodology.md#9-caveats)).
 - **Revisit if:** older daily LDZ demand becomes available.
 
 ### D2. D+6 close-out values
@@ -67,7 +67,7 @@ Last updated: 14 October 2026.
 - **Why:** gridded weather can follow where gas is used across an LDZ rather than one point; it is
   free, consistent through time, and on the same grid as the ensemble forecasts, so the model sees the
   same kind of weather in training and in forecasting.
-- **Evidence:** ERA5 over the LDZ beats ERA5 at the official station in every LDZ (results, exp. 1, 3).
+- **Evidence:** ERA5 over the LDZ beats ERA5 at the official station in every LDZ (results, exp. [1](results.md#experiment-1-weather-input), [3](results.md#experiment-3-seasonal-term)).
 - **Caveat:** reanalysis is a model of the weather, not a measurement.
 
 ### D4. Forecasts: the ECMWF ensemble, 00z, 15 days
@@ -90,7 +90,7 @@ Last updated: 14 October 2026.
   shrinkage: the weather-sensitive part.
 - **Instead of:** published NDM.
 - **Why:** published NDM is itself calculated from the CWV, so fitting a CWV to it would be circular.
-- **Evidence:** methodology §3; no step changes from sites changing metering class (checked).
+- **Evidence:** [methodology §3](methodology.md#3-target); no step changes from sites changing metering class (checked).
 - **Revisit if:** a measured NDM series appears.
 
 ### P2. Repair the SE missing feed (target B)
@@ -101,7 +101,7 @@ Last updated: 14 October 2026.
 - **Instead of:** dropping them too (target A).
 - **Why:** dropping them leaves SE almost no data for 2022/23; the repair gives it back, and gives GB a
   third forward test year. On days real in both, A and B score the same.
-- **Evidence:** results, experiment 6. Repaired days are rougher (RMSE ~10 vs ~6 GWh/day), so they are
+- **Evidence:** [results, experiment 6](results.md#experiment-6-target-a-vs-b). Repaired days are rougher (RMSE ~10 vs ~6 GWh/day), so they are
   used for training, never for scoring (V2).
 
 ### P3. LDZ map: postcode-sampled
@@ -111,14 +111,14 @@ Last updated: 14 October 2026.
 - **Instead of:** whole-authority labels, Voronoi cells around listed towns, or a hybrid.
 - **Why:** there is no public LDZ boundary file; this one matches measured LDZ gas use most closely
   (mean gap 0.50 percentage points of GB gas use).
-- **Evidence:** methodology §4.1. The choice barely matters for weather (0.01 – 0.05 °C day to day).
+- **Evidence:** [methodology §4.1](methodology.md#41-which-places-belong-to-which-ldz). The choice barely matters for weather (0.01 – 0.05 °C day to day).
 
 ### P4. Weight by gas use
 
 - **Chosen:** each grid cell weighted by DESNZ gas consumption of the places in it.
 - **Instead of:** by land area, or the official station's grid point.
 - **Why:** demand comes from where gas is used, not from where the land is.
-- **Evidence:** weighting moves LDZ temperature 0.1 – 0.45 °C day to day (methodology §4.2); in the
+- **Evidence:** weighting moves LDZ temperature 0.1 – 0.45 °C day to day ([methodology §4.2](methodology.md#42-how-places-inside-an-ldz-are-weighted)); in the
   model, gas and area weighting are within ~1% (exp. 1) — kept for the reason, not the score.
 
 ### P5. Gas-day temperature weighted to the heating hours
@@ -129,7 +129,7 @@ Last updated: 14 October 2026.
 - **Why:** heating, and so demand, follows the morning and evening; night-time temperature matters
   less.
 - **Evidence:** −9% GB RMSE (48.2 → 43.7 GWh/day), in every LDZ; the gain survives the ensemble's 3-
-  and 6-hourly steps (results, exp. 5).
+  and 6-hourly steps ([results, exp. 5](results.md#experiments-2-and-5-variables-and-the-gas-day-temperature)).
 - **Revisit:** the weights are fixed, not fitted.
 
 ### P6. Variables: temperature, wind, solar
@@ -160,7 +160,7 @@ Last updated: 14 October 2026.
 - **Why:** behaviour has a seasonal pattern beyond the weather (heating on in autumn, left on into
   spring); one shape for all 13 LDZs gives it ~13 times the data.
 - **Evidence:** cuts GB RMSE from 54.5 to 46.8 GWh/day and coldest-day error by a fifth; the slow
-  temperature is close behind (results, exp. 3). Three sine / cosine pairs: within noise.
+  temperature is close behind ([results, exp. 3](results.md#experiment-3-seasonal-term)). Three sine / cosine pairs: within noise.
 
 ### C3. Write the shape as `E + Sc · g`
 
@@ -170,7 +170,7 @@ Last updated: 14 October 2026.
 - **Why:** with a free-sized shape the official form has no unique solution — the whole CW can be
   rescaled, with the thresholds following, without changing the fit; the shape's size ran to its bound.
   This is the same model with one free scale fewer.
-- **Evidence:** results, experiment 3, identification note.
+- **Evidence:** [results, experiment 3](results.md#experiment-3-seasonal-term), identification note.
 
 ### C4. A fitted cold-weather upturn, bounded
 
@@ -180,14 +180,14 @@ Last updated: 14 October 2026.
 - **Bound kept** although the final fit reaches it in 8 LDZs: only that fit sees January 2026, and
   lifting the bound changes the coldest days by under 0.1 GWh/day RMSE. Extreme cold (< −2 °C) is too
   rare in five years to calibrate.
-- **Evidence:** results, cold-end follow-up; the final model.
+- **Evidence:** [results, cold-end follow-up](results.md#follow-up-the-cold-end); the final model.
 
 ### C5. No separate summer level
 
 - **Rejected:** a summer level of its own (an intercept that switches on above the summer cut-off).
 - **Why:** it halves the July – August bias but makes April – May worse; no net gain. The shoulder-month
   errors are mostly the level moving between years (C7).
-- **Evidence:** results, summer follow-up.
+- **Evidence:** [results, summer follow-up](results.md#follow-up-summer-and-the-shoulder-months).
 
 ### C6. Demand linear in the CWV, plus calendar terms
 
@@ -203,7 +203,7 @@ Last updated: 14 October 2026.
 - **Why:** demand fell after the 2022 price shock and has partly recovered since; recency weighting
   follows that without hand-picked break dates.
 - **Evidence:** best over three forward years (GB 48.2 vs 48.7 GWh/day per gas year, 51.0 for one
-  break); per gas year wins one year of three (results, exp. 4 and 6).
+  break); per gas year wins one year of three (results, exp. [4](results.md#experiment-4-change-over-time) and [6](results.md#experiment-6-target-a-vs-b)).
 
 ### C8. A robust loss; bounds near the published values
 
@@ -211,7 +211,7 @@ Last updated: 14 October 2026.
   physically sensible ranges around the published values.
 - **Why:** a few odd days (data errors, one-off events) shouldn't pull the fit; bounds stop parameters
   wandering where five years can't pin them down.
-- **History:** V0 and T0 started tighter and sat on their bounds; widened (results, exp. 3, bounds).
+- **History:** V0 and T0 started tighter and sat on their bounds; widened ([results, exp. 3](results.md#experiment-3-seasonal-term), bounds).
 
 ### C9. Fit all LDZs together
 
@@ -248,7 +248,7 @@ Last updated: 14 October 2026.
   changed); and National Gas's own day-ahead demand forecasts, on total demand.
 - **Why:** the first isolates the weather input; the second is what the market sees.
 - **Caveats:** ours used actual weather (small at day-ahead); theirs also forecasts DM. Like for like
-  needs our model on the ensemble (results, National Gas comparison).
+  needs our model on the ensemble ([results, National Gas comparison](results.md#against-national-gass-day-ahead-forecasts)).
 
 ---
 
@@ -263,7 +263,7 @@ A possible later experiment.
 
 They help (−1.8% on top of P5), but ERA5's are the extremes of hourly values and the ensemble's come
 from its own period extremes, which run colder / warmer — trained on one, run on the other, the model
-would be off on the days it leans on. Revisit with a shared definition (results, exp. 2).
+would be off on the days it leans on. Revisit with a shared definition ([results, exp. 2](results.md#experiments-2-and-5-variables-and-the-gas-day-temperature)).
 
 ### N3. Precipitation
 

@@ -10,7 +10,7 @@ def _():
 
     from ldz_demand.charts import pages, style
 
-    style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
+    _theme = style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
     return mo, pages
 
 
@@ -121,7 +121,7 @@ def _(mo):
 
     What each part does is on [Model specification](/model-specification), and how it is fitted, with
     every value per LDZ, on [Model calibration](/model-calibration); every
-    choice, and the alternatives it beat, in `docs/decisions.md`.
+    choice, and the alternatives it beat, in the [decisions](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/decisions.md).
 
     ## 5 · Results
 
@@ -170,8 +170,8 @@ def _(mo):
       Licence). Ordnance Survey, Code-Point Open.
     - LDZ town lists: energybrokers.co.uk. Postcode checks: SGN and Wales & West Utilities.
 
-    The method in full: `docs/methodology.md`; the choices: `docs/decisions.md`; the scores:
-    `docs/results.md`.
+    The method in full: the [methodology](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/methodology.md); the choices: the [decisions](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/decisions.md); the scores:
+    the [results](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/results.md).
     """)
     return
 

@@ -11,7 +11,7 @@ def _():
     from ldz_demand.charts import demand_model as dm
     from ldz_demand.charts import style
 
-    style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
+    _theme = style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
     return dm, mo
 
 
@@ -57,7 +57,7 @@ def _(mo):
         mo.callout(mo.md(
             "**Couldn't load the model or its inputs.** The page needs the fitted model "
             "(`src/ldz_demand/models/data/final_fit.csv`, `python -m ldz_demand.models.fit`) and the weather and "
-            f"demand tables (`docs/user_guide.md`).\n\nError: `{load_error}`"), kind="warn"),
+            f"demand tables (the [user guide](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/user_guide.md)).\n\nError: `{load_error}`"), kind="warn"),
     )
     ldz_picker = mo.ui.dropdown(options=sorted(fits), value="NT", label="LDZ")
     ldz_picker
@@ -110,8 +110,8 @@ def _(mo):
     mo.md(r"""
     ## 3 · Alternatives tried
 
-    Each was fitted and scored the same way; the reasons are in `docs/decisions.md`, the scores in
-    `docs/results.md`.
+    Each was fitted and scored the same way; the reasons are in the [decisions](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/decisions.md), the scores in
+    the [results](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/results.md).
 
     - **No seasonal term** — 17% worse; a **slow "heating-season" temperature** instead of the shape —
       close behind (C2).

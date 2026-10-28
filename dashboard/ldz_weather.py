@@ -11,7 +11,7 @@ def _():
     from ldz_demand.charts import style
     from ldz_demand.charts import weather_ldz as wx
 
-    style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
+    _theme = style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
     return mo, wx
 
 
@@ -102,7 +102,7 @@ def _(has_weather, load_error, mo):
     mo.stop(
         not has_weather,
         mo.callout(mo.md(
-            "**No LDZ weather built yet.** It needs the ERA5 archive (see `docs/user_guide.md` §5.2):\n\n"
+            "**No LDZ weather built yet.** It needs the ERA5 archive (see the [user guide, §5.2](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/user_guide.md#52-era5)):\n\n"
             "```bash\npython -m ldz_demand.data.ingest.era5 refresh\n"
             "python -m ldz_demand.data.build.weather_ldz_daily\n```"
             + (f"\n\nError: `{load_error}`" if load_error else "")

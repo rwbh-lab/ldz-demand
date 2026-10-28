@@ -32,7 +32,7 @@ solar, with the shared calendar shape. Target B. All fits use a robust (soft L1)
 ## Setup common to all experiments
 
 - **Target:** total − DM (target A, GWh/day): days whose published total is flagged are left out
-  (methodology §3).
+  ([methodology §3](methodology.md#3-target)).
 - **Data:** gas years 2021/22 to 2025/26 (12 Oct 2021 – 30 Sep 2026). Weather from 1 July 2021, so the
   effective temperatures have warmed up by the first demand day.
 - **Scored on the same days for every model.** A day counts only if every model in the experiment was
@@ -40,7 +40,7 @@ solar, with the shared calendar shape. Target B. All fits use a robust (soft L1)
 - **Breaks and regimes.** Where a model's level and slope change on a date (a *break*), a held-out year
   is scored only if each period between breaks it contains has at least 90 training days. Without
   this, SE's post-2022 level was estimated from five odd days — SE's target A is missing for most of
-  2022/23 (a feed left out of the published total; methodology §3).
+  2022/23 (a feed left out of the published total; [methodology §3](methodology.md#3-target)).
 - **Coldest days:** each LDZ's coldest 5% of days by its gas-weighted temperature.
 - **Official CWV benchmark:** the published CWV, through the same straight line and calendar terms,
   with a break on 1 Oct 2025 (when its definition changed). It can't be scored on 2025/26 — no
@@ -107,7 +107,7 @@ GB, RMSE in GWh/day (538 days; 2022/23 – 2024/25):
   against 73.7 with the calendar shape). One winter, so not decisive; watch it as data accrues.
 - **The station needs a larger seasonal term, but not where expected.** The fitted calendar size Sc
   (°C, in CW units) is more negative for the station in 11 of 13 LDZs: −2.6 °C against −2.3 °C on
-  average. But WS, where the station runs warmest in winter (methodology §4.2), goes the other way
+  average. But WS, where the station runs warmest in winter ([methodology §4.2](methodology.md#42-how-places-inside-an-ldz-are-weighted)), goes the other way
   (−1.6 vs −2.0), and SO is equal. So the hypothesis that the official seasonal profile partly
   corrects station siting is supported in general (about 15% more seasonal correction), but the
   monthly station offsets don't explain which LDZs need it.
@@ -200,7 +200,7 @@ The shoulder months remain the model's weakest point, shared in spring with the 
 ## Follow-up: the cold end
 
 *Is the cold-weather upturn right, and why did 2025/26's coldest days favour the model without a
-seasonal term?* Gas-weighted input, calendar shape, four forms of the upturn (methodology §5.5):
+seasonal term?* Gas-weighted input, calendar shape, four forms of the upturn ([methodology §5.5](methodology.md#55-the-cold-end)):
 fitted as now (V0 and I3 free, I3 ≤ max(0.4, 2 × published)); "strong" (I3 up to 1.5); linear (no
 upturn); the published V0 and I3. All five gas years, so 2025/26 is included (no official benchmark).
 
@@ -275,7 +275,7 @@ experiment 4's per-gas-year model, which was slightly behind it):
 
 *Does repairing the days a feed is missing from the published total help?* Target A (total − DM on
 days the total passes the checks) against target B (as A, plus days where the total left out a feed,
-repaired as offtakes + the feed's usual level; methodology §3). In practice only SE: B adds its
+repaired as offtakes + the feed's usual level; [methodology §3](methodology.md#3-target)). In practice only SE: B adds its
 Sep 2022 – Feb 2024 days. Scored forward, gas-weighted input, calendar shape.
 
 The repaired days' "actual" is our own repair, so scoring on them would partly score the repair

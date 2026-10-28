@@ -11,7 +11,7 @@ def _():
     from ldz_demand.charts import ensemble as ens
     from ldz_demand.charts import style
 
-    style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
+    _theme = style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
     return ens, mo
 
 
@@ -52,7 +52,7 @@ def _(ens, mo):
     mo.stop(
         _last is None,
         mo.callout(mo.md(
-            "**No ensemble forecasts built yet.** They come from the archived runs (see `docs/user_guide.md` §5.3):\n\n"
+            "**No ensemble forecasts built yet.** They come from the archived runs (see the [user guide, §5.3](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/user_guide.md#53-ecmwf-ensemble)):\n\n"
             "```bash\npython -m ldz_demand.data.ingest.ecmwf_ens refresh\npython -m ldz_demand.data.build.ens_ldz_daily\n```"
             + (f"\n\nError: `{load_error}`" if load_error else "")), kind="warn"),
     )

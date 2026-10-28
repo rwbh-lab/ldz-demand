@@ -12,7 +12,7 @@ def _():
     from ldz_demand.charts import style
     from ldz_demand.data import ldz_energy as le
 
-    style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
+    _theme = style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
     return le, mo, ng
 
 
@@ -51,7 +51,7 @@ def _(mo):
     mo.stop(
         raw is None or raw.empty,
         mo.callout(mo.md(
-            "**No National Gas data found.** Build it first — see `docs/user_guide.md` §5.1:\n\n"
+            "**No National Gas data found.** Build it first — see the [user guide, §5.1](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/user_guide.md#51-national-gas):\n\n"
             "```bash\npython -m ldz_demand.data.ingest.national_gas refresh\n"
             "python -m ldz_demand.data.build.ng_ldz_daily\n"
             "python -m ldz_demand.data.build.ng_offtake_daily\n```"
@@ -172,7 +172,7 @@ def _(has_offtakes, mo):
 
     Everything from here on is our own processing of the published data: checks, a repair, and the
     construction of the **target** — the demand the model is fitted to and forecasts (the dependent,
-    or endogenous, variable). Code: `ldz_demand.data.ldz_energy`. Decisions: `docs/decisions.md` P1, P2.
+    or endogenous, variable). Code: `ldz_demand.data.ldz_energy`. Decisions: [P1](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/decisions.md#p1-target-total--dm-not-ndm), [P2](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/decisions.md#p2-repair-the-se-missing-feed-target-b).
     ///
 
     ## 4 · The target: total − DM
@@ -244,7 +244,7 @@ def _(energy, le, mo):
           (repaired total = offtakes + usual); **mismatch** if |other − usual| > max({le.MISMATCH_ABS:g} GWh, {le.MISMATCH_REL:.0%} of total).
         - Without offtake data: **suspect** if ratio < {le.SUSPECT_BELOW}.
         - GB = sum of the 13 LDZs; a GB day takes the worst flag of its LDZs.
-        - Code: `ldz_demand.data.ldz_energy` (data), `ldz_demand.charts.ng_ldz_daily` (charts) · data: `docs/user_guide.md` §4.1.
+        - Code: `ldz_demand.data.ldz_energy` (data), `ldz_demand.charts.ng_ldz_daily` (charts) · data: [user guide, §4.1](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/user_guide.md#41-national-gas--ldz-demand-calorific-value-cwv-nts-offtakes-forecasts).
         """),
     })
     return
@@ -272,7 +272,7 @@ def _(energy, le, mo):
 
         **The model uses B.** On days that are real in both, the two give the same scores; but A leaves SE
         almost no data for 2022/23, and B gives it back — and with it a third test year for GB, which
-        changed the choice of how the model follows behaviour over time (`docs/results.md`, experiment 6).
+        changed the choice of how the model follows behaviour over time ([results, experiment 6](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/results.md#experiment-6-target-a-vs-b)).
         Repaired days are rougher than measured ones (errors ~10 vs ~6 GWh/day), so they train the model
         but are never used to score it.
         """),

@@ -11,7 +11,7 @@ def _():
     from ldz_demand.charts import geography as geo_charts
     from ldz_demand.charts import style
 
-    style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
+    _theme = style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
     return geo_charts, mo
 
 
@@ -177,7 +177,7 @@ def _(check, demand_note, energy, geo_charts, mo, show_authority, show_demand, s
 
         **The source lists were checked postcode by postcode.** For each doubtful authority, a postcode
         in a test town was looked up on the broker's own postcode search
-        (`docs/review/ldz_postcode_checks.csv`). Ten towns turned out to be listed under the wrong LDZ
+        ([ldz_postcode_checks.csv](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/review/ldz_postcode_checks.csv)). Ten towns turned out to be listed under the wrong LDZ
         and are corrected for all three methods (`town_corrections.csv`):
 
         - all of **South Yorkshire** (Sheffield, Barnsley, Doncaster) is **EM**, not NE;
@@ -258,7 +258,7 @@ def _(las, mo, towns):
         - Tables: `ldz_demand/geo/data/ldz_local_authority.csv` and `ldz_towns.csv`; manual decisions go in
           `la_overrides.csv`, towns listed under the wrong LDZ in `town_corrections.csv`, town name fixes in
           `town_aliases.csv`, wrong source counties in `county_corrections.csv`. Postcode evidence:
-          `docs/review/ldz_postcode_checks.csv`. Postcode sample: `ldz_postcode_sample.csv`
+          [ldz_postcode_checks.csv](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/review/ldz_postcode_checks.csv). Postcode sample: `ldz_postcode_sample.csv`
           (`python -m ldz_demand.geo.postcode_sample check` runs the operator lookups, paced and cached).
         - An authority is single-LDZ if one LDZ has ≥ 80% of its town votes; a town spanning several
           authorities votes for each in equal parts.

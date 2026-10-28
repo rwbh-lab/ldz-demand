@@ -11,7 +11,7 @@ def _():
     from ldz_demand.charts import era5 as ch
     from ldz_demand.charts import style
 
-    style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
+    _theme = style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
     return ch, mo
 
 
@@ -45,7 +45,7 @@ def _(mo):
         not available,
         mo.callout(mo.md(
             f"**No ERA5 files found** under `{raw_dir}/era5`. Download them first — see "
-            "`docs/user_guide.md` §5.2:\n\n```bash\npython -m ldz_demand.data.ingest.era5 refresh\n```"
+            "[user guide, §5.2](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/user_guide.md#52-era5):\n\n```bash\npython -m ldz_demand.data.ingest.era5 refresh\n```"
         ), kind="warn"),
     )
     return available, raw_dir
@@ -111,7 +111,7 @@ def _(ch, mo):
           or 2 × 3 (~55 km) grid points — wider in longitude so cells are square on the ground. Partial
           blocks at the edge are dropped.
         - Headline temperature: mean over an England box (50.5–54°N, 3°W–0.5°E).
-        - Code: `ldz_demand.charts.era5` · data: `docs/user_guide.md` §4.2.
+        - Code: `ldz_demand.charts.era5` · data: [user guide, §4.2](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/user_guide.md#42-era5--hourly-reanalysis-weather).
         """),
         "Attribution": mo.md("Contains modified Copernicus Climate Change Service information [2021–2026]. "
                              "Neither the European Commission nor ECMWF is responsible for any use of this information. "

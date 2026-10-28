@@ -1,11 +1,28 @@
 # User guide — building the data from scratch
 
 How to download the source data, archive it, and build the tables the models use. Everything here
-uses free, public data. For *why* the project is built this way, see `methodology.md`; for what the
-models found, `results.md`; for each modelling choice and why, `decisions.md`. To run the model in a few
-minutes on a sample forecast first, without downloading anything, see `user_quickstart.md`.
+uses free, public data. For *why* the project is built this way, see the [methodology](methodology.md);
+for what the models found, the [results](results.md); for each modelling choice and why, the
+[decisions](decisions.md). To run the model in a few minutes on a sample forecast first, without
+downloading anything, see the [quick start](user_quickstart.md).
 
-Sections marked **🚧 Coming soon** describe parts that are planned but not built yet.
+**Contents**
+
+1. [Overview](#1-overview)
+2. [Prerequisites](#2-prerequisites)
+3. [Setup](#3-setup): [install](#31-install) · [local config](#32-local-config) ·
+   [Copernicus (ERA5)](#33-copernicus-era5) · [MySQL mode](#34-mysql-mode-optional)
+4. [Datasets](#4-datasets): [National Gas](#41-national-gas--ldz-demand-calorific-value-cwv-nts-offtakes-forecasts) ·
+   [ERA5](#42-era5--hourly-reanalysis-weather) · [ECMWF ensemble](#43-ecmwf-ensemble-forecasts)
+5. [Running the pipeline](#5-running-the-pipeline): [National Gas](#51-national-gas) · [ERA5](#52-era5) ·
+   [ECMWF ensemble](#53-ecmwf-ensemble) · [the daily job (Docker)](#54-scheduled-jobs-docker)
+6. [What gets built](#6-what-gets-built): [raw archive](#61-raw-archive) · [tables](#62-tables)
+7. [Keeping it up to date](#7-keeping-it-up-to-date)
+8. [Rebuilding from the archive](#8-rebuilding-from-the-archive)
+9. [Checking the data](#9-checking-the-data)
+10. [Troubleshooting](#10-troubleshooting)
+11. [Reference](#11-reference): [commands](#111-commands) ·
+    [config](#112-config-configdefaultini-overridden-by-configlocalini) · [environment](#113-environment-env-mysql-mode)
 
 ---
 
@@ -29,7 +46,7 @@ Tables are written to a **Store**, in one of two modes:
 | Mode | Setting | Where tables go | Setup |
 |---|---|---|---|
 | CSV (default) | `database = false` | CSV files in `data/cache/` | None |
-| MySQL | `database = true` | A MySQL 8 database | A database + user, see §3.4 |
+| MySQL | `database = true` | A MySQL 8 database | A database + user, see [§3.4](#34-mysql-mode-optional) |
 
 Raw files go to `raw_dir` in both modes.
 
@@ -99,7 +116,7 @@ python -c "from ldz_demand.config import create_config, resolve_path; print(reso
 ### 3.4 MySQL mode (optional)
 
 1. Create a MySQL 8 database and a user with full rights on that database only.
-2. Copy `.env.example` to `.env` (gitignored) and fill in the connection details — see §11.3.
+2. Copy `.env.example` to `.env` (gitignored) and fill in the connection details — see [§11.3](#113-environment-env-mysql-mode).
 3. Set `database = true` in `config/local.ini`.
 4. Check the connection and create the tables:
    ```bash
@@ -130,7 +147,7 @@ Three series are downloaded:
 - **`ldz`** — the per-LDZ items below.
 - **`offtakes`** — energy offtaken from the national transmission system (NTS) at each of the 122
   LDZ offtake points (kWh/day). Summed per LDZ, an independent meter of the gas entering it, used to
-  check the published totals (§9).
+  check the published totals ([§9](#9-checking-the-data)).
 - **`forecasts`** — National Gas's own forecasts per LDZ, **every issue kept**: total LDZ demand
   (`demand_forecast`, mcm) and the forecast CWV (`cwv_forecast_d`, issued on the gas day, and
   `cwv_forecast_d_minus_1`, issued the day before). Demand is issued ~8 times per gas day: on D−1 at
@@ -157,7 +174,7 @@ LDZs: EA, EM, NE, NO, NT, NW, SC, SE, SO, SW, WM, WN, WS.
   builder handles this.
 - **SE total.** SE normally takes ~31 GWh/day from a non-NTS input, which is missing from its
   published total from Sep 2022 to Feb 2024 (and a few short spells since). Detected and flagged
-  using the offtakes — see §9.
+  using the offtakes — see [§9](#9-checking-the-data).
 
 ### 4.2 ERA5 — hourly reanalysis weather
 
@@ -165,7 +182,7 @@ LDZs: EA, EM, NE, NO, NT, NW, SC, SE, SO, SW, WM, WN, WS.
 |---|---|
 | **What** | Hourly 2 m temperature and 10 m wind (u, v) on a 0.25° grid over GB; plus (group `extra`) surface solar radiation and total precipitation |
 | **Source** | Copernicus Climate Data Store, dataset `reanalysis-era5-single-levels` |
-| **Account** | Free CDS account + accepted licence (§3.3) |
+| **Account** | Free CDS account + accepted licence ([§3.3](#33-copernicus-era5)) |
 | **Attribution** | Required: *"Contains modified Copernicus Climate Change Service information [year]"* |
 | **History** | 1940 to ~5 days ago. Default download starts 2021-07 (`[era5] start`) |
 | **Area** | 61°N, 8.5°W to 49.5°N, 2°E (`[era5] area`) |
@@ -395,7 +412,7 @@ raw_dir/
 |---|---|---|
 | `gas_day` | date | Applicable gas day |
 | `ldz` | text | EA … WS |
-| `item` | text | See §4.1 |
+| `item` | text | See [§4.1](#41-national-gas--ldz-demand-calorific-value-cwv-nts-offtakes-forecasts) |
 | `data_item_id` | text | National Gas ID (PUBOB…) |
 | `value` | float | |
 | `unit` | text | `mcm`, `kWh`, `MJ/m3`, `degC` — check before combining items |
@@ -452,7 +469,7 @@ Key: `(run_date, run_hour, member, gas_day, ldz, membership, weighting, variable
 |---|---|---|
 | National Gas | Daily (the daily job) | D+6 values close out a week behind; the 10-day lookback fills them in |
 | ERA5 | Daily (the daily job) | Only the current month is requested; preliminary months are replaced by final data after ~3 months |
-| ECMWF ensemble | **Daily** | Runs leave the portal after a few days (§5.4: the daily job) |
+| ECMWF ensemble | **Daily** | Runs leave the portal after a few days ([§5.4](#54-scheduled-jobs-docker): the daily job) |
 
 **Back up `raw_dir`.** For National Gas it will become the only copy of the oldest years.
 
@@ -541,11 +558,11 @@ print((100 * (total_kwh - parts) / total_kwh).describe())   # SE 2026: mean ~1%,
 
 | Symptom | Cause / fix |
 |---|---|
-| CDS `403 ... required licences not accepted` | Accept the ERA5 licence on the dataset page (§3.3) |
+| CDS `403 ... required licences not accepted` | Accept the ERA5 licence on the dataset page ([§3.3](#33-copernicus-era5)) |
 | CDS authentication errors | `~/.cdsapirc` key must be the token only — no `UID:` prefix |
 | ERA5 very slow | Normal: requests queue on the Copernicus side. Leave it running |
-| Raw files appear in `data/raw/` unexpectedly | `raw_dir` isn't set in `config/local.ini` (§3.2) |
-| `Database config error: LDZ_DB_... is not set` | Missing value in `.env` (§11.3) |
+| Raw files appear in `data/raw/` unexpectedly | `raw_dir` isn't set in `config/local.ini` ([§3.2](#32-local-config)) |
+| `Database config error: LDZ_DB_... is not set` | Missing value in `.env` ([§11.3](#113-environment-env-mysql-mode)) |
 | MySQL `Can't connect` | Host/port wrong or not reachable; `python -m ldz_demand.db status` shows which host it tried |
 | `database = true needs the db extra` | `python -m pip install -e ".[db]"` |
 | `Applied migrations were edited` | A migration file changed after it was applied. Restore it and add a new migration instead |
@@ -571,12 +588,12 @@ print((100 * (total_kwh - parts) / total_kwh).describe())   # SE 2026: mean ~1%,
 | `python -m ldz_demand.data.build.weather_ldz_daily [--since MONTH \| --recent N]` | Build `weather_ldz_daily` from ERA5 (`--recent 1`: this month and last) |
 | `python -m ldz_demand.data.build.weather_ldz_hourly [--since MONTH]` | Build `weather_ldz_hourly` from ERA5 |
 | `python -m ldz_demand.data.build.ens_ldz_daily [--since DATE]` | Build `ens_ldz_daily` from the ensemble archive |
-| `python -m ldz_demand.models.experiment <name> [--ldz …]` | Run a model experiment (cwv_inputs, variables, seasonal, change, averaging, target, final) → `data/results/` (see `results.md`) |
+| `python -m ldz_demand.models.experiment <name> [--ldz …]` | Run a model experiment (cwv_inputs, variables, seasonal, change, averaging, target, final) → `data/results/` (see the [results](results.md)) |
 | `python -m ldz_demand.models.fit` | Fit the final model on every usable day → `models/data/final_fit.csv` |
 | `python -m ldz_demand.models.results` | Export the compact results bundle for the dashboard → `models/data/results/` |
 | `python -m ldz_demand.models.forecast DATE… \| --missing` | Demand forecasts from ensemble runs → `demand_forecast_daily` |
 | `python -m ldz_demand.dashboard` | Serve all dashboard pages (overview at /), forecasting new ensemble runs first |
-| `python -m ldz_demand.jobs daily [--list]` | The scheduled daily job (§5.4); usually run in the Docker image |
+| `python -m ldz_demand.jobs daily [--list]` | The scheduled daily job ([§5.4](#54-scheduled-jobs-docker)); usually run in the Docker image |
 | `python -m ldz_demand.db status` | MySQL: connection check + migration status |
 | `python -m ldz_demand.db migrate [--dry-run]` | MySQL: apply pending migrations |
 | `python -m ldz_demand.db draft DATASET` | Print a `CREATE TABLE` for a dataset (developers) |

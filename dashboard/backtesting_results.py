@@ -12,7 +12,7 @@ def _():
     from ldz_demand.charts import style
     from ldz_demand.models import results
 
-    style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
+    _theme = style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
     return mo, rc, results
 
 
@@ -27,8 +27,8 @@ def _(mo):
     Every score here is **out of sample**: each gas year from 2023/24 is predicted by a model fitted only on
     the years before it — as a forecaster would have had to. Scores are for **GB**, the sum of the 13
     LDZs, on days every LDZ has, with actual weather (ERA5). How the model works is on the
-    [Model specification](/model-specification) page; the reasoning behind each choice is in `docs/decisions.md`, and
-    the full write-up in `docs/results.md`.
+    [Model specification](/model-specification) page; the reasoning behind each choice is in the [decisions](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/decisions.md), and
+    the full write-up in the [results](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/results.md).
     """))
     return
 
@@ -43,7 +43,7 @@ def _(mo, results):
         load_error = exc
     mo.stop(load_error is not None, mo.callout(mo.md(
         "**No results bundle.** Run the experiments and then `python -m ldz_demand.models.results` "
-        f"(`docs/results.md`).\n\nError: `{load_error}`"), kind="warn"))
+        f"(the [results](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/results.md)).\n\nError: `{load_error}`"), kind="warn"))
     return bench, daily, experiments, monthly
 
 
@@ -128,7 +128,7 @@ def _(experiments, mo, rc):
         mo.md("Experiments 4 and 6 compare every model on the days they all share — with target A in the mix, "
               "only 2024/25 — so a level per gas year comes out best there. The deciding comparison is target B "
               "alone over three forward years, where weighting recent years wins (48.2 vs 48.7 GWh/day; "
-              "`docs/results.md`, experiment 6): that is the final model."),
+              "[results, experiment 6](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/results.md#experiment-6-target-a-vs-b)): that is the final model."),
     ])
     return
 

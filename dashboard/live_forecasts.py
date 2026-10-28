@@ -12,7 +12,7 @@ def _():
     from ldz_demand.charts import style
     from ldz_demand.models import forecast as fcm
 
-    style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
+    _theme = style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
     return fch, fcm, mo
 
 
@@ -113,10 +113,10 @@ def _(mo):
       days behind, so those days come from earlier runs' ensemble mean (and a straight line across any gap);
       the model forgets fast, so this barely moves the forecast (0.2% on lead day 0 when tested).
     - **Shoulder months.** The model ran about 5% high in late September and early October 2026 — the
-      season where it is weakest (`docs/results.md`). No correction is applied yet; the verification above
+      season where it is weakest ([results, summer follow-up](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/results.md#follow-up-summer-and-the-shoulder-months)). No correction is applied yet; the verification above
       is how to decide on one.
     - **Against National Gas.** Their day-ahead forecast is for total demand; like-for-like scoring with
-      ours needs a winter of these runs (`docs/results.md`).
+      ours needs a winter of these runs ([results](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/results.md#against-national-gass-day-ahead-forecasts)).
     - Run with `python -m ldz_demand.models.forecast YYYY-MM-DD`; stored in `demand_forecast_daily`.
     """)
     return

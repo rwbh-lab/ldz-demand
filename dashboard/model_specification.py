@@ -11,7 +11,7 @@ def _():
     from ldz_demand.charts import demand_model as dm
     from ldz_demand.charts import style
 
-    style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
+    _theme = style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
     return dm, mo
 
 
@@ -40,7 +40,7 @@ def _(mo):
     *T* is the gas day's temperature (§1), *W* the wind speed, *SR* solar radiation — all ERA5, averaged
     over the LDZ and weighted by where gas is used. The calendar is day of week, bank holidays and
     Christmas. This page shows what each part does, drawn with the **final fit**
-    (`ldz_demand.models.fit`; `docs/decisions.md` C1 – C9). How the values are fitted, and all of them per
+    (`ldz_demand.models.fit`; [decisions C1 – C9](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/decisions.md#cwv-model)). How the values are fitted, and all of them per
     LDZ, is on [Model calibration](/model-calibration); how well the model scores, on
     [Backtesting results](/backtesting-results).
     """))
@@ -63,7 +63,7 @@ def _(mo):
         mo.callout(mo.md(
             "**Couldn't load the model or its inputs.** The page needs the fitted model "
             "(`src/ldz_demand/models/data/final_fit.csv`, `python -m ldz_demand.models.fit`) and the weather and "
-            f"demand tables (`docs/user_guide.md`).\n\nError: `{load_error}`"), kind="warn"),
+            f"demand tables (the [user guide](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/user_guide.md)).\n\nError: `{load_error}`"), kind="warn"),
     )
     ldz_picker = mo.ui.dropdown(options=sorted(fits), value="NT", label="LDZ")
     ldz_picker
