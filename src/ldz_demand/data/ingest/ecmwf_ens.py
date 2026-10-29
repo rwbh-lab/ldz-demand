@@ -59,7 +59,7 @@ STORED = ["t2m", "u10", "v10", "ssrd", "tp", "tmin", "tmax"]
 STEPS = list(range(0, 145, 3)) + list(range(150, 361, 6))  # hours: 3-hourly to 144, 6-hourly to 360
 RUN_HOUR = 0
 DAYS_BACK = 3  # refresh looks for runs this many days back from the latest (the portal keeps a few days)
-DOWNLOADS = 3  # steps downloading at once (the portal allows 500 connections; per-connection speed varies)
+DOWNLOADS = 6  # steps downloading at once (the portal allows 500 connections; per-connection speed varies)
 # A stalled connection must fail, not hang: on 17 Oct 2026 two steps' downloads went silent and the job
 # waited two days, blocking the next days' runs. Every socket read times out; each step is retried.
 SOCKET_TIMEOUT_S = 120   # no data for this long -> the read fails
@@ -177,7 +177,8 @@ class ENSIngestor:
         timing = {"mb": 0.0, "download_s": 0.0, "process_s": 0.0, "done": len(self.steps) - len(todo)}
         t0 = time.monotonic()
         # downloads run in threads, several at once; each finished download is cropped and saved here,
-        # while the others carry on (at most `downloads` global files on disk at a time)
+        # with the next downloads already started, so every connection stays busy while this thread decodes
+        # (at most twice `downloads` global files on disk at a time)
         errors = []
         with ThreadPoolExecutor(self.downloads) as pool:
             queue, running = list(todo), set()
@@ -185,9 +186,11 @@ class ENSIngestor:
                 while queue and not errors and len(running) < self.downloads:
                     running.add(pool.submit(self._download, run, queue.pop(0), work))
                 finished, running = wait(running, return_when=FIRST_COMPLETED)
+                errors += [f.exception() for f in finished if f.exception() is not None]  # stop starting downloads
+                while queue and not errors and len(running) < self.downloads:
+                    running.add(pool.submit(self._download, run, queue.pop(0), work))
                 for future in finished:
-                    if future.exception() is not None:  # stop starting downloads; save the ones in flight
-                        errors.append(future.exception())
+                    if future.exception() is not None:  # save the ones that did finish
                         continue
                     step, grib, mb, seconds = future.result()
                     t = time.monotonic()

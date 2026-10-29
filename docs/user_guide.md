@@ -615,7 +615,7 @@ print((100 * (total_kwh - parts) / total_kwh).describe())   # SE 2026: mean ~1%,
 | `ecmwf_ens` | `steps` | `0-144/3,150-360/6` | Forecast hours to download |
 | `ecmwf_ens` | `area` | the `[era5]` area | Crop box |
 | `ecmwf_ens` | `days_back` | `3` | `refresh` also fetches missing runs this many days back (`1` in the container) |
-| `ecmwf_ens` | `downloads` | `3` | Steps downloading at once |
+| `ecmwf_ens` | `downloads` | `6` | Steps downloading at once |
 | `ldz_weather` | `detail_variants` | `sampled/gas, station/point` | Variants built hourly / per ensemble member |
 
 Relative paths are relative to the repo root. Set `LDZ_DEMAND_CONFIG` to use a different override
