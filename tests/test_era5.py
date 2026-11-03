@@ -1,11 +1,18 @@
 from datetime import date
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
 
-from ldz_demand.data.ingest.era5 import ERA5Ingestor, is_final, load_hourly, month_files
+import requests
+
+from ldz_demand.data.ingest import era5
+from ldz_demand.data.ingest.era5 import (
+    EXIT_LICENCE, EXTRA_VARIABLES, VARIABLES, ERA5Ingestor, is_final, licence_error, load_hourly, month_files,
+    pull_together,
+)
 
 AREA = [61, -8.5, 49.5, 2.0]
 
@@ -141,3 +148,72 @@ def test_extra_group_archives_separately_and_merges_on_load(tmp_path):
     assert "ssrd" not in load_hourly(tmp_path / "raw", extra=False)
     with pytest.raises(ValueError, match="group"):
         ERA5Ingestor(tmp_path / "raw", AREA, group="snow")
+
+
+class CombinedClient(FakeClient):
+    """Delivers whichever of the core and extra variables are requested, in one file."""
+
+    def retrieve(self, dataset, request, target):
+        self.requests.append((dataset, request))
+        month = f"{request['year'][0]}-{request['month'][0]}"
+        days = len(request["day"])
+        target = Path(target)
+        parts = []
+        for writer, names in ((cds_file, ["t2m", "u10", "v10"]), (extra_file, ["ssrd", "tp"])):
+            if names == ["ssrd", "tp"] and "total_precipitation" not in request["variable"]:
+                continue
+            if names[0] == "t2m" and "2m_temperature" not in request["variable"]:
+                continue
+            tmp = target.with_name(f"{names[0]}.tmp")
+            writer(tmp, month, days)
+            with xr.open_dataset(tmp) as ds:
+                parts.append(ds.load())
+            tmp.unlink()
+        xr.merge(parts).to_netcdf(target)
+
+
+def test_pull_together_makes_one_request_and_saves_each_group(tmp_path):
+    today = date(2026, 10, 11)
+    client = CombinedClient()
+    ingestors = [ERA5Ingestor(tmp_path / "raw", AREA, client=client, group=g) for g in ("core", "extra")]
+    paths = pull_together(ingestors, "2026-09", "2026-10", today)
+
+    assert len(client.requests) == 2                      # one per month, not one per month and group
+    assert client.requests[0][1]["variable"] == [*VARIABLES, *EXTRA_VARIABLES]
+    assert sorted(p.name.split("_pulled_")[0] for p in paths) == [
+        "era5t_gb_2026-09", "era5t_gb_2026-10", "era5xt_gb_2026-09", "era5xt_gb_2026-10"]
+    assert not list(tmp_path.rglob("*.part"))
+    ds = load_hourly(tmp_path / "raw")
+    assert np.allclose(ds.sel(time="2026-09-15")["ssrd"], 100.0) and "t2m" in ds
+
+    # a second pull the next day only needs October
+    pull_together(ingestors, "2026-09", "2026-10", date(2026, 10, 12))
+    assert len(client.requests) == 3
+
+
+def test_pull_together_requests_only_the_group_that_is_missing(tmp_path):
+    today = date(2026, 10, 11)
+    client = CombinedClient()
+    core = ERA5Ingestor(tmp_path / "raw", AREA, client=client)
+    core.pull("2026-01", "2026-01", today)
+    extra = ERA5Ingestor(tmp_path / "raw", AREA, client=client, group="extra")
+    pull_together([core, extra], "2026-01", "2026-01", today)
+    assert client.requests[-1][1]["variable"] == EXTRA_VARIABLES
+
+
+def test_licence_refusal_is_recognised_and_exits_with_its_own_status(monkeypatch):
+    class Response:
+        status_code = 403
+        text = "Missing policies are: Terms of use of the Copernicus Climate Data Store (rev. 13)"
+
+    refusal = requests.HTTPError("403 Client Error: Forbidden", response=Response())
+    assert "terms-of-use-cds" in str(licence_error(refusal))
+    assert licence_error(ValueError("boom")) is None
+    other = requests.HTTPError("403", response=type("R", (), {"status_code": 403, "text": "quota"})())
+    assert licence_error(other) is None
+
+    def refuse(*args, **kwargs):
+        raise refusal
+
+    monkeypatch.setattr(era5, "pull_together", refuse)
+    assert era5.main(["refresh"]) == EXIT_LICENCE

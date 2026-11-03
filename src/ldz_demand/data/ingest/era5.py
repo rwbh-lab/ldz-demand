@@ -15,6 +15,11 @@ pull already reaches the month's last day (then the next download is the final f
 final file when present, else the latest preliminary one. So a daily refresh asks CDS for the current
 month (and the previous one for its last days), not every preliminary month again.
 
+A refresh makes one CDS request per month for all the variables that month needs (core and extra
+together: the Copernicus queue is the slow part), then saves each group to its own file. If CDS refuses
+because new terms of use are unaccepted (403 "Missing policies"), the step logs an ACTION NEEDED line with
+the terms URL and exits with status 3.
+
 Gas-day aggregation and LDZ weighting happen in ldz_demand.data.build, not here.
 
 Run as a script:
@@ -23,9 +28,12 @@ Run as a script:
 """
 
 import argparse
+import contextlib
 import logging
 import re
 import sys
+import tempfile
+import zipfile
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -41,6 +49,7 @@ DATASET = "reanalysis-era5-single-levels"
 VARIABLES = ["2m_temperature", "10m_u_component_of_wind", "10m_v_component_of_wind"]
 EXTRA_VARIABLES = ["surface_solar_radiation_downwards", "total_precipitation"]
 GROUPS = {"core": (VARIABLES, "era5"), "extra": (EXTRA_VARIABLES, "era5x")}  # group -> (variables, file prefix)
+SHORT_NAMES = {"core": ["t2m", "u10", "v10"], "extra": ["ssrd", "tp"]}  # group -> variable names inside the file
 FINAL_AFTER_DAYS = 90  # months ending longer ago than this are treated as final ERA5
 LATENCY_DAYS = 6  # ERA5T is available ~5 days behind real time
 
@@ -88,31 +97,34 @@ class ERA5Ingestor:
             self._client = cdsapi.Client()
         return self._client
 
+    def plan(self, month: str, today: date, pulled: str | None = None) -> Path | None:
+        """Where to save month, or None when nothing needs downloading (final file, or a complete pull, exists)."""
+        if is_final(month, today):
+            path = self.final_path(month)
+            if path.exists():
+                logger.info(f"{month}: {self.group}: final file exists, skipping")
+                return None
+            return path
+        if self.complete_pull(month):
+            logger.info(f"{month}: {self.group}: preliminary file covers the whole month, skipping until final")
+            return None
+        pulled = pulled or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        return self.raw_dir / month[:4] / f"{self.prefix}t_gb_{month}_pulled_{pulled}.nc"
+
     def pull(self, first: str, last: str, today: date | None = None) -> list[Path]:
         """Download months first..last (YYYY-MM, inclusive). Final months already on disk are skipped."""
         today = today or date.today()
         downloaded = []
         for month in _months(first, last):
-            if is_final(month, today):
-                path = self.final_path(month)
-                if path.exists():
-                    logger.info(f"{month}: final file exists, skipping")
-                    continue
-            elif self.complete_pull(month):
-                logger.info(f"{month}: preliminary file covers the whole month, skipping until final")
-                continue
-            else:
-                pulled = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-                path = self.raw_dir / month[:4] / f"{self.prefix}t_gb_{month}_pulled_{pulled}.nc"
-            self.download(month, path, today)
-            downloaded.append(path)
+            if path := self.plan(month, today):
+                self.download(month, path, today)
+                downloaded.append(path)
         return downloaded
 
     def refresh(self, start: str, today: date | None = None) -> list[Path]:
         """Download everything from start to the latest available month."""
         today = today or date.today()
-        latest = (today - timedelta(days=LATENCY_DAYS)).strftime("%Y-%m")
-        return self.pull(start, latest, today)
+        return self.pull(start, _latest_month(today), today)
 
     def complete_pull(self, month: str) -> bool:
         """Whether the latest preliminary pull of month already reaches its last day."""
@@ -130,26 +142,103 @@ class ERA5Ingestor:
         return self.raw_dir / month[:4] / f"{self.prefix}_gb_{month}.nc"
 
     def download(self, month: str, path: Path, today: date) -> None:
-        year, mon = month.split("-")
-        last_day = min(_month_end(month), today - timedelta(days=LATENCY_DAYS)).day
-        request = {
-            "product_type": ["reanalysis"],
-            "variable": self.variables,
-            "year": [year],
-            "month": [mon],
-            "day": [f"{d:02d}" for d in range(1, last_day + 1)],
-            "time": [f"{h:02d}:00" for h in range(24)],
-            "area": self.area,
-            "data_format": "netcdf",
-            "download_format": "unarchived",
-        }
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".nc.part")
-        logger.info(f"{month}: requesting {last_day} days of {self.group} variables from CDS "
+        request = cds_request(month, today, self.variables, self.area)
+        logger.info(f"{month}: requesting {len(request['day'])} days of {self.group} variables from CDS "
                     "(queued requests can take minutes)")
         self.client.retrieve(DATASET, request, str(tmp))
         tmp.rename(path)
         logger.info(f"{month}: saved {path}")
+
+
+def cds_request(month: str, today: date, variables: list[str], area) -> dict:
+    year, mon = month.split("-")
+    last_day = min(_month_end(month), today - timedelta(days=LATENCY_DAYS)).day
+    return {
+        "product_type": ["reanalysis"],
+        "variable": variables,
+        "year": [year],
+        "month": [mon],
+        "day": [f"{d:02d}" for d in range(1, last_day + 1)],
+        "time": [f"{h:02d}:00" for h in range(24)],
+        "area": area,
+        "data_format": "netcdf",
+        "download_format": "unarchived",
+    }
+
+
+class CDSLicenceError(RuntimeError):
+    """CDS refused the request because new terms of use have not been accepted (a person must accept them)."""
+
+
+LICENCE_URL = "https://cds.climate.copernicus.eu/licences/terms-of-use-cds"
+EXIT_LICENCE = 3  # the step's exit status for CDSLicenceError, so the log and run-check can tell it apart
+
+
+def licence_error(exc: Exception) -> CDSLicenceError | None:
+    """CDSLicenceError if exc is the CDS 403 "Missing policies ... Terms of use" refusal, else None."""
+    response = getattr(exc, "response", None)
+    text = f"{exc} {getattr(response, 'text', '')}"
+    if getattr(response, "status_code", None) == 403 and "Missing policies" in text:
+        return CDSLicenceError(f"CDS refused the request: new terms of use must be accepted on the CDS website ({LICENCE_URL})")
+    return None
+
+
+def pull_together(ingestors: list["ERA5Ingestor"], first: str, last: str, today: date | None = None) -> list[Path]:
+    """
+    Like pull() for several groups, but one CDS request per month for all the variables that month needs
+    (the queue is the slow part, so a request each for core and extra waited twice), then saved as
+    each group's own file so the archive and load_hourly are unchanged.
+    """
+    today = today or date.today()
+    pulled = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    first_ingestor = ingestors[0]
+    downloaded = []
+    for month in _months(first, last):
+        targets = [(i, path) for i in ingestors if (path := i.plan(month, today, pulled))]
+        if not targets:
+            continue
+        variables = [v for i, _ in targets for v in i.variables]
+        request = cds_request(month, today, variables, first_ingestor.area)
+        raw = targets[0][1].parent / f"era5_{month}_pulled_{pulled}.nc.part"
+        raw.parent.mkdir(parents=True, exist_ok=True)
+        logger.info(f"{month}: requesting {len(request['day'])} days of {'+'.join(i.group for i, _ in targets)} "
+                    "variables from CDS in one request (queued requests can take minutes)")
+        first_ingestor.client.retrieve(DATASET, request, str(raw))
+        try:
+            with _open_download(raw) as ds:
+                for ingestor, path in targets:
+                    tmp = path.with_suffix(".nc.part")
+                    ds[SHORT_NAMES[ingestor.group]].to_netcdf(tmp)
+                    tmp.rename(path)
+                    logger.info(f"{month}: saved {path}")
+                    downloaded.append(path)
+        finally:
+            raw.unlink(missing_ok=True)
+    return downloaded
+
+
+@contextlib.contextmanager
+def _open_download(path: Path):
+    """Open a CDS download as one dataset; CDS may deliver a zip of NetCDFs when variables mix step types."""
+    if not zipfile.is_zipfile(path):
+        with xr.open_dataset(path) as ds:
+            yield ds.load()
+        return
+    with tempfile.TemporaryDirectory() as folder, zipfile.ZipFile(path) as archive:
+        archive.extractall(folder)
+        parts = [xr.open_dataset(p).load() for p in sorted(Path(folder).glob("*.nc"))]
+        try:
+            yield xr.merge(parts, compat="override")
+        finally:
+            for part in parts:
+                part.close()
+
+
+def _latest_month(today: date) -> str:
+    """The latest month with any ERA5 data available."""
+    return (today - timedelta(days=LATENCY_DAYS)).strftime("%Y-%m")
 
 
 def is_final(month: str, today: date) -> bool:
@@ -254,12 +343,18 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     config = create_config()
     area = [x.strip() for x in config["era5"]["area"].split(",")]
-    for group in (GROUPS if args.group == "all" else [args.group]):
-        ingestor = ERA5Ingestor(resolve_path(config, "storage", "raw_dir"), area, group=group)
+    raw_dir = resolve_path(config, "storage", "raw_dir")
+    ingestors = [ERA5Ingestor(raw_dir, area, group=g) for g in (GROUPS if args.group == "all" else [args.group])]
+    try:
         if args.command == "refresh":
-            ingestor.refresh(config["era5"]["start"])
+            pull_together(ingestors, config["era5"]["start"], _latest_month(date.today()))
         else:
-            ingestor.pull(args.first, args.last)
+            pull_together(ingestors, args.first, args.last)
+    except Exception as exc:
+        if error := licence_error(exc):
+            logger.error(f"ACTION NEEDED: {error}")
+            return EXIT_LICENCE
+        raise
     return 0
 
 

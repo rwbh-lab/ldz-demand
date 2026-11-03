@@ -251,7 +251,7 @@ python -m ldz_demand.data.build.ng_forecast_daily        # raw_dir -> ng_forecas
 ### 5.2 ERA5
 
 ```bash
-python -m ldz_demand.data.ingest.era5 refresh                  # download -> raw_dir (core + extra)
+python -m ldz_demand.data.ingest.era5 refresh                  # download -> raw_dir (core + extra, one CDS request per month)
 python -m ldz_demand.data.ingest.era5 refresh --group extra    # only solar radiation + precipitation
 python -m ldz_demand.data.ingest.era5 pull 2026-01 2026-01     # explicit month range
 ```
@@ -558,7 +558,7 @@ print((100 * (total_kwh - parts) / total_kwh).describe())   # SE 2026: mean ~1%,
 
 | Symptom | Cause / fix |
 |---|---|
-| CDS `403 ... required licences not accepted` | Accept the ERA5 licence on the dataset page ([§3.3](#33-copernicus-era5)) |
+| CDS `403 ... required licences not accepted`, or `ACTION NEEDED: CDS refused ... new terms of use` (the step exits with status 3) | Accept the ERA5 licence on the dataset page, or the new CDS terms of use on the CDS website ([§3.3](#33-copernicus-era5)); the next run carries on |
 | CDS authentication errors | `~/.cdsapirc` key must be the token only — no `UID:` prefix |
 | ERA5 very slow | Normal: requests queue on the Copernicus side. Leave it running |
 | Raw files appear in `data/raw/` unexpectedly | `raw_dir` isn't set in `config/local.ini` ([§3.2](#32-local-config)) |
