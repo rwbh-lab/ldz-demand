@@ -180,8 +180,8 @@ def demand_before_bend(fit: demand.Fit, frame: pd.DataFrame, x: str = "cw") -> g
     else:
         bins = pd.Series(y[ok]).groupby(np.floor(xv[ok])).median()
         bins = bins[pd.Series(xv[ok]).groupby(np.floor(xv[ok])).size() >= 10]
-        fig.add_trace(go.Scatter(x=bins.index + 0.5, y=bins.values, name="Median per °C", mode="lines+markers",
-                                 line=dict(color=t.series[0], width=2.5), marker=dict(size=6),
+        fig.add_trace(go.Scatter(x=bins.index + 0.5, y=bins.values, name="Median per °C", mode="lines",
+                                 line=dict(color=t.series[0], width=2.5),
                                  hovertemplate="%{x:.1f} °C: median %{y:,.1f} GWh<extra></extra>"))
     fig.update_layout(title="Before the bend: demand " + ("against CW" if x == "cw" else "against temperature"),
                       xaxis_title=xlabel, yaxis_title="Total − DM (GWh / day)", height=420, hovermode="closest")

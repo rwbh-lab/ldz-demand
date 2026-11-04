@@ -128,9 +128,11 @@ def plotly_template(theme: Theme):
             margin=dict(l=64, r=24, t=88, b=48),
             colorscale=dict(sequential=[[i / (len(theme.sequential) - 1), c] for i, c in enumerate(theme.sequential)]),
         ),
+        # lines without dots: Plotly would add them to any short line; points are joined, not fitted, and hover
+        # gives the values. Traces that are points (actuals, scatters) set mode="markers" themselves.
         data=dict(
-            scatter=[go.Scatter(line=dict(width=2), marker=dict(size=8))],
-            scattergl=[go.Scattergl(line=dict(width=2), marker=dict(size=8))],
+            scatter=[go.Scatter(mode="lines", line=dict(width=2), marker=dict(size=8))],
+            scattergl=[go.Scattergl(mode="lines", line=dict(width=2), marker=dict(size=8))],
         ),
     )
 

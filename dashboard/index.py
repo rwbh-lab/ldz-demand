@@ -35,8 +35,9 @@ def _(mo, pages):
 def _(fch, fcm, mo):
     with mo.status.spinner(title="Loading the latest forecast"):
         runs = fch.wide(fcm.load_runs())
-        actual = fcm.actuals()
-    mo.stop(runs.empty, mo.callout(mo.md("**No forecasts yet.** See [Live forecasts](/live-forecasts)."), kind="warn"))
+        mo.stop(runs.empty, mo.callout(mo.md("**No forecasts yet.** See [Live forecasts](/live-forecasts)."),
+                                       kind="warn"))
+        actual = fcm.actuals(since=runs["run_date"].min())
     latest = runs[runs["run_date"] == runs["run_date"].max()]
     _gb = latest[latest["ldz"] == "GB"].sort_values("gas_day")
     _tomorrow = _gb[_gb["lead_days"] == 1].iloc[0]
@@ -103,7 +104,7 @@ def _(mo):
     _cards = [
         _card("The problem", "one weather station per LDZ", "National Gas data", "/ng-ldz-daily"),
         _card("The data", "three free sources, five years", "ERA5 weather", "/era5-weather"),
-        _card("Weather per LDZ", "St Athan reads +0.85 °C in Nov", "LDZ weather", "/ldz-weather"),
+        _card("Weather per LDZ", "St Athan reads ~0.8 °C warm in Nov", "LDZ weather", "/ldz-weather"),
         _card("The model", "the CWV refitted, all LDZs at once", "Model specification", "/model-specification"),
         _card("Tested properly", "forward, three winters", "Backtesting results", "/backtesting-results"),
     ]
@@ -118,8 +119,8 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(actual, mo, ov, runs):
     _r = ov.live_record(runs, actual)
-    _line = ("No published demand to check against yet." if _r is None else
-             f"**{_r.runs} runs** since {_r.first_run:%d %b %Y} · **{_r.coverage:.0f}%** of {_r.days} forecast days "
+    _line = ("No closed-out demand to check against yet." if _r is None else
+             f"**{_r.runs} runs** since {_r.first_run:%d %b %Y} · **{_r.coverage:.0f}%** of {_r.days} closed-out (D+6) forecast days "
              f"inside the 10–90% range (it should be about 80%) · lead day 1 off by **{_r.lead1_error:.1f}%** on "
              "average. A short record so far: the days overlap, so read it as it grows.")
     mo.md(f"""

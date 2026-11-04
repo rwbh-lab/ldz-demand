@@ -22,55 +22,130 @@ def wide(runs: pd.DataFrame) -> pd.DataFrame:
                             values="value").reset_index()
 
 
+def add_actuals(fig: go.Figure, a: pd.DataFrame, name: str = "Actual") -> None:
+    """Published demand as a vertical bar, the figure's 10-90% range, with a short tick at the value (lo, hi from
+    forecast.actuals(): the usual D+1 -> D+6 revision for provisional figures, the metering tolerance once
+    closed out). Provisional figures are drawn fainter."""
+    t = active()
+    if a.empty:
+        return
+    a = a.sort_values("gas_day")
+    has_range = {"lo", "hi"} <= set(a.columns)
+    for prov, label, opacity in ((False, f"{name} (closed out, D+6)", 1.0), (True, f"{name} (provisional, D+1)", 0.55)):
+        part = a[a["provisional"] == prov]
+        if part.empty:
+            continue
+        xs, ys = [], []
+        if has_range:
+            for r in part.itertuples():
+                xs += [r.gas_day, r.gas_day, None]
+                ys += [r.lo, r.hi, None]
+            fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines", legendgroup=label, showlegend=False, opacity=opacity,
+                                     line=dict(color=t.ink, width=2), hoverinfo="skip"))
+        lo = part["lo"] if has_range else part["actual"]
+        hi = part["hi"] if has_range else part["actual"]
+        fig.add_trace(go.Scatter(x=part["gas_day"], y=part["actual"], mode="markers", name=label, legendgroup=label,
+                                 # a short tick across the bar marks the value itself
+                                 marker=dict(symbol="line-ew", size=8, line=dict(width=2, color=t.ink)), opacity=opacity,
+                                 customdata=np.stack([lo, hi], axis=1),
+                                 hovertemplate="%{x|%a %d %b}: %{y:,.0f} GWh (10–90%: %{customdata[0]:,.0f}–%{customdata[1]:,.0f})"
+                                               f"<extra>{'provisional' if prov else 'closed out'}</extra>"))
+
+
+def run_age_legend(fig: go.Figure, dates: list, ramp: list) -> None:
+    """One colour strip for the runs, oldest to newest, in place of a legend entry per run. The strip uses
+    the same part of the ramp as the lines (0.2 for the oldest run to 1.0 for the newest)."""
+    from plotly.colors import sample_colorscale
+
+    first, last = pd.Timestamp(dates[0]), pd.Timestamp(dates[-1])
+    steps = np.linspace(0, 1, 11)
+    scale = [[float(x), c] for x, c in zip(steps, sample_colorscale(ramp, list(0.2 + 0.8 * steps)))]
+    fig.add_trace(go.Scatter(
+        x=[None], y=[None], mode="markers", showlegend=False, hoverinfo="skip",
+        marker=dict(colorscale=scale, cmin=0, cmax=1, color=[0], showscale=True,
+                    colorbar=dict(orientation="h", x=1, xanchor="right", y=1.02, yanchor="bottom", len=0.4,
+                                  thickness=10, outlinewidth=0, tickvals=[0, 1],
+                                  ticktext=[f"{first:%d %b} run", f"{last:%d %b} run"]))))
+    # the strip takes the legend's place at the top right; the remaining entries (the actuals) go below
+    fig.update_layout(legend=dict(orientation="h", y=-0.1, yanchor="top", x=0, xanchor="left"))
+
+
+ANCHOR_DAYS = 3  # the fan starts from the latest published actual up to this many days before the run
+
+
 def fan(run: pd.DataFrame, actual: pd.DataFrame, ldz: str) -> go.Figure:
-    """One run's forecast for one LDZ: P05–P95, P10–P90, P25–P75 bands, median, weather-only band, actuals."""
+    """One run's forecast for one LDZ: P05–P95, P10–P90, P25–P75 bands, median, weather-only band, actuals.
+    The bands and lines start from the latest published actual before the run (normally yesterday's
+    provisional figure), so the range visibly fans out from a known point."""
     t = active()
     f = run[run["ldz"] == ldz].sort_values("gas_day")
-    x = list(f["gas_day"]) + list(f["gas_day"][::-1])
+    run_date = pd.Timestamp(f["run_date"].iloc[0])
+    known = actual[(actual["ldz"] == ldz) & (actual["gas_day"] < run_date)
+                   & (actual["gas_day"] >= run_date - pd.Timedelta(days=ANCHOR_DAYS))]
+    cols = ["p05", "p95", "p10", "p90", "p25", "p75", "p50", "weather_p10", "weather_p90"]
+    if known.empty:
+        drawn = f
+    else:
+        anchor = known.sort_values("gas_day").iloc[-1]
+        drawn = pd.concat([pd.DataFrame([{"gas_day": anchor["gas_day"], **{c: anchor["actual"] for c in cols}}]),
+                           f[["gas_day", *cols]]], ignore_index=True)
+    x = list(drawn["gas_day"]) + list(drawn["gas_day"][::-1])
     fig = go.Figure()
     for lo, hi, alpha, name in (("p05", "p95", 0.12, "5–95%"), ("p10", "p90", 0.22, "10–90%"),
                                 ("p25", "p75", 0.38, "25–75%")):
-        fig.add_trace(go.Scatter(x=x, y=list(f[hi]) + list(f[lo][::-1]), fill="toself", name=name,
+        fig.add_trace(go.Scatter(x=x, y=list(drawn[hi]) + list(drawn[lo][::-1]), fill="toself", name=name,
                                  fillcolor=_alpha(t.series[0], alpha), line=dict(width=0), hoverinfo="skip"))
+    # the lines are drawn from the anchor, but hover only on forecast days (the anchor is the actual's)
+    fig.add_trace(go.Scatter(x=drawn["gas_day"][:2], y=drawn["p50"][:2], line=dict(color=t.series[0], width=2.5),
+                             showlegend=False, hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=f["gas_day"], y=f["p50"], name="Median", line=dict(color=t.series[0], width=2.5),
                              customdata=np.stack([f["p10"], f["p90"]], axis=1),
                              hovertemplate="%{x|%a %d %b}: %{y:,.0f} GWh (10–90%: %{customdata[0]:,.0f}–%{customdata[1]:,.0f})"
                                            "<extra>forecast</extra>"))
     for col in ("weather_p10", "weather_p90"):
+        fig.add_trace(go.Scatter(x=drawn["gas_day"][:2], y=drawn[col][:2], line=dict(color=t.ink_2, width=1, dash="dot"),
+                                 showlegend=False, hoverinfo="skip"))
         fig.add_trace(go.Scatter(x=f["gas_day"], y=f[col], mode="lines", name="Weather only, 10–90%", showlegend=col == "weather_p10",
                                  legendgroup="weather", line=dict(color=t.ink_2, width=1, dash="dot"),
                                  hovertemplate="%{x|%a %d %b}: %{y:,.0f} GWh<extra>weather only</extra>"))
-    a = actual[(actual["ldz"] == ldz) & actual["gas_day"].isin(f["gas_day"])]
-    if not a.empty:
-        fig.add_trace(go.Scatter(x=a["gas_day"], y=a["actual"], mode="markers", name="Actual",
-                                 marker=dict(size=9, color=t.ink, symbol=np.where(a["provisional"], "circle-open", "circle")),
-                                 customdata=np.where(a["provisional"], "provisional (D+1)", "closed out (D+6)"),
-                                 hovertemplate="%{x|%a %d %b}: %{y:,.0f} GWh, %{customdata}<extra>actual</extra>"))
-    run_date = pd.Timestamp(f["run_date"].iloc[0])
+    add_actuals(fig, actual[(actual["ldz"] == ldz) & actual["gas_day"].isin(drawn["gas_day"])])
     fig.update_layout(title=f"Demand forecast, {ldz} — 00z run of {run_date:%a %d %b %Y}",
                       yaxis_title="Total − DM (GWh / day)", height=440, hovermode="x unified")
     return fig
 
 
 def runs_compared(runs: pd.DataFrame, actual: pd.DataFrame, ldz: str) -> go.Figure:
-    """Each run's median and 10–90% for one LDZ: how the forecast for each day moved as the day approached."""
+    """Each run's median and 10–90% for one LDZ: how the forecast for each day moved as the day approached.
+    Age is shown by colour and fade: the newest run is the brightest and thickest, older runs recede."""
+    from plotly.colors import sample_colorscale
+
     t = active()
     w = runs[runs["ldz"] == ldz]
     fig = go.Figure()
     dates = sorted(w["run_date"].unique())
+    n = len(dates)
+    # the sequential ramp's last colour has the most contrast with the page, in dark and light themes alike
+    ramp = [[i / (len(t.sequential) - 1), c] for i, c in enumerate(t.sequential)]
     for i, rd in enumerate(dates):
         f = w[w["run_date"] == rd].sort_values("gas_day")
-        colour = t.series[i % len(t.series)]
-        fig.add_trace(go.Scatter(x=f["gas_day"], y=f["p50"], name=f"{pd.Timestamp(rd):%d %b} run",
-                                 line=dict(color=colour, width=2), customdata=np.stack([f["p10"], f["p90"]], axis=1),
+        age = (n - 1 - i) / max(n - 1, 1)                     # 0 = newest, 1 = oldest
+        newest = i == n - 1
+        colour = sample_colorscale(ramp, [0.2 + 0.8 * (1 - age)])[0]
+        fig.add_trace(go.Scatter(x=f["gas_day"], y=f["p50"], name=f"{pd.Timestamp(rd):%d %b} run", showlegend=False,
+                                 line=dict(color=colour, width=3 if newest else 1.5), opacity=1.0 - 0.6 * age,
+                                 customdata=np.stack([f["p10"], f["p90"]], axis=1),
                                  hovertemplate="%{x|%d %b}: %{y:,.0f} (10–90%: %{customdata[0]:,.0f}–%{customdata[1]:,.0f})"))
-    a = actual[(actual["ldz"] == ldz) & (actual["gas_day"] >= w["gas_day"].min())]
-    if not a.empty:
-        fig.add_trace(go.Scatter(x=a["gas_day"], y=a["actual"], mode="markers", name="Actual",
-                                 marker=dict(size=9, color=t.ink), hovertemplate="%{x|%d %b}: %{y:,.0f} GWh<extra>actual</extra>"))
-    fig.update_layout(title=f"Medians by run, {ldz}", yaxis_title="Total − DM (GWh / day)", height=380,
+    run_age_legend(fig, dates, ramp)
+    add_actuals(fig, actual[(actual["ldz"] == ldz) & (actual["gas_day"] >= w["gas_day"].min())])
+    fig.update_layout(title=f"Medians by run, {ldz}", yaxis_title="Total − DM (GWh / day)", height=560,
                       hovermode="x unified")
     return fig
+
+
+def closed_out(actual: pd.DataFrame) -> pd.DataFrame:
+    """Only the actuals National Gas has closed out (D+6). Scores use these alone: the provisional D+1
+    figure can be far off for some LDZs (WS's D+1 DM is often incomplete), and GB inherits it."""
+    return actual[~actual["provisional"]]
 
 
 def verification(runs: pd.DataFrame, actual: pd.DataFrame, ldz: str) -> pd.DataFrame:

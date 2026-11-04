@@ -64,6 +64,11 @@ def contents_html(current: str | None = None) -> str:
             + "".join(rows) + "</div>")
 
 
+def is_snapshot() -> bool:
+    """True while publish exports the hosted snapshot (its controls are fixed)."""
+    return bool(os.environ.get(SNAPSHOT_ENV))
+
+
 def snapshot_note() -> str:
     """On the hosted snapshot, a line saying what it is; empty when served locally."""
     snapshot = os.environ.get(SNAPSHOT_ENV)

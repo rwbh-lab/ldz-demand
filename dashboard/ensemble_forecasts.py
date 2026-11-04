@@ -39,6 +39,8 @@ def _(mo):
 def _(ens, mo):
     from datetime import timedelta
 
+    import pandas as pd
+
     from ldz_demand.config import create_config
     from ldz_demand.data.datasets import ENS_LDZ_DAILY
     from ldz_demand.data.store import get_store
@@ -56,9 +58,11 @@ def _(ens, mo):
             "```bash\npython -m ldz_demand.data.ingest.ecmwf_ens refresh\npython -m ldz_demand.data.build.ens_ldz_daily\n```"
             + (f"\n\nError: `{load_error}`" if load_error else "")), kind="warn"),
     )
-    # the runs available: a light read (one LDZ, one variable) over the last few weeks
-    _probe = store.read(ENS_LDZ_DAILY, start=_last - timedelta(days=30), end=_last, ldz="NT", variable="t2m",
-                        membership="station", member=1, lead_days=0)
+    # the runs available over the last few weeks: one row per run. The dates go in as a list, so the read
+    # follows the table's key (run_date, run_hour, member, ...); a date range would scan every row of every run.
+    _days = [pd.Timestamp(_last - timedelta(days=i)) for i in range(31)]  # Timestamps match in both stores
+    _probe = store.read(ENS_LDZ_DAILY, run_date=_days, run_hour=0, member=1, ldz="NT", variable="t2m",
+                        membership="station", lead_days=0)
     runs = sorted(_probe["run_date"].dt.date.unique(), reverse=True)
     return ENS_LDZ_DAILY, runs, store
 

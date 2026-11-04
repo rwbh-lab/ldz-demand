@@ -52,9 +52,15 @@ def _(mo, wx):
     from ldz_demand.data.store import get_store
     from ldz_demand.geo import grid_weights
 
+    import pandas as pd
+
     weights = grid_weights.load()
+    # the last two full gas years and the current one: enough to show how the variants differ, at a
+    # fifth of the read; only the variables this page shows (temperature, wind), 2 of the table's 7
+    _today = pd.Timestamp.today()
+    _since = pd.Timestamp(year=(_today.year if _today.month >= 10 else _today.year - 1) - 2, month=10, day=1)
     try:
-        _long = get_store(create_config()).read(WEATHER_LDZ_DAILY)
+        _long = get_store(create_config()).read(WEATHER_LDZ_DAILY, start=_since.date(), variable=list(wx.UNITS))
         load_error = None
     except Exception as exc:  # show setup help instead of a traceback
         _long, load_error = None, exc
@@ -208,11 +214,11 @@ def _(mo, weather, wx):
         ## 4 · The official stations through the year
 
         How much warmer (red) or colder (blue) the official CWV weather station reads than our
-        gas-weighted LDZ temperature, on average in each month (ERA5, every gas day since 2021). A
+        gas-weighted LDZ temperature, on average in each month (ERA5, every gas day of the history above). A
         **constant** difference is absorbed when a model is fitted; a difference that **changes through
         the year** is not, unless the model has a seasonal term to soak it up.
 
-        The coastal stations show it most: **St Athan (WS)** reads up to ~0.85 °C warm in autumn and
+        The coastal stations show it most: **St Athan (WS)** reads up to ~0.8 °C warm in autumn and
         winter, when the sea is warmer than the inland towns and valleys where WS's gas is used, and
         almost nothing in late spring; **Southampton (SO)** the same, weaker; **Heathrow** reads colder
         than SE's coastal towns in autumn. **Nottingham Watnall** stands in for NE from EM and reads warm

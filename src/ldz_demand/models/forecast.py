@@ -55,6 +55,19 @@ OUT = ex.RESULTS / "forecasts"
 POOL_DAYS = 30              # model errors from historical days within this many days of the day of year
 DRAWS = 40                  # model-error draws per member
 PERCENTILES = (5, 10, 25, 50, 75, 90, 95)
+# actuals(since=...) reads National Gas from this many days earlier: the flags compare each LDZ's non-NTS
+# input with its usual level, a median over what is read, so a year keeps every season in it (checked on
+# 4 Nov 2026: windows from the full history down to two months gave identical actuals for the live runs)
+ACTUALS_MARGIN_DAYS = 365
+# How sure each published figure is, as a 10-90% range (lo, hi):
+# - provisional (D+1): how far D+1 has moved by the D+6 close-out, for the same LDZ in the same and neighbouring
+#   calendar months (10th-90th percentile of d1 / d6 - 1 over the history read), so a D+1 that usually
+#   reads high gets a range below it. Needs REVISION_MIN_DAYS such days, else the LDZ's whole year.
+# - closed out (D+6): the metering tolerance, METER_TOLERANCE either side. National Gas publishes no
+#   per-day uncertainty; the UNC Offtake Arrangements Document (Section D) sets the offtake meters'
+#   permitted uncertainty at about +/-1%.
+METER_TOLERANCE = 0.01
+REVISION_MIN_DAYS = 20
 
 
 def ensemble(run_date, store=None, ldzs=LDZS) -> pd.DataFrame:
@@ -196,19 +209,54 @@ def load_runs(store=None) -> pd.DataFrame:
     return wide.melt(id_vars=["run_date", "ldz", "gas_day", "lead_days"], var_name="statistic", value_name="value")
 
 
-def actuals(store=None) -> pd.DataFrame:
-    """Per LDZ and GB, gas day: the target (total - DM) at D+6 close-out, else the provisional D+1 figure."""
+def actuals(store=None, since=None) -> pd.DataFrame:
+    """Per LDZ and GB, gas day: the target (total - DM) at D+6 close-out, else the provisional D+1 figure.
+    since: the first gas day wanted (default: all); the read starts ACTUALS_MARGIN_DAYS before it."""
     from ldz_demand.data.datasets import NG_LDZ_DAILY, NG_OFFTAKE_DAILY
 
     store = store or get_store(create_config())
-    raw, offtakes = store.read(NG_LDZ_DAILY), store.read(NG_OFFTAKE_DAILY)
+    start = None if since is None else (pd.Timestamp(since) - pd.Timedelta(days=ACTUALS_MARGIN_DAYS)).date()
+    raw, offtakes = store.read(NG_LDZ_DAILY, start=start), store.read(NG_OFFTAKE_DAILY, start=start)
     d6 = le.energy_frame(raw, offtakes)["target_repaired"].rename("d6")
     d1 = le.energy_frame(raw, offtakes, closeout="d1")["target_repaired"].rename("d1")
     out = pd.concat([d6, d1], axis=1).reset_index()
     out["actual"] = out["d6"].fillna(out["d1"])
     out["provisional"] = out["d6"].isna() & out["d1"].notna()
     out["gas_day"] = pd.to_datetime(out["gas_day"])
-    return out.dropna(subset=["actual"])[["gas_day", "ldz", "actual", "provisional"]]
+    out = _with_ranges(out)
+    if since is not None:
+        out = out[out["gas_day"] >= pd.Timestamp(since)]
+    return out.dropna(subset=["actual"])[["gas_day", "ldz", "actual", "provisional", "lo", "hi"]]
+
+
+def revision_ranges(out: pd.DataFrame) -> pd.DataFrame:
+    """10th and 90th percentiles of the D+1 -> D+6 revision (d1 / d6 - 1) per LDZ and calendar month, each
+    month pooled with its neighbours; LDZ-months with too few days take the LDZ's whole year."""
+    both = out[(out["d6"] > 0) & out["d1"].notna()]
+    rev = pd.DataFrame({"ldz": both["ldz"], "month": both["gas_day"].dt.month, "r": both["d1"] / both["d6"] - 1})
+    rows = []
+    for ldz, g in rev.groupby("ldz"):
+        for m in range(1, 13):
+            near = g[g["month"].isin({(m - 2) % 12 + 1, m, m % 12 + 1})]["r"]
+            use = near if len(near) >= REVISION_MIN_DAYS else g["r"]
+            if len(use):
+                rows.append({"ldz": ldz, "month": m, "r10": use.quantile(0.10), "r90": use.quantile(0.90)})
+    return pd.DataFrame(rows, columns=["ldz", "month", "r10", "r90"])
+
+
+def _with_ranges(out: pd.DataFrame) -> pd.DataFrame:
+    """lo, hi: the 10-90% range of each actual (see METER_TOLERANCE above)."""
+    out = out.copy()
+    out["lo"], out["hi"] = out["actual"] * (1 - METER_TOLERANCE), out["actual"] * (1 + METER_TOLERANCE)
+    ranges = revision_ranges(out)
+    if ranges.empty or not out["provisional"].any():
+        return out
+    keyed = out.assign(month=out["gas_day"].dt.month).merge(ranges, on=["ldz", "month"], how="left")
+    prov = out["provisional"].to_numpy() & keyed["r10"].notna().to_numpy()
+    # the final value is d1 / (1 + r): a high revision (r90) means the final comes in lower
+    out.loc[prov, "lo"] = (keyed["d1"] / (1 + keyed["r90"])).to_numpy()[prov]
+    out.loc[prov, "hi"] = (keyed["d1"] / (1 + keyed["r10"])).to_numpy()[prov]
+    return out
 
 
 def missing_runs(store=None) -> list[str]:

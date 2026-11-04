@@ -40,14 +40,14 @@ def headline(experiments: pd.DataFrame) -> Headline:
 class LiveRecord:
     runs: int
     first_run: pd.Timestamp
-    days: int            # forecast days with an actual (all leads)
+    days: int            # forecast days with a closed-out (D+6) actual, all leads
     coverage: float      # share of those inside P10-P90
     lead1_error: float   # mean absolute error of the median at lead day 1, % of actual
 
 
 def live_record(runs: pd.DataFrame, actual: pd.DataFrame, ldz: str = "GB") -> LiveRecord | None:
     """The live forecasts so far, for one LDZ (runs as forecasts.wide() gives them); None before any actual."""
-    v = fch.verification(runs, actual, ldz)
+    v = fch.verification(runs, fch.closed_out(actual), ldz)
     if v.empty:
         return None
     lead1 = v[v["lead_days"] == 1]["error %"].abs()

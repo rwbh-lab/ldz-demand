@@ -292,6 +292,19 @@ the fitted model gives a demand distribution per LDZ and gas day. Still to desig
 - **Scoring** probabilistic forecasts (CRPS) once the archive is long enough; backfilling past winters
   from ECMWF's cloud mirror is planned.
 
+**How sure the actuals are.** Forecasts are checked against National Gas's published demand, which
+comes twice: a provisional figure the next day (D+1) and a closed-out one six days later (D+6). The
+charts draw each actual with its own 10–90% range:
+
+- **Provisional (D+1):** how far D+1 figures have moved by D+6 for the same LDZ, in the same and
+  neighbouring calendar months (the 10th to 90th percentile of the revision over the year before). In
+  winter GB moves by about ±1%; in summer D+1 reads 2–3% high. At WS, the D+1 daily-metered (DM)
+  figure is often far from complete, so total − DM at D+1 can read well above the final figure. The
+  range shows this, below the point.
+- **Closed out (D+6):** ±1%, the offtake metering tolerance. National Gas publishes no per-day
+  uncertainty; the UNC Offtake Arrangements Document (Section D) sets the meters' permitted
+  uncertainty at about ±1%.
+
 ---
 
 ## 9. Caveats
