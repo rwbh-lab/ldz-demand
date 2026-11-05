@@ -22,10 +22,13 @@ def _():
 def _(mo, pages):
     _note = pages.snapshot_note()
     mo.vstack([
-        mo.md("# GB gas demand in the prompt window"),
+        mo.md("# Great Britain gas demand in the prompt window"),
         mo.Html(pages.byline()),
         mo.md("*The next two weeks of gas demand for Great Britain, as a range, from today's ECMWF ensemble run.*"),
-    ] + ([mo.md(_note)] if _note else []), gap=0.5)
+        mo.Html(pages.define()),
+    ] + ([mo.md(_note)] if _note else []) + [
+        mo.accordion({"Contents": mo.Html(pages.contents_html(pages.INDEX))}),
+    ], gap=0.5)
     return
 
 
@@ -39,23 +42,30 @@ def _(fch, fcm, mo, ov, pages):
     latest = runs[runs["run_date"] == runs["run_date"].max()]
     _o = ov.outlook(latest)
     _data_to = actual[actual["ldz"] == "GB"]["gas_day"].max()
-    _t, _p = _o.tomorrow, _o.peak
+    _t = _o.tomorrow
+    _gb = latest[latest["ldz"] == "GB"]
+    _first, _last = _gb["gas_day"].min(), _gb["gas_day"].max()
+    _period = _gb.dropna(subset=["period_p50"]) if "period_p50" in _gb else _gb.iloc[0:0]
+    if _period.empty:  # runs forecast before the period statistics existed: the mean median, no range yet
+        _mean = (f"{_gb['p50'].mean():,.0f}", "range from the next run")
+    else:
+        _r = _period.iloc[0]
+        _mean = (f"{_r['period_p50']:,.0f}", f"{pages.P_RANGE} {_r['period_p10']:,.0f}–{_r['period_p90']:,.0f}")
     mo.vstack([
         # the result first: three numbers, wrapping on a narrow screen, then the chart that shows them
         mo.Html(pages.tiles([
             (f"Tomorrow, {_t['gas_day']:%a %d %b}", f"{_t['p50']:,.0f}",
-             f"GWh/day · 10–90% {_t['p10']:,.0f}–{_t['p90']:,.0f}"),
-            (f"Peak, {_p['gas_day']:%a %d %b}", f"{_p['p50']:,.0f}",
-             f"GWh/day · 10–90% {_p['p10']:,.0f}–{_p['p90']:,.0f}"),
+             f"{pages.P_RANGE} {_t['p10']:,.0f}–{_t['p90']:,.0f}", "GWh/day"),
+            (f"Mean, {_first:%a %d} – {_last:%a %d %b}", _mean[0], _mean[1], "GWh/day"),
+            # placeholder until the seasonal normal exists; then: tomorrow against normal
             (f"Range by {_o.last['gas_day']:%a %d %b}", f"±{_o.spread_last:.0f}%",
-             f"half the 10–90% range · ±{_o.spread_tomorrow:.0f}% tomorrow"),
+             f"half of {pages.P_RANGE} · ±{_o.spread_tomorrow:.0f}% tomorrow"),
         ])),
         # the takeaway as a heading, so it wraps on a phone (a Plotly title doesn't)
         mo.md(f"### {_o.takeaway}"),
         fch.fan(latest, actual, "GB"),
-        mo.md(f"<small>Actuals to {_data_to:%d %b %Y} (National Gas, total − daily-metered) · every LDZ, "
+        mo.md(f"<small>Published {pages.Q} to {_data_to:%d %b %Y} (National Gas) · every LDZ, "
               "each run and how they verify: [Live forecasts](/live-forecasts)</small>"),
-        mo.accordion({"Contents": mo.Html(pages.contents_html(pages.INDEX))}),
     ], gap=0.75)
     return actual, runs
 
@@ -89,7 +99,7 @@ def _(fch, mo, ov):
         ## 2 · It saw the cold coming
         The ECMWF run of **5 January 2025**, three days before that winter's coldest spell, put through the
         final model, with what happened laid over it. Demand climbs by about 750 GWh/day to the peak on
-        9–10 January; 10 of the 14 days fall inside the 10–90% range.
+        9–10 January; 10 of the 14 days fall inside P<sub>10</sub>–P<sub>90</sub>.
         """),
         fch.fan(_runs, _actual, "GB"),
         mo.md("*This run is the [quick start](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/user_quickstart.md)'s "
@@ -125,8 +135,8 @@ def _(mo):
 def _(actual, mo, ov, runs):
     _r = ov.live_record(runs, actual)
     _line = ("No closed-out demand to check against yet." if _r is None else
-             f"**{_r.runs} runs** since {_r.first_run:%d %b %Y} · **{_r.coverage:.0f}%** of {_r.days} closed-out (D+6) forecast days "
-             f"inside the 10–90% range (it should be about 80%) · lead day 1 off by **{_r.lead1_error:.1f}%** on "
+             f"**{_r.runs} runs** since {_r.first_run:%d %b %Y} · **{_r.coverage:.0f}%** of {_r.days} closed-out forecast days "
+             f"(<i>Q</i><sub>D+6</sub>) inside P<sub>10</sub>–P<sub>90</sub> (it should be about 80%) · lead day 1 off by **{_r.lead1_error:.1f}%** on "
              "average. A short record so far: the days overlap, so read it as it grows.")
     mo.md(f"""
     ## 4 · The live record, so far
@@ -158,7 +168,7 @@ def _(mo):
 @app.cell(hide_code=True)
 def _():
     from ldz_demand.charts import pages as _pages_foot
-    _pages_foot.footer()
+    _pages_foot.footer(definitions=True)
     return
 
 

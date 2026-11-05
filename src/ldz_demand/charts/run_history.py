@@ -14,13 +14,15 @@ import pandas as pd
 import plotly.graph_objects as go
 from scipy.special import ndtr, ndtri
 
+from ldz_demand.charts import forecasts as fch
 from ldz_demand.charts.forecasts import _alpha, add_actuals, closed_out, run_age_legend
+from ldz_demand.charts.pages import P, P_RANGE
 from ldz_demand.charts.style import active
 
 LEVELS = np.array([0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95])
 COLS = ["p05", "p10", "p25", "p50", "p75", "p90", "p95"]
 Z = ndtri(LEVELS)
-YAXIS = "Total − DM (GWh / day)"
+YAXIS = fch.YAXIS
 
 
 # --- distributions from seven percentiles -------------------------------------------------------------
@@ -113,7 +115,7 @@ def ridgeline(runs: pd.DataFrame, actual: pd.DataFrame, ldz: str, gas_day) -> go
                                  showlegend=False, hoverinfo="skip"))
         fig.add_trace(go.Scatter(x=grid, y=base + d * scale, mode="lines", fill="tonexty", name=label,
                                  line=dict(color=colour, width=1.5), fillcolor=_rgba(colour, 0.35), showlegend=False,
-                                 hovertemplate=f"{label}: median {row.p50:,.0f}, 10–90% {row.p10:,.0f}–{row.p90:,.0f}<extra></extra>"))
+                                 hovertemplate=f"{label}: median {row.p50:,.0f}, {P_RANGE} {row.p10:,.0f}–{row.p90:,.0f}<extra></extra>"))
     a = _actual_for(actual, ldz, gas_day)
     if a is not None:
         if "lo" in a and pd.notna(a["lo"]):  # the actual's own 10–90% range
@@ -191,15 +193,15 @@ def blend_chart(b: pd.DataFrame, actual: pd.DataFrame, ldz: str, as_of, how_labe
     t = active()
     x = list(b["gas_day"]) + list(b["gas_day"][::-1])
     fig = go.Figure()
-    for lo, hi, alpha, name in (("p05", "p95", 0.12, "Blend 5–95%"), ("p10", "p90", 0.22, "Blend 10–90%"),
+    for lo, hi, alpha, name in (("p05", "p95", 0.12, f"Blend {P(5)}–{P(95)}"), ("p10", "p90", 0.22, f"Blend {P_RANGE}"),
                                 ("p25", "p75", 0.38, "Blend 25–75%")):
         fig.add_trace(go.Scatter(x=x, y=list(b[hi]) + list(b[lo][::-1]), fill="toself", name=name,
                                  fillcolor=_alpha(t.series[0], alpha), line=dict(width=0), hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=b["gas_day"], y=b["p50"], name="Blend median", line=dict(color=t.series[0], width=2.5),
                              customdata=np.stack([b["p10"], b["p90"], b["runs"], b["newest_share"] * 100], axis=1),
-                             hovertemplate="%{x|%a %d %b}: %{y:,.0f} (10–90%: %{customdata[0]:,.0f}–%{customdata[1]:,.0f})"
+                             hovertemplate="%{x|%a %d %b}: %{y:,.0f} (" + P_RANGE + ": %{customdata[0]:,.0f}–%{customdata[1]:,.0f})"
                                            " · %{customdata[2]} runs, newest %{customdata[3]:.0f}% of the weight<extra>blend</extra>"))
-    for col, name in (("single_p50", "This run alone, median"), ("single_p10", "This run alone, 10–90%"),
+    for col, name in (("single_p50", "This run alone, median"), ("single_p10", f"This run alone, {P_RANGE}"),
                       ("single_p90", None)):
         fig.add_trace(go.Scatter(x=b["gas_day"], y=b[col], name=name or "", showlegend=name is not None,
                                  legendgroup=col[-3:] if col != "single_p50" else None,
@@ -217,7 +219,7 @@ def blend_chart(b: pd.DataFrame, actual: pd.DataFrame, ldz: str, as_of, how_labe
 
 HEATMAP_MEASURES = {
     "Error against the actual (%)": "error",
-    "Width of the 10–90% range": "width",
+    "Width of the P10–P90 range": "width",
     "Median": "p50",
 }
 HEATMAP_ROWS = {"Run": "run_date", "Days ahead": "lead_days"}
@@ -255,7 +257,7 @@ def run_heatmap(runs: pd.DataFrame, actual: pd.DataFrame, ldz: str, measure: str
         w["value"] = w["p90"] - w["p10"] if measure == "width" else w["p50"]
         z_args = dict(colorscale=[[i / (len(t.sequential) - 1), c] for i, c in enumerate(t.sequential)])
         unit, fmt = "GWh", "%{z:,.0f} GWh"
-        title = "Width of each forecast's 10–90% range" if measure == "width" else "Each forecast's median"
+        title = f"Width of each forecast's {P_RANGE} range" if measure == "width" else "Each forecast's median"
     other = "lead_days" if rows == "run_date" else "run_date"
     grid = w.pivot_table(index=rows, columns="gas_day", values="value", dropna=False)
     grid = grid.dropna(how="all").dropna(axis=1, how="all").sort_index(ascending=False)

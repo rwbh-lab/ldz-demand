@@ -180,11 +180,40 @@ def statistics(fc: pd.DataFrame, pool: pd.DataFrame | None = None, seed: int | N
             stats = {"mean": s.mean(), **{f"p{q:02d}": np.percentile(s, q) for q in PERCENTILES},
                      "weather_p10": np.percentile(w, 10), "weather_p90": np.percentile(w, 90)}
             rows += [{"gas_day": day, "ldz": ldz, "statistic": k, "value": v} for k, v in stats.items()]
+    rows += period_mean(ldz_fc, pool, ldzs, rng)
     out = pd.DataFrame(rows)
     out["run_date"], out["run_hour"] = run.normalize(), 0
     out["lead_days"] = (pd.to_datetime(out["gas_day"]) - run.normalize()).dt.days
     out["unit"], out["model"] = "GWh/day", str(pd.read_csv(final.DATA_DIR / final.OUTPUT, comment="#")["fitted_on"].iloc[0])
     return out.round({"value": 2})
+
+
+PERIOD_PERCENTILES = (10, 50, 90)
+
+
+def period_mean(ldz_fc: pd.DataFrame, pool: pd.DataFrame, ldzs: list[str], rng) -> list[dict]:
+    """
+    The mean over every day of the run, as P10 / P50 / P90 per LDZ and GB (statistics "period_p10" ...,
+    on the run's last gas day). Not the mean of the daily percentiles: each member's own mean over the days,
+    times a model error for a mean of that many days. Model errors run in streaks, so that error comes from
+    the record's rolling means over the same number of consecutive days (near the same time of year), not
+    from averaging independent daily draws, which would make the range too narrow.
+    """
+    days = sorted(ldz_fc["gas_day"].unique())
+    n = len(days)
+    means = ldz_fc.groupby(["member", "ldz"])["demand"].mean().unstack("ldz")[ldzs]      # member x LDZ
+    calendar = pool.reindex(pd.date_range(pool.index.min(), pool.index.max()))
+    rolling = calendar.rolling(n, min_periods=n).mean().dropna()
+    rolling.index = rolling.index - pd.Timedelta(days=n // 2)                              # label by mid-window
+    near = _pool_for(pd.Timestamp(days[n // 2]), rolling)[ldzs]
+    draws = near.to_numpy()[rng.integers(0, len(near), size=(len(means), DRAWS))]
+    samples = means.to_numpy()[:, None, :] * (1 + draws)
+    rows = []
+    for i, ldz in enumerate([*ldzs, "GB"]):
+        s = samples.sum(axis=2) if ldz == "GB" else samples[:, :, i]
+        rows += [{"gas_day": days[-1], "ldz": ldz, "statistic": f"period_p{q:02d}", "value": np.percentile(s, q)}
+                 for q in PERIOD_PERCENTILES]
+    return rows
 
 
 def summary(stats: pd.DataFrame) -> pd.DataFrame:

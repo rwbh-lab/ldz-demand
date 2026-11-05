@@ -7,7 +7,10 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
+from ldz_demand.charts.pages import P, P_RANGE, Q, Q_at
 from ldz_demand.charts.style import active
+
+YAXIS = f"{Q}, total − DM (GWh/day)"
 
 
 def _alpha(hex_colour: str, alpha: float) -> str:
@@ -22,7 +25,7 @@ def wide(runs: pd.DataFrame) -> pd.DataFrame:
                             values="value").reset_index()
 
 
-def add_actuals(fig: go.Figure, a: pd.DataFrame, name: str = "Actual") -> None:
+def add_actuals(fig: go.Figure, a: pd.DataFrame, name: str = "Published") -> None:
     """Published demand as a vertical bar, the figure's 10-90% range, with a short tick at the value (lo, hi from
     forecast.actuals(): the usual D+1 -> D+6 revision for provisional figures, the metering tolerance once
     closed out). Provisional figures are drawn fainter."""
@@ -31,7 +34,7 @@ def add_actuals(fig: go.Figure, a: pd.DataFrame, name: str = "Actual") -> None:
         return
     a = a.sort_values("gas_day")
     has_range = {"lo", "hi"} <= set(a.columns)
-    for prov, label, opacity in ((False, f"{name} (closed out, D+6)", 1.0), (True, f"{name} (provisional, D+1)", 0.55)):
+    for prov, label, opacity in ((False, f"{name} {Q_at(6)} (closed out)", 1.0), (True, f"{name} {Q_at(1)} (provisional)", 0.55)):
         part = a[a["provisional"] == prov]
         if part.empty:
             continue
@@ -48,7 +51,7 @@ def add_actuals(fig: go.Figure, a: pd.DataFrame, name: str = "Actual") -> None:
                                  # a short tick across the bar marks the value itself
                                  marker=dict(symbol="line-ew", size=8, line=dict(width=2, color=t.ink)), opacity=opacity,
                                  customdata=np.stack([lo, hi], axis=1),
-                                 hovertemplate="%{x|%a %d %b}: %{y:,.0f} GWh (10–90%: %{customdata[0]:,.0f}–%{customdata[1]:,.0f})"
+                                 hovertemplate="%{x|%a %d %b}: %{y:,.0f} GWh (" + P_RANGE + ": %{customdata[0]:,.0f}–%{customdata[1]:,.0f})"
                                                f"<extra>{'provisional' if prov else 'closed out'}</extra>"))
 
 
@@ -93,27 +96,27 @@ def fan(run: pd.DataFrame, actual: pd.DataFrame, ldz: str, takeaway: str | None 
                            f[["gas_day", *cols]]], ignore_index=True)
     x = list(drawn["gas_day"]) + list(drawn["gas_day"][::-1])
     fig = go.Figure()
-    for lo, hi, alpha, name in (("p05", "p95", 0.12, "5–95%"), ("p10", "p90", 0.22, "10–90%"),
-                                ("p25", "p75", 0.38, "25–75%")):
+    for lo, hi, alpha, name in (("p05", "p95", 0.12, f"{P(5)}–{P(95)}"), ("p10", "p90", 0.22, P_RANGE),
+                                ("p25", "p75", 0.38, f"{P(25)}–{P(75)}")):
         fig.add_trace(go.Scatter(x=x, y=list(drawn[hi]) + list(drawn[lo][::-1]), fill="toself", name=name,
                                  fillcolor=_alpha(t.series[0], alpha), line=dict(width=0), hoverinfo="skip"))
     # the lines are drawn from the anchor, but hover only on forecast days (the anchor is the actual's)
     fig.add_trace(go.Scatter(x=drawn["gas_day"][:2], y=drawn["p50"][:2], line=dict(color=t.series[0], width=2.5),
                              showlegend=False, hoverinfo="skip"))
-    fig.add_trace(go.Scatter(x=f["gas_day"], y=f["p50"], name="Median", line=dict(color=t.series[0], width=2.5),
+    fig.add_trace(go.Scatter(x=f["gas_day"], y=f["p50"], name=f"Median, {P(50)}", line=dict(color=t.series[0], width=2.5),
                              customdata=np.stack([f["p10"], f["p90"]], axis=1),
-                             hovertemplate="%{x|%a %d %b}: %{y:,.0f} GWh (10–90%: %{customdata[0]:,.0f}–%{customdata[1]:,.0f})"
+                             hovertemplate="%{x|%a %d %b}: %{y:,.0f} GWh (" + P_RANGE + ": %{customdata[0]:,.0f}–%{customdata[1]:,.0f})"
                                            "<extra>forecast</extra>"))
     for col in ("weather_p10", "weather_p90"):
         fig.add_trace(go.Scatter(x=drawn["gas_day"][:2], y=drawn[col][:2], line=dict(color=t.ink_2, width=1, dash="dot"),
                                  showlegend=False, hoverinfo="skip"))
-        fig.add_trace(go.Scatter(x=f["gas_day"], y=f[col], mode="lines", name="Weather only, 10–90%", showlegend=col == "weather_p10",
+        fig.add_trace(go.Scatter(x=f["gas_day"], y=f[col], mode="lines", name=f"Weather only, {P_RANGE}", showlegend=col == "weather_p10",
                                  legendgroup="weather", line=dict(color=t.ink_2, width=1, dash="dot"),
                                  hovertemplate="%{x|%a %d %b}: %{y:,.0f} GWh<extra>weather only</extra>"))
     add_actuals(fig, actual[(actual["ldz"] == ldz) & actual["gas_day"].isin(drawn["gas_day"])])
-    label = f"{ldz} demand · 00z run of {run_date:%a %d %b %Y}"  # short, so it fits on a phone
+    label = f"{ldz} demand {Q} · 00z run of {run_date:%a %d %b %Y}"  # short, so it fits on a phone
     title = label if takeaway is None else dict(text=takeaway, subtitle=dict(text=label))
-    fig.update_layout(title=title, yaxis_title="Total − DM (GWh / day)", height=460, hovermode="x unified",
+    fig.update_layout(title=title, yaxis_title=YAXIS, height=460, hovermode="x unified",
                       legend=dict(orientation="h", y=-0.12, yanchor="top", x=0, xanchor="left"),
                       margin=dict(t=88 if takeaway else 56))
     return fig
@@ -139,10 +142,10 @@ def runs_compared(runs: pd.DataFrame, actual: pd.DataFrame, ldz: str) -> go.Figu
         fig.add_trace(go.Scatter(x=f["gas_day"], y=f["p50"], name=f"{pd.Timestamp(rd):%d %b} run", showlegend=False,
                                  line=dict(color=colour, width=3 if newest else 1.5), opacity=1.0 - 0.6 * age,
                                  customdata=np.stack([f["p10"], f["p90"]], axis=1),
-                                 hovertemplate="%{x|%d %b}: %{y:,.0f} (10–90%: %{customdata[0]:,.0f}–%{customdata[1]:,.0f})"))
+                                 hovertemplate="%{x|%d %b}: %{y:,.0f} (" + P_RANGE + ": %{customdata[0]:,.0f}–%{customdata[1]:,.0f})"))
     run_age_legend(fig, dates, ramp)
     add_actuals(fig, actual[(actual["ldz"] == ldz) & (actual["gas_day"] >= w["gas_day"].min())])
-    fig.update_layout(title=f"Medians by run, {ldz}", yaxis_title="Total − DM (GWh / day)", height=560,
+    fig.update_layout(title=f"Medians by run, {ldz}", yaxis_title=YAXIS, height=560,
                       hovermode="x unified")
     return fig
 

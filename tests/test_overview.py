@@ -1,3 +1,5 @@
+import re
+
 import pandas as pd
 import pytest
 
@@ -49,5 +51,32 @@ def test_byline_footer_and_tiles_render():
     assert "Robert Hemming" in pages.byline() and "version" in pages.byline()
     html = pages.footer().text
     assert "LICENSE" in html and "CITATION.cff" in html and "Built" in html
-    tiles = pages.tiles([("Tomorrow", "1,400", "GWh/day"), ("Peak", "1,683", "GWh/day")])
+    tiles = pages.tiles([("Tomorrow", "1,400", "10–90% 1,300–1,500", "GWh/day"), ("Range", "±5%", "half")])
     assert tiles.count("1,400") == 1 and "auto-fit" in tiles
+    value_lines = re.findall(r'font-size: 1\.6em[^>]*>(.*?)</div>', tiles)
+    assert value_lines[0].startswith("1,400 <span") and "GWh/day</span>" in value_lines[0]
+    assert value_lines[1] == "±5%" and tiles.count("GWh/day") == 1    # no unit given, none shown
+
+
+def test_pages_using_the_notation_define_it():
+    """Q and P10-P90 are introduced once on every page that shows them (the forecast charts use them)."""
+    from pathlib import Path
+
+    uses = ("fch.", "P_RANGE", "pages.Q", "<i>Q</i>", "Q_at(")
+    for page in sorted((Path(__file__).parents[1] / "dashboard").glob("*.py")):
+        src = page.read_text()
+        if any(u in src for u in uses):
+            assert "define()" in src or "notation=True" in src, f"{page.name} uses Q without linking its definitions"
+            assert "footer(definitions=True)" in src, f"{page.name} uses Q without definitions at the foot"
+
+
+def test_byline_says_live_or_static_with_the_latest_run(monkeypatch):
+    from ldz_demand.charts import pages
+
+    monkeypatch.setattr(pages, "latest_run", lambda: "05 Nov 10:50")
+    monkeypatch.delenv(pages.SNAPSHOT_ENV, raising=False)
+    assert "live · latest run 05 Nov 10:50" in pages.byline()
+    monkeypatch.setenv(pages.SNAPSHOT_ENV, "3 November 2026")
+    assert "static · latest run 05 Nov 10:50" in pages.byline()
+    monkeypatch.setattr(pages, "latest_run", lambda: None)  # nothing readable: just the mode
+    assert "static · version" in pages.byline()

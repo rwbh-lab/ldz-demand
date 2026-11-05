@@ -135,6 +135,32 @@ def test_forecast_intervals_add_model_error_and_keep_ldzs_consistent():
     assert (gb["p90"] - gb["p10"]) / gb["p50"] == pytest.approx((nt["p90"] - nt["p10"]) / nt["p50"], rel=0.2)  # correlated
 
 
+def test_period_mean_keeps_streaks_in_model_error():
+    """The mean over the run's days: centred on the daily level, and wider when errors come in streaks
+    than when the same daily errors are shuffled (independent days average out)."""
+    from ldz_demand.models import forecast
+
+    days = pd.date_range("2026-11-05", periods=14)
+    fc = pd.DataFrame([{"ldz": ldz, "member": m, "gas_day": d, "demand": base, "run_date": days[0]}
+                       for ldz, base in (("NT", 100.0), ("SO", 50.0)) for m in range(1, 51) for d in days])
+    hist = pd.date_range("2022-09-01", "2025-11-30")
+    rng = np.random.default_rng(3)
+    e = np.zeros(len(hist))
+    for i in range(1, len(hist)):                                # AR(1): errors persist for days
+        e[i] = 0.9 * e[i - 1] + rng.normal(0, 0.03)
+    streaky = pd.DataFrame({"NT": e, "SO": e}, index=hist)
+    shuffled = pd.DataFrame({"NT": rng.permutation(e)}, index=hist).assign(SO=lambda d: d["NT"])
+
+    def width(pool):
+        st = forecast.summary(forecast.statistics(fc, pool, seed=1))
+        gb = st[(st["ldz"] == "GB")].dropna(subset=["period_p50"]).iloc[0]
+        assert gb["gas_day"] == days[-1]
+        assert gb["period_p50"] == pytest.approx(150, rel=0.02)
+        return gb["period_p90"] - gb["period_p10"]
+
+    assert width(streaky) > 2 * width(shuffled)
+
+
 class _StubStore:
     """read() returns canned frames per dataset name (empty with the schema otherwise)."""
 

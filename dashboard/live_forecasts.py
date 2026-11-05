@@ -23,10 +23,10 @@ def _():
 def _(mo):
     from ldz_demand.charts import pages as _pages
 
-    _pages.header("live_forecasts.py", mo.md(r"""
+    _pages.header("live_forecasts.py", notation=True, title=mo.md(r"""
     # Live forecasts
     *Gas demand for the next two weeks, per LDZ, from the ECMWF ensemble.*
-    """), mo.md(r"""
+    """), intro=mo.md(r"""
     Each day's 00z ensemble gives 50 equally likely versions of the next 15 days' weather. Each goes
     through the [demand model](/model-specification), giving 50 demand paths per LDZ for lead days 0–13; GB is
     their sum, member by member.
@@ -38,9 +38,9 @@ def _(mo):
     their errors stay correlated). The dotted lines show the weather-only spread for comparison. The
     errors widen the interval but don't move it — no bias correction yet.
 
-    Demand is total − DM (the model's target), GWh/day. Actual demand appears as it is published, as a
-    short tick on a bar for the figure's own 10–90% range. Provisional (D+1) figures are drawn fainter, and
-    their range is how far D+1 has usually moved by the closed-out D+6 figure; closed-out figures carry
+    Demand <i>Q</i> is total − DM (the model's target), GWh/day. Published demand appears as a short tick on
+    a bar for the figure's own P<sub>10</sub>–P<sub>90</sub> range. Provisional figures, <i>Q</i><sub>D+1</sub>, are drawn
+    fainter, and their range is how far <i>Q</i><sub>D+1</sub> has usually moved by the closed-out <i>Q</i><sub>D+6</sub>; closed-out figures carry
     the ±1% metering tolerance ([methodology §8](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/methodology.md#8-forecasting)).
     """))
     return
@@ -153,9 +153,9 @@ def _(actual, heat_measure, heat_rows, history_view, ldz_picker, mo, recent, rh,
         _s = rh.blend_score(runs, actual, _ldz, _how)
         _score = "" if _s is None else (
             f"Scored over {_s['days']} forecast days with closed-out (D+6) demand, each blended as of its own run: "
-            f"**{_s['blend_cover']:.0f}%** inside the blend's 10–90% (single run: {_s['single_cover']:.0f}%; "
+            f"**{_s['blend_cover']:.0f}%** inside the blend's P<sub>10</sub>–P<sub>90</sub> (single run: {_s['single_cover']:.0f}%; "
             f"target 80%), median off by **{_s['blend_mae']:,.0f}** GWh on average (single run: "
-            f"{_s['single_mae']:,.0f}), mean 10–90% width {_s['blend_width']:,.0f} (single run: "
+            f"{_s['single_mae']:,.0f}), mean P<sub>10</sub>–P<sub>90</sub> width {_s['blend_width']:,.0f} (single run: "
             f"{_s['single_width']:,.0f}).")
         _out = [rh.blend_chart(_b, actual, _ldz, run_picker.value, _label), mo.md(
             "*A lagged ensemble: for each gas day of the selected run, every earlier run that also covered the "
@@ -198,8 +198,8 @@ def _(actual, fch, ldz_picker, mo, recent, runs):
             "provisional": _rows["provisional"].map({True: "D+1 (not scored)", False: "D+6"})})
         _score = ("*No forecast day is closed out yet: scores use the D+6 figure, six days after the gas day.*"
                   if _scored.empty else
-                  f"Over the {_scored['run_date'].nunique()} runs with closed-out demand so far: inside the 10–90% "
-                  f"interval on **{_scored['in 10–90%'].mean() * 100:.0f}%** of {len(_scored)} forecast days "
+                  f"Over the {_scored['run_date'].nunique()} runs with closed-out demand so far: inside "
+                  f"P<sub>10</sub>–P<sub>90</sub> on **{_scored['in 10–90%'].mean() * 100:.0f}%** of {len(_scored)} forecast days "
                   f"(target 80%), against {_scored['in weather-only 10–90%'].mean() * 100:.0f}% for the weather-only "
                   "interval. Only closed-out (D+6) days are scored: the provisional D+1 figure can be far off for "
                   "some LDZs (WS's D+1 daily-metered figure is often incomplete), and GB inherits it. The table "
@@ -230,7 +230,7 @@ def _(mo):
 @app.cell(hide_code=True)
 def _():
     from ldz_demand.charts import pages as _pages_foot
-    _pages_foot.footer()
+    _pages_foot.footer(definitions=True)
     return
 
 
