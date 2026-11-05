@@ -106,7 +106,7 @@ def byline() -> str:
     """One line under each page title: who made it, how fresh the data is, and the version. On the hosted
     snapshot the data date is the snapshot's; served locally the pages read the database live."""
     snapshot = os.environ.get(SNAPSHOT_ENV)
-    fresh = f"data to {snapshot} (static snapshot)" if snapshot else "live from the database"
+    fresh = f"data to {snapshot}" if snapshot else "live from the database"
     return (f'<div style="color: var(--muted-foreground); font-size: 0.85em">{AUTHOR} · {fresh} · '
             f'version {version()}</div>')
 
