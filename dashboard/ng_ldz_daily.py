@@ -305,7 +305,7 @@ def _(energy, le, mo, ng):
         separate bands here — the lower one was the under-reported total, not a change in behaviour.
         The CWV is only published per LDZ.
         """),
-        mo.hstack([cwv_picker, year_picker, target_picker], justify="start", gap=2),
+        mo.hstack([cwv_picker, year_picker, target_picker], justify="start", gap=2, wrap=True),
     ])
     return cwv_picker, target_picker, year_picker
 
@@ -313,6 +313,13 @@ def _(energy, le, mo, ng):
 @app.cell(hide_code=True)
 def _(cwv_picker, energy, ng, target_picker, year_picker):
     ng.cwv_scatter(energy, cwv_picker.value, highlight=year_picker.value, target=target_picker.value)
+    return
+
+
+@app.cell(hide_code=True)
+def _():
+    from ldz_demand.charts import pages as _pages_foot
+    _pages_foot.footer()
     return
 
 

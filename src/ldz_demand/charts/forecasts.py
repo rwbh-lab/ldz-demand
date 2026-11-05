@@ -73,10 +73,12 @@ def run_age_legend(fig: go.Figure, dates: list, ramp: list) -> None:
 ANCHOR_DAYS = 3  # the fan starts from the latest published actual up to this many days before the run
 
 
-def fan(run: pd.DataFrame, actual: pd.DataFrame, ldz: str) -> go.Figure:
+def fan(run: pd.DataFrame, actual: pd.DataFrame, ldz: str, takeaway: str | None = None) -> go.Figure:
     """One run's forecast for one LDZ: P05–P95, P10–P90, P25–P75 bands, median, weather-only band, actuals.
     The bands and lines start from the latest published actual before the run (normally yesterday's
-    provisional figure), so the range visibly fans out from a known point."""
+    provisional figure), so the range visibly fans out from a known point. takeaway: a title that says what
+    the chart shows; the usual label then becomes its subtitle. The legend sits below the plot, so it never
+    crowds the title on a narrow screen."""
     t = active()
     f = run[run["ldz"] == ldz].sort_values("gas_day")
     run_date = pd.Timestamp(f["run_date"].iloc[0])
@@ -109,8 +111,11 @@ def fan(run: pd.DataFrame, actual: pd.DataFrame, ldz: str) -> go.Figure:
                                  legendgroup="weather", line=dict(color=t.ink_2, width=1, dash="dot"),
                                  hovertemplate="%{x|%a %d %b}: %{y:,.0f} GWh<extra>weather only</extra>"))
     add_actuals(fig, actual[(actual["ldz"] == ldz) & actual["gas_day"].isin(drawn["gas_day"])])
-    fig.update_layout(title=f"Demand forecast, {ldz} — 00z run of {run_date:%a %d %b %Y}",
-                      yaxis_title="Total − DM (GWh / day)", height=440, hovermode="x unified")
+    label = f"{ldz} demand · 00z run of {run_date:%a %d %b %Y}"  # short, so it fits on a phone
+    title = label if takeaway is None else dict(text=takeaway, subtitle=dict(text=label))
+    fig.update_layout(title=title, yaxis_title="Total − DM (GWh / day)", height=460, hovermode="x unified",
+                      legend=dict(orientation="h", y=-0.12, yanchor="top", x=0, xanchor="left"),
+                      margin=dict(t=88 if takeaway else 56))
     return fig
 
 

@@ -92,7 +92,7 @@ def _(grid_weights, mo, weights, wx):
         pulls each LDZ towards its towns and cities; area weighting spreads it over hills and moors.
         Compare *Station* with any other variant to see how little of an LDZ one station represents.
         """),
-        mo.hstack([map_ldz, map_variant], justify="start", gap=2),
+        mo.hstack([map_ldz, map_variant], justify="start", gap=2, wrap=True),
     ])
     return ldz_options, map_ldz, map_variant, variant_options
 
@@ -141,7 +141,7 @@ def _(mo, variant_options, weather_facts, wx):
             mo.stat(f"{len(variant_options)}", label="Variants", caption="4 maps × 2 weightings + station"),
             mo.stat(f"{weather_facts['preliminary']}", label="Preliminary days", caption="ERA5T, replaced by final ERA5 later"),
         ], widths="equal", gap=1),
-        mo.hstack([variable, metric, reference], justify="start", gap=2),
+        mo.hstack([variable, metric, reference], justify="start", gap=2, wrap=True),
     ])
     return metric, reference, variable
 
@@ -190,7 +190,7 @@ def _(ldz_options, mo, variant_options, wx):
         still nights or on days when the coast and inland differ. Drag the slider under the chart
         to zoom into a winter.
         """),
-        mo.hstack([detail_ldz, detail_variants], justify="start", gap=2),
+        mo.hstack([detail_ldz, detail_variants], justify="start", gap=2, wrap=True),
         show_values,
     ])
     return detail_ldz, detail_variants, show_values
@@ -249,6 +249,13 @@ def _(mo):
             "Authority Districts, December 2023 (contains OS data © Crown copyright and database right 2023). Gas use: "
             "DESNZ subnational gas consumption statistics, 2024. ONS/DESNZ data under the Open Government Licence v3.0."),
     })
+    return
+
+
+@app.cell(hide_code=True)
+def _():
+    from ldz_demand.charts import pages as _pages_foot
+    _pages_foot.footer()
     return
 
 

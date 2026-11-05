@@ -73,7 +73,7 @@ def _(las, mo, towns):
                     caption=f"{int(_m.get('unanimous', 0))} unanimous · {int(_m.get('majority', 0))} majority · {int(_m.get('override', 0))} override"),
             mo.stat(f"{int(_m.get('split', 0))}", label="Split authorities", caption="boundary areas"),
             mo.stat(f"{int(_m.get('nearest_town', 0))}", label="No listed town", caption="nearest town's LDZ"),
-        ], widths="equal", gap=1),
+        ], widths="equal", gap=1, wrap=True),
     ])
     return
 
@@ -135,7 +135,7 @@ def _(energy, mo):
         method) is from its share of measured demand — see §3. Neighbouring LDZs always get different
         colours and every LDZ is labelled; hover for the evidence.
         """),
-        mo.hstack([method_picker, view_picker], justify="start", gap=2),
+        mo.hstack([method_picker, view_picker], justify="start", gap=2, wrap=True),
         towns_toggle,
     ])
     return method_picker, towns_toggle, view_picker
@@ -231,7 +231,7 @@ def _(check, demand_note, energy, geo_charts, mo, show_authority, show_demand, s
         sources themselves: DESNZ leaves out some large sites, which may also explain WS (−0.7 pp). The EA/NT
         edge needs the broker's postcode search, once its limit resets.
         """),
-        mo.hstack([show_demand, show_authority, show_voronoi, show_hybrid, show_sampled], justify="start", gap=2),
+        mo.hstack([show_demand, show_authority, show_voronoi, show_hybrid, show_sampled], justify="start", gap=2, wrap=True),
         geo_charts.membership_check_chart(check, methods=_methods, show_demand=show_demand.value and energy is not None)
         if energy is not None else mo.callout(mo.md(
             f"National Gas demand not loaded, so only our map's shares are available. `{demand_note}`"), kind="info"),
@@ -298,6 +298,13 @@ def _(mo):
     hundredths of a degree of each other day to day. The weighting, and above all the official
     stations, matter far more.
     """)
+    return
+
+
+@app.cell(hide_code=True)
+def _():
+    from ldz_demand.charts import pages as _pages_foot
+    _pages_foot.footer()
     return
 
 

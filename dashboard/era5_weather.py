@@ -58,7 +58,7 @@ def _(available, ch, mo):
     variable_picker = mo.ui.dropdown(options={v["label"]: k for k, v in ch.VARIABLES.items()},
                                      value="Temperature", label="Show")
     step_picker = mo.ui.dropdown(options=ch.CELL_SIZES, value="~110 km cells", label="Grid")
-    mo.hstack([day_picker, variable_picker, step_picker], justify="start", gap=2)
+    mo.hstack([day_picker, variable_picker, step_picker], justify="start", gap=2, wrap=True)
     return day_picker, step_picker, variable_picker
 
 
@@ -79,7 +79,7 @@ def _(ch, hourly, mo, sample):
                     caption=f"hourly range {_s['t_min']:.1f} → {_s['t_max']:.1f} °C"),
             mo.stat(f"{_s['ws_mean']:.1f} m/s", label="Mean wind, GB box", caption=f"strongest cell-hour {_s['ws_max']:.0f} m/s"),
             mo.stat(f"{_s['hours']} h", label="Gas day", caption="05:00 → 05:00 UK time"),
-        ], widths="equal", gap=1),
+        ], widths="equal", gap=1, wrap=True),
     ])
     return
 
@@ -117,6 +117,13 @@ def _(ch, mo):
                              "Neither the European Commission nor ECMWF is responsible for any use of this information. "
                              "Coastline: Natural Earth (public domain)."),
     })
+    return
+
+
+@app.cell(hide_code=True)
+def _():
+    from ldz_demand.charts import pages as _pages_foot
+    _pages_foot.footer()
     return
 
 

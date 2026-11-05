@@ -7,10 +7,15 @@ landing page: the live forecast and a short guide to the project) at /, and each
 """
 
 import os
+import subprocess
 from dataclasses import dataclass
+from datetime import date
+from functools import cache
 
 INDEX = "index.py"
 SNAPSHOT_ENV = "LDZ_SNAPSHOT_DATE"  # set by publish: the date the hosted snapshot's data runs to
+AUTHOR = "Robert Hemming"
+REPO = "https://github.com/rwbh-lab/ldz-demand"
 
 
 @dataclass(frozen=True)
@@ -79,6 +84,66 @@ def snapshot_note() -> str:
             "([README](https://github.com/rwbh-lab/ldz-demand#quick-start)).*")
 
 
+@cache
+def version() -> str:
+    """The package version and, in a git checkout, the commit the pages were built from (e.g. "0.1.0 · 5afaa84")."""
+    from importlib.metadata import PackageNotFoundError
+    from importlib.metadata import version as package_version
+
+    try:
+        v = package_version("ldz-demand")
+    except PackageNotFoundError:
+        v = "dev"
+    try:
+        sha = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, timeout=5,
+                             cwd=os.path.dirname(__file__)).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        sha = ""
+    return f"{v} · {sha}" if sha else v
+
+
+def byline() -> str:
+    """One line under each page title: who made it, how fresh the data is, and the version. On the hosted
+    snapshot the data date is the snapshot's; served locally the pages read the database live."""
+    snapshot = os.environ.get(SNAPSHOT_ENV)
+    fresh = f"data to {snapshot} (static snapshot)" if snapshot else "live from the database"
+    return (f'<div style="color: var(--muted-foreground); font-size: 0.85em">{AUTHOR} · {fresh} · '
+            f'version {version()}</div>')
+
+
+def footer():
+    """The foot of every page: licence, code, how to cite it, and when the page was built."""
+    import marimo as mo
+
+    links = " · ".join([
+        f'<a href="{REPO}">Code on GitHub</a>',
+        f'<a href="{REPO}/blob/main/LICENSE">MIT licence</a>',
+        f'<a href="{REPO}/blob/main/CITATION.cff">Cite this</a>',
+        f'<a href="{REPO}/blob/main/docs/methodology.md">Methodology</a>',
+        f'<a href="{REPO}#data-sources-and-licences">Data sources and licences</a>',
+    ])
+    return mo.Html(
+        '<div style="border-top: 1px solid var(--border); margin-top: 2.5em; padding-top: 0.8em; '
+        'color: var(--muted-foreground); font-size: 0.85em; display: flex; flex-wrap: wrap; gap: 0.3em 1.5em; '
+        'justify-content: space-between">'
+        f'<span>{links}</span>'
+        f'<span>Built {date.today():%d %b %Y} · version {version()}</span></div>')
+
+
+def tiles(items: list[tuple[str, str, str]]) -> str:
+    """Headline numbers as compact tiles, (label, value, caption) each, in a grid that wraps to two or one
+    columns on a narrow screen. HTML, so it can sit inside markdown or mo.Html."""
+    cells = "".join(
+        '<div style="border: 1px solid var(--border); border-radius: 8px; padding: 0.55em 0.85em">'
+        f'<div style="color: var(--muted-foreground); font-size: 0.8em">{label}</div>'
+        f'<div style="color: var(--foreground); font-size: 1.6em; font-weight: 600; line-height: 1.25; '
+        f'font-variant-numeric: tabular-nums">{value}</div>'
+        f'<div style="color: var(--muted-foreground); font-size: 0.8em">{caption}</div></div>'
+        for label, value, caption in items)
+    return ('<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(10.5em, 1fr)); gap: 0.6em">'
+            + cells + "</div>")
+
+
 def header(current: str, title, intro):
     """The head of a page: its title and one-line summary, then the contents panel beside the rest of the
     introduction (stacked when the window is narrow), then the snapshot note on the hosted copy."""
@@ -89,4 +154,4 @@ def header(current: str, title, intro):
         f'<div style="flex: 0 0 auto">{contents_html(current)}</div>'
         f'<div style="flex: 1 1 22em; min-width: 0">{intro.text}</div></div>')
     note = snapshot_note()
-    return mo.vstack([title, row] + ([mo.md(note)] if note else []), gap=0.75)
+    return mo.vstack([title, mo.Html(byline()), row] + ([mo.md(note)] if note else []), gap=0.75)

@@ -91,8 +91,25 @@ def use(name: str | None = None) -> Theme:
     theme = THEMES[name or DEFAULT_THEME]
     pio.templates[f"ldz_{theme.name}"] = plotly_template(theme)
     pio.templates.default = f"ldz_{theme.name}"
+    _quiet_modebar(pio)
     _active = theme
     return theme
+
+
+# The Plotly toolbar keeps only what a reader uses: zoom, pan, reset and save as PNG. Fewer icons, so it
+# doesn't cover the chart title on a phone. Double-click still resets the view.
+MODEBAR_REMOVE = ["select2d", "lasso2d", "zoomIn2d", "zoomOut2d", "autoScale2d", "toggleSpikelines",
+                  "hoverClosestCartesian", "hoverCompareCartesian", "zoomInGeo", "zoomOutGeo", "hoverClosestGeo"]
+
+
+def _quiet_modebar(pio) -> None:
+    """Marimo shows Plotly figures with the default renderer's config, so set it there."""
+    renderer = pio.renderers.default if pio.renderers.default in pio.renderers else None
+    if renderer is None:
+        return
+    r = pio.renderers[renderer]
+    if hasattr(r, "config"):
+        r.config = {**(r.config or {}), "displaylogo": False, "modeBarButtonsToRemove": MODEBAR_REMOVE}
 
 
 TRANSPARENT_CHARTS = True  # charts sit on the page colour; False puts them on their own surface panel

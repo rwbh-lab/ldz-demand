@@ -22,39 +22,46 @@ def _():
 def _(mo, pages):
     _note = pages.snapshot_note()
     mo.vstack([
-        mo.md(r"""
-        # GB gas demand in the prompt window
-        *The next two weeks of gas demand for Great Britain, as a range, from today's ECMWF ensemble run.*
-        """),
-        mo.accordion({"Contents": mo.Html(pages.contents_html(pages.INDEX))}),
+        mo.md("# GB gas demand in the prompt window"),
+        mo.Html(pages.byline()),
+        mo.md("*The next two weeks of gas demand for Great Britain, as a range, from today's ECMWF ensemble run.*"),
     ] + ([mo.md(_note)] if _note else []), gap=0.5)
     return
 
 
 @app.cell(hide_code=True)
-def _(fch, fcm, mo):
+def _(fch, fcm, mo, ov, pages):
     with mo.status.spinner(title="Loading the latest forecast"):
         runs = fch.wide(fcm.load_runs())
         mo.stop(runs.empty, mo.callout(mo.md("**No forecasts yet.** See [Live forecasts](/live-forecasts)."),
                                        kind="warn"))
         actual = fcm.actuals(since=runs["run_date"].min())
     latest = runs[runs["run_date"] == runs["run_date"].max()]
-    _gb = latest[latest["ldz"] == "GB"].sort_values("gas_day")
-    _tomorrow = _gb[_gb["lead_days"] == 1].iloc[0]
-    _peak = _gb.loc[_gb["p50"].idxmax()]
+    _o = ov.outlook(latest)
     _data_to = actual[actual["ldz"] == "GB"]["gas_day"].max()
+    _t, _p = _o.tomorrow, _o.peak
     mo.vstack([
+        # the result first: three numbers, wrapping on a narrow screen, then the chart that shows them
+        mo.Html(pages.tiles([
+            (f"Tomorrow, {_t['gas_day']:%a %d %b}", f"{_t['p50']:,.0f}",
+             f"GWh/day · 10–90% {_t['p10']:,.0f}–{_t['p90']:,.0f}"),
+            (f"Peak, {_p['gas_day']:%a %d %b}", f"{_p['p50']:,.0f}",
+             f"GWh/day · 10–90% {_p['p10']:,.0f}–{_p['p90']:,.0f}"),
+            (f"Range by {_o.last['gas_day']:%a %d %b}", f"±{_o.spread_last:.0f}%",
+             f"half the 10–90% range · ±{_o.spread_tomorrow:.0f}% tomorrow"),
+        ])),
+        # the takeaway as a heading, so it wraps on a phone (a Plotly title doesn't)
+        mo.md(f"### {_o.takeaway}"),
         fch.fan(latest, actual, "GB"),
-        mo.md(f"**Tomorrow** ({_tomorrow['gas_day']:%a %d %b}): {_tomorrow['p50']:,.0f} GWh/day, "
-              f"10–90% {_tomorrow['p10']:,.0f}–{_tomorrow['p90']:,.0f} · **peak** of the fortnight: "
-              f"{_peak['gas_day']:%a %d %b}, {_peak['p50']:,.0f} · actuals to {_data_to:%d %b %Y} · "
-              "all LDZs on [Live forecasts](/live-forecasts)"),
-    ])
+        mo.md(f"<small>Actuals to {_data_to:%d %b %Y} (National Gas, total − daily-metered) · every LDZ, "
+              "each run and how they verify: [Live forecasts](/live-forecasts)</small>"),
+        mo.accordion({"Contents": mo.Html(pages.contents_html(pages.INDEX))}),
+    ], gap=0.75)
     return actual, runs
 
 
 @app.cell(hide_code=True)
-def _(mo, ov, results):
+def _(mo, ov, pages, results):
     _h = ov.headline(results.load("experiments"))
     mo.vstack([
         mo.md(r"""
@@ -63,14 +70,12 @@ def _(mo, ov, results):
         data, then run on every member of the weather ensemble to forecast demand two weeks ahead. Scored
         out of sample against the industry's own weather variable (the official CWV):
         """),
-        mo.hstack([
-            mo.stat(f"{_h.cold:+.0f}%".replace("-", "−"), label="Error on the coldest days",
-                    caption="GB, against the official CWV"),
-            mo.stat(f"{_h.all_days:+.0f}%".replace("-", "−"), label="Error over all days",
-                    caption=f"better in {_h.ldz_better} of {_h.ldz_count} LDZs"),
-            mo.stat(f"{_h.winter:+.0f}%".replace("-", "−"), label="Error in winter",
-                    caption=f"{_h.days} days, scored forward"),
-        ], justify="start", gap=1),
+        mo.Html(pages.tiles([
+            ("Error on the coldest days", f"{_h.cold:+.0f}%".replace("-", "−"), "GB, against the official CWV"),
+            ("Error over all days", f"{_h.all_days:+.0f}%".replace("-", "−"),
+             f"better in {_h.ldz_better} of {_h.ldz_count} LDZs"),
+            ("Error in winter", f"{_h.winter:+.0f}%".replace("-", "−"), f"{_h.days} days, scored forward"),
+        ])),
     ])
     return
 
@@ -147,6 +152,13 @@ def _(mo):
       [decisions](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/decisions.md) behind each choice ·
       [run it yourself](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/user_quickstart.md) in a few minutes.
     """)
+    return
+
+
+@app.cell(hide_code=True)
+def _():
+    from ldz_demand.charts import pages as _pages_foot
+    _pages_foot.footer()
     return
 
 

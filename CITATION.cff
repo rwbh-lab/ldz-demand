@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite it as below."
+title: "ldz-demand: GB gas demand by LDZ, forecast two weeks ahead from the ECMWF ensemble"
+type: software
+authors:
+  - family-names: Hemming
+    given-names: Robert
+version: 0.1.0
+license: MIT
+repository-code: "https://github.com/rwbh-lab/ldz-demand"
+url: "https://rwbh-lab.github.io/ldz-demand/"
+keywords:
+  - gas demand
+  - composite weather variable
+  - ensemble forecasting
+  - probabilistic forecasting

@@ -66,15 +66,18 @@ def _(RECENT_RUNS, all_runs, ldz_picker, mo, pages, runs):
     run_picker = mo.ui.dropdown(options={f"{d:%a %d %b %Y}": d for d in sorted(recent["run_date"].unique(), reverse=True)},
                                 value=f"{_dates[0]:%a %d %b %Y}", label="Run (00z)")
     # the snapshot's controls are fixed, so the switch would do nothing there
-    mo.hstack([run_picker, ldz_picker] + ([] if pages.is_snapshot() else [all_runs]), justify="start", gap=2)
+    mo.hstack([run_picker, ldz_picker] + ([] if pages.is_snapshot() else [all_runs]), justify="start", gap=2, wrap=True)
     return recent, run_picker
 
 
 @app.cell(hide_code=True)
 def _(actual, fch, ldz_picker, mo, run_picker, runs):
+    from ldz_demand.charts import overview as _ov
+
     _run = runs[runs["run_date"] == run_picker.value]
     mo.vstack([
         mo.md("## 1 · The forecast"),
+        mo.md(f"**{_ov.outlook(_run, ldz_picker.value).takeaway}**"),
         fch.fan(_run, actual, ldz_picker.value),
         mo.md("*The interval widens with lead time as the weather becomes less certain; a long tail on one "
               "side is the ensemble disagreeing about a cold (or mild) spell.*"),
@@ -129,7 +132,7 @@ def _(actual, history_view, ldz_picker, mo, rh, runs):
         Section 2 shows only each run's median. These four views show the ranges as well, each a
         different way in; they sit here side by side while we choose which to keep.
         """),
-        mo.hstack([history_view, *_controls], justify="start", gap=2),
+        mo.hstack([history_view, *_controls], justify="start", gap=2, wrap=True),
     ])
     return heat_measure, heat_rows, target_day, threshold, weighting
 
@@ -221,6 +224,13 @@ def _(mo):
       ours needs a winter of these runs ([results](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/results.md#against-national-gass-day-ahead-forecasts)).
     - Run with `python -m ldz_demand.models.forecast YYYY-MM-DD`; stored in `demand_forecast_daily`.
     """)
+    return
+
+
+@app.cell(hide_code=True)
+def _():
+    from ldz_demand.charts import pages as _pages_foot
+    _pages_foot.footer()
     return
 
 

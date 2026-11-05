@@ -176,5 +176,12 @@ def _(mo):
     return
 
 
+@app.cell(hide_code=True)
+def _():
+    from ldz_demand.charts import pages as _pages_foot
+    _pages_foot.footer()
+    return
+
+
 if __name__ == "__main__":
     app.run()

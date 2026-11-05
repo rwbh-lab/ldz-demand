@@ -91,7 +91,7 @@ def _(ens, mo, runs):
     run_picker = mo.ui.dropdown(options={f"{r:%a %d %b %Y}": r for r in runs}, value=f"{runs[0]:%a %d %b %Y}",
                                 label="Run (00z)")
     ldz_picker = mo.ui.dropdown(options=[ens.GB, *ens.LDZS], value=ens.GB, label="LDZ")
-    mo.hstack([run_picker, ldz_picker], justify="start", gap=2)
+    mo.hstack([run_picker, ldz_picker], justify="start", gap=2, wrap=True)
     return ldz_picker, run_picker
 
 
@@ -120,7 +120,7 @@ def _(ens, mo, variables):
         share of gas use. The station comparison shows the same forecast taken at the official CWV
         weather station instead of our gas-weighted LDZ average.
         """),
-        mo.hstack([variable_picker, members_switch, station_switch], justify="start", gap=2),
+        mo.hstack([variable_picker, members_switch, station_switch], justify="start", gap=2, wrap=True),
     ])
     return members_switch, station_switch, variable_picker
 
@@ -162,7 +162,7 @@ def _(cube, mo):
         distances from the median, spread growth included. Hover for Kelly's skewness (−1 to 1). Below,
         every member on one lead day.
         """),
-        mo.hstack([scale_picker, lead_picker], justify="start", gap=2),
+        mo.hstack([scale_picker, lead_picker], justify="start", gap=2, wrap=True),
     ])
     return lead_picker, scale_picker
 
@@ -234,6 +234,13 @@ def _(mo):
             "Forecasts: ECMWF open data, IFS ensemble (CC-BY-4.0) — contains ECMWF open data. LDZ map and "
             "weights: see the LDZ geography page."),
     })
+    return
+
+
+@app.cell(hide_code=True)
+def _():
+    from ldz_demand.charts import pages as _pages_foot
+    _pages_foot.footer()
     return
 
 

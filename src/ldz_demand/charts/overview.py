@@ -56,6 +56,42 @@ def live_record(runs: pd.DataFrame, actual: pd.DataFrame, ldz: str = "GB") -> Li
                       lead1_error=float(lead1.mean()) if not lead1.empty else float("nan"))
 
 
+@dataclass(frozen=True)
+class Outlook:
+    tomorrow: pd.Series   # the lead-1 row of the latest run (gas_day, p10, p50, p90, ...)
+    peak: pd.Series       # the day with the highest median
+    low: pd.Series        # the day with the lowest median
+    last: pd.Series       # the last forecast day
+    spread_tomorrow: float  # half the 10-90% range, % of the median
+    spread_last: float
+    takeaway: str         # the fortnight in one line, for the chart title
+
+
+SHIFT = 5.0  # % change in the median, from tomorrow, that counts as demand rising or easing
+
+
+def outlook(latest: pd.DataFrame, ldz: str = "GB") -> Outlook:
+    """The latest run for one LDZ, read for the page's first lines: tomorrow, the peak and low of the
+    fortnight, how wide the range gets, and a one-line takeaway for the chart's title."""
+    f = latest[latest["ldz"] == ldz].sort_values("gas_day")
+    ahead = f[f["lead_days"] >= 1]
+    tomorrow, last = ahead.iloc[0], ahead.iloc[-1]
+    peak, low = ahead.loc[ahead["p50"].idxmax()], ahead.loc[ahead["p50"].idxmin()]
+
+    def spread(r: pd.Series) -> float:
+        return float((r["p90"] - r["p10"]) / 2 / r["p50"] * 100)
+
+    up = (peak["p50"] / tomorrow["p50"] - 1) * 100
+    down = (1 - low["p50"] / tomorrow["p50"]) * 100
+    if up >= SHIFT and (up >= down or peak["gas_day"] < low["gas_day"]):
+        takeaway = f"Demand climbs about {up:.0f}% to a peak on {peak['gas_day']:%a %d %b}"
+    elif down >= SHIFT:
+        takeaway = f"Demand eases about {down:.0f}% by {low['gas_day']:%a %d %b}"
+    else:
+        takeaway = f"Demand holds near {tomorrow['p50']:,.0f} GWh/day through the fortnight"
+    return Outlook(tomorrow, peak, low, last, spread(tomorrow), spread(last), takeaway)
+
+
 def worked_example() -> tuple[pd.DataFrame, pd.DataFrame]:
     """The quick start's sample run (5 Jan 2025) forecast afresh: (runs as forecasts.wide() gives them, actuals).
     Uses a temporary folder, so the user's data/quickstart/ is left alone."""
