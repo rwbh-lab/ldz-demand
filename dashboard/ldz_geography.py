@@ -9,28 +9,26 @@ def _():
     import marimo as mo
 
     from ldz_demand.charts import geography as geo_charts
-    from ldz_demand.charts import style
+    from ldz_demand.charts import pages, style
 
     _theme = style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
-    return geo_charts, mo
+    return geo_charts, mo, pages
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    from ldz_demand.charts import pages as _pages
-
-    _pages.header("ldz_geography.py", mo.md(r"""
+def _(mo, pages):
+    pages.header("ldz_geography.py", mo.md(r"""
     # LDZ geography
     *Mapping the zones, and weighting the weather to where the gas is used.*
     """), mo.md(r"""
-    The official Composite Weather Variable (CWV) takes each LDZ's weather from **a single weather
-    station** — and some stations serve several LDZs: **East Anglia, North Thames and the South East
-    all use Heathrow**; North West and North Wales share Rostherne in Cheshire. A station is a point;
-    an LDZ is thousands of square kilometres of towns, hills and coast.
+    **There is no public LDZ boundary file, so the map is built from town lists, local authorities and
+    1,160 postcodes checked with the gas network operators.** Added up by LDZ, the gas use it implies
+    matches measured demand to about half a percentage point per LDZ.
 
-    This model instead takes weather from a **grid** (ERA5, ~28 km cells) and averages it over each
-    LDZ, weighted to where gas is actually used. That needs two things this page builds and checks:
-    **which places belong to which LDZ**, and **how to weight the grid inside each LDZ**.
+    - **Membership**: which places belong to which LDZ.
+    - **The map**: four ways to draw it; the *sampled* one is used.
+    - **Check**: does the map's gas use add up to National Gas's measured demand?
+    - **Weighting**: how the map turns grid weather into one temperature per LDZ.
     """))
     return
 
@@ -47,34 +45,53 @@ def _():
 
 
 @app.cell(hide_code=True)
-def _(las, mo, towns):
+def _(las, mo, pages, towns):
     _m = las["method"].str.replace(r"_\d+km$", "", regex=True).str.replace(r"^override:.*", "override", regex=True).value_counts()
     _t = towns["method"].str.split("+").str[0].value_counts()
     _placed = int(_t.get("county", 0) + _t.get("footprint", 0))
     mo.vstack([
-        mo.md(r"""
-        ## 1 · Which places belong to which LDZ
+        mo.Html(pages.tiles([
+            ("Towns placed", f"{_placed:,}", f"of {len(towns):,} listed · {int(_t.get('outlier', 0))} outliers left out"),
+            ("Single-LDZ authorities", f"{int(_m.get('unanimous', 0) + _m.get('majority', 0) + _m.get('override', 0))}",
+             f"{int(_m.get('unanimous', 0))} unanimous · {int(_m.get('majority', 0))} majority · {int(_m.get('override', 0))} override"),
+            ("Split authorities", f"{int(_m.get('split', 0))}", "boundary areas"),
+            ("No listed town", f"{int(_m.get('nearest_town', 0))}", "take the nearest town's LDZ"),
+        ])),
+        mo.md(f"""{pages.heading("Membership", "Town lists and local authorities, checked postcode by postcode")}
 
+    - **Town lists** per LDZ (~1,250 towns) from a gas broker, placed with the ONS *Index of Place Names*.
+    - **Local authorities** take the LDZ their towns vote for. Where the towns fall in two LDZs the
+      authority is **split**: a genuine boundary area such as North Yorkshire or Shropshire.
+    - **Ten towns were listed under the wrong LDZ** and are corrected, among them all of South Yorkshire
+      (EM, not NE) and Reading (SO).
+    """),
+        mo.accordion({"More detail": mo.md(r"""
         There is no public official LDZ boundary file, so membership is derived from three free sources:
 
         1. **Town lists per LDZ** (about 1,250 towns) from a gas broker's LDZ pages.
-        2. **Where each town is**, from the ONS *Index of Place Names* — no geocoding. Places that share
+        2. **Where each town is**, from the ONS *Index of Place Names*, so no geocoding. Places that share
            a name (there are several Newports) are told apart by the LDZ's listed counties, then by
            distance to that LDZ's other towns. Towns far from the rest of their LDZ but beside another
            LDZ's towns are treated as errors in the lists and left out.
         3. **Local authorities** take the LDZ their towns vote for. Where an authority's towns fall in
-           two LDZs it is marked **split** — these are genuine boundary areas such as North Yorkshire,
-           Shropshire and Buckinghamshire, and inside them each place will take the LDZ of its nearest
+           two LDZs it is marked **split**. These are genuine boundary areas such as North Yorkshire,
+           Shropshire and Buckinghamshire, and inside them each place takes the LDZ of its nearest
            listed town. Authorities with no listed town take the LDZ of the nearest one.
-        """),
-        mo.hstack([
-            mo.stat(f"{_placed:,} / {len(towns):,}", label="Towns placed", caption=f"{int(_t.get('outlier', 0))} outliers excluded"),
-            mo.stat(f"{int(_m.get('unanimous', 0) + _m.get('majority', 0) + _m.get('override', 0))}", label="Single-LDZ authorities",
-                    caption=f"{int(_m.get('unanimous', 0))} unanimous · {int(_m.get('majority', 0))} majority · {int(_m.get('override', 0))} override"),
-            mo.stat(f"{int(_m.get('split', 0))}", label="Split authorities", caption="boundary areas"),
-            mo.stat(f"{int(_m.get('nearest_town', 0))}", label="No listed town", caption="nearest town's LDZ"),
-        ], widths="equal", gap=1, wrap=True),
-    ])
+
+        **The source lists were checked postcode by postcode.** For each doubtful authority, a postcode
+        in a test town was looked up on the broker's own postcode search
+        ([ldz_postcode_checks.csv](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/review/ldz_postcode_checks.csv)).
+        Ten towns turned out to be listed under the wrong LDZ and are corrected for every method
+        (`town_corrections.csv`):
+
+        - all of **South Yorkshire** (Sheffield, Barnsley, Doncaster) is **EM**, not NE;
+        - **Oldham** and **Buxton** are **NW**, as are **Chester** and **Malpas** (listed WN);
+        - **Reading**, **Wokingham** and **Brackley** are **SO**.
+
+        **Wiltshire** is genuinely split, with Salisbury in SO and Chippenham in SW, so it is marked split
+        even though 81% of its towns vote SW.
+        """)}),
+    ], gap=0.5)
     return
 
 
@@ -101,7 +118,7 @@ def _(energy, geo_charts, las, use):
 
 
 @app.cell(hide_code=True)
-def _(energy, mo):
+def _(energy, mo, pages):
     method_picker = mo.ui.dropdown(options={"Local authority": "authority", "Voronoi (original)": "voronoi", "Hybrid": "hybrid",
                                             "Sampled": "sampled"},
                                    value="Sampled", label="Method")
@@ -111,33 +128,34 @@ def _(energy, mo):
     view_picker = mo.ui.dropdown(options=_views, value="LDZ", label="Colour by")
     towns_toggle = mo.ui.switch(value=False, label="Show listed towns")
     mo.vstack([
-        mo.md(r"""
-        ## 2 · The LDZ map
+        mo.md(f"""{pages.heading("The map", "Four ways to draw it; the sampled map measures the boundary areas")}
 
-        Four ways to turn the town lists into a map:
-
-        - **Local authority** — each authority takes the LDZ its towns vote for.
-          **Split** authorities are faded with a red outline; authorities with no listed town have an
-          orange outline; **manual overrides** (from postcode checks, see §3) have a white outline. *Confidence*
-          shows how decisive each split was (local authority and sampled methods).
-        - **Voronoi** — the original quant-lib method: every town gets the area closer to it than to any
+    - **Local authority**: each authority takes the LDZ its towns vote for.
+    - **Voronoi**: the original method; each town gets the area nearest it.
+    - **Hybrid**: whole authorities, with Voronoi cells only inside the split ones.
+    - **Sampled** (used): like the hybrid, but each split authority is shared out as a sample of its
+      postcodes is, by the network operators' own postcode checkers. The dots are those postcodes.
+    """),
+        mo.accordion({"More detail": mo.md(r"""
+        - **Local authority**: **split** authorities are faded with a red outline; authorities with no
+          listed town have an orange outline; **manual overrides** (from postcode checks) have a white
+          outline. *Confidence* shows how decisive each split was (local authority and sampled methods).
+        - **Voronoi**: the original quant-lib method. Every town gets the area closer to it than to any
           other town, smoothed and merged into LDZs. Boundaries follow the towns rather than
-          administrative lines, so they are noisier — but they can cut through an authority.
-        - **Hybrid** — whole authorities where an authority is clearly in one LDZ, and Voronoi cells only
-          inside the split authorities, limited to the LDZs that authority's towns voted for. Each method
-          is used where it is strong.
-        - **Sampled** — like the hybrid, but inside each authority on a boundary the split is *measured*:
-          a random sample of its postcodes is run through the gas network operators' own postcode
-          checkers, and the authority is shared out as its sample is. The dots are the sampled
-          postcodes, coloured by the LDZ the operators put them in.
+          administrative lines, so they are noisier, but they can cut through an authority.
+        - **Hybrid**: whole authorities where an authority is clearly in one LDZ, and Voronoi cells only
+          inside the split authorities, limited to the LDZs that authority's towns voted for.
+        - **Sampled**: inside each authority on a boundary the split is *measured*: a random sample of
+          its postcodes is run through the gas network operators' own postcode checkers, and the
+          authority is shared out as its sample is.
 
-        **Gap vs National Gas demand** colours each LDZ by how far its share of GB gas use (under that
-        method) is from its share of measured demand — see §3. Neighbouring LDZs always get different
-        colours and every LDZ is labelled; hover for the evidence.
-        """),
+        **Gap vs demand** colours each LDZ by how far its share of GB gas use (under that method) is
+        from its share of measured demand (next section). Neighbouring LDZs always get different colours
+        and every LDZ is labelled; hover for the evidence.
+        """)}),
         mo.hstack([method_picker, view_picker], justify="start", gap=2, wrap=True),
         towns_toggle,
-    ])
+    ], gap=0.5)
     return method_picker, towns_toggle, view_picker
 
 
@@ -160,45 +178,32 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(check, demand_note, energy, geo_charts, mo, show_authority, show_demand, show_hybrid, show_sampled, show_voronoi):
+def _(check, demand_note, energy, geo_charts, mo, pages, show_authority, show_demand, show_hybrid, show_sampled, show_voronoi):
     _methods = [m for m, box in (("authority", show_authority), ("voronoi", show_voronoi), ("hybrid", show_hybrid),
                                  ("sampled", show_sampled)) if box.value]
+    if energy is not None:
+        _gaps = geo_charts.gap_table(check)
+        _col = {m: _gaps.columns[i] for i, m in enumerate(geo_charts.METHODS)}
+        _mean = _gaps.loc["Mean |gap|"]
+        _statement = (f"The sampled map is closest to measured demand: "
+                      f"{_mean[_col['sampled']]:.2f} pp per LDZ on average")
+    else:
+        _statement = "Needs the National Gas data"
     mo.vstack([
-        mo.md(r"""
-        ## 3 · Does the map add up?
+        mo.md(f"""{pages.heading("Check", _statement)}
 
-        A check that doesn't depend on how the map was made: add up the official **annual gas use**
-        of every local authority (DESNZ statistics) by the LDZ our map puts it in, and compare each
-        LDZ's share of GB with its share of **measured demand** from National Gas. A wrongly assigned
-        area shows as one LDZ too high and a neighbour too low.
-
-        Agreement to within ~1 percentage point is about as close as these sources allow: DESNZ
-        leaves out some very large industrial sites and its "years" don't match gas years.
-
-        **The source lists were checked postcode by postcode.** For each doubtful authority, a postcode
-        in a test town was looked up on the broker's own postcode search
-        ([ldz_postcode_checks.csv](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/review/ldz_postcode_checks.csv)). Ten towns turned out to be listed under the wrong LDZ
-        and are corrected for all three methods (`town_corrections.csv`):
-
-        - all of **South Yorkshire** (Sheffield, Barnsley, Doncaster) is **EM**, not NE;
-        - **Oldham** and **Buxton** are **NW**, as are **Chester** and **Malpas** (listed WN);
-        - **Reading**, **Wokingham** and **Brackley** are **SO**.
-
-        **Wiltshire** is genuinely split, with Salisbury in SO and Chippenham in SW, so it is marked split
-        even though 81% of its towns vote SW.
-
-        **A lesson in not fitting to the check.** Before the postcode checks, SO was about 2 pp short, so
-        seven authorities around it were moved to SO, chosen *from* this check. That cut the gap almost
-        as much as the postcode checks did, but the postcode search says four of the seven were wrong:
-        Swindon, north Wiltshire, Windsor & Maidenhead and Slough are not SO. The checked map scores about
-        the same overall, and every change is now backed by evidence. NE's +1.3 pp excess and NW's
-        −0.7 pp shortfall have gone.
-
-        | Local authority method | Source lists only | Provisional overrides | Postcode-checked |
-        |---|---|---|---|
-        | Mean absolute gap (pp) | 0.75 | 0.55 | 0.52 |
-        | RMS gap (pp) | 0.93 | 0.66 | 0.67 |
-
+    - Add up each local authority's official **annual gas use** (DESNZ) by the LDZ the map puts it in,
+      and compare each LDZ's share of GB with its share of **measured demand** (National Gas). A wrongly
+      placed area shows as one LDZ too high and a neighbour too low.
+    - About 1 pp is as close as these sources allow: DESNZ leaves out some large industrial sites, and
+      its years aren't gas years.
+    - **Voronoi** still breaks London (NT −2.4, SE +2.6 pp), because London's boroughs aren't listed as
+      towns.
+    - **Still open:** SO is ~1 pp short and EA ~1 pp over, mostly on edges the operators' checkers can't
+      separate (EA/NT, SO/SE).
+    """),
+        mo.accordion({
+            "More detail": mo.md(r"""
         **Measuring the splits: the postcode sample.** Town votes count towns, and Voronoi cells count
         area, so neither measures how an authority's *gas* divides. Wiltshire shows the problem: its towns
         vote 19% SO, its Voronoi area is 34% SO. The sampled method measures it instead. In every
@@ -213,34 +218,42 @@ def _(check, demand_note, energy, geo_charts, mo, show_authority, show_demand, s
         Camberley area is not NT. **Richmond upon Thames** is 38% SE, though its towns say 7%. **Wychavon**
         is 62% WM, though its towns say 70% SW. **Wokingham** is 98% SO, confirming the override.
 
-        **Methods compared:** Voronoi still breaks **London** (NT −2.4, SE +2.6 pp). London's boroughs
-        aren't listed as towns, so the cells of surrounding towns carve the city up. It is better on EA
-        and EM, though.
-
         | | Local authority | Voronoi | Hybrid | Sampled |
         |---|---|---|---|---|
         | Mean absolute gap (pp) | 0.52 | 0.69 | 0.53 | **0.50** |
         | RMS gap (pp) | 0.67 | 1.08 | 0.61 | **0.57** |
 
-        The **sampled** method is closest on both measures, and every split it uses is measured rather
-        than inferred. It is the map used from here on, with the other three kept for comparison. The
-        gain is modest: measuring the splits doesn't close the largest gaps.
+        The sampled method is closest on both measures, and every split it uses is measured rather than
+        inferred. The gain is modest: measuring the splits doesn't close the largest gaps.
+
+        **A lesson in not fitting to the check.** Before the postcode checks, SO was about 2 pp short, so
+        seven authorities around it were moved to SO, chosen *from* this check. That cut the gap almost
+        as much as the postcode checks did, but the postcode search says four of the seven were wrong:
+        Swindon, north Wiltshire, Windsor & Maidenhead and Slough are not SO. The checked map scores about
+        the same overall, and every change is now backed by evidence. NE's +1.3 pp excess and NW's
+        −0.7 pp shortfall have gone.
+
+        | Local authority method | Source lists only | Provisional overrides | Postcode-checked |
+        |---|---|---|---|
+        | Mean absolute gap (pp) | 0.75 | 0.55 | 0.52 |
+        | RMS gap (pp) | 0.93 | 0.66 | 0.67 |
 
         **Still open:** SO is still about 1.0 pp short, while EA is 1.1 pp over and SW 0.55 pp over.
         These sit mostly on edges the operator checkers can't separate (EA/NT, SO/SE) or come from the
-        sources themselves: DESNZ leaves out some large sites, which may also explain WS (−0.7 pp). The EA/NT
-        edge needs the broker's postcode search, once its limit resets.
+        sources themselves: DESNZ leaves out some large sites, which may also explain WS (−0.7 pp). The
+        EA/NT edge needs the broker's postcode search, once its limit resets.
         """),
+            **({"Gap to measured demand by LDZ and method (table)": mo.vstack([
+                mo.md("Percentage points; + means the map gives the LDZ too much. Rows follow the chart, top to bottom."),
+                mo.ui.table(_gaps.reset_index().rename(columns={"index": "LDZ"}), selection=None, pagination=False,
+                            show_column_summaries=False, show_data_types=False, show_search=False),
+            ])} if energy is not None else {}),
+        }),
         mo.hstack([show_demand, show_authority, show_voronoi, show_hybrid, show_sampled], justify="start", gap=2, wrap=True),
         geo_charts.membership_check_chart(check, methods=_methods, show_demand=show_demand.value and energy is not None)
         if energy is not None else mo.callout(mo.md(
             f"National Gas demand not loaded, so only our map's shares are available. `{demand_note}`"), kind="info"),
-        mo.md("**Gap to measured demand by LDZ** (percentage points; + means our map gives the LDZ too much). "
-              "Rows follow the chart, top to bottom.") if energy is not None else mo.md(""),
-        mo.ui.table(geo_charts.gap_table(check).reset_index().rename(columns={"index": "LDZ"}), selection=None,
-                    pagination=False, show_column_summaries=False, show_data_types=False, show_search=False)
-        if energy is not None else mo.md(""),
-    ])
+    ], gap=0.5)
     return
 
 
@@ -251,7 +264,7 @@ def _(las, mo, towns):
     _unplaced = towns[towns["method"].str.split("+").str[0].isin(["ambiguous", "not_in_ipn", "outlier"])][["ldz", "town", "method"]]
     mo.accordion({
         f"Split authorities ({len(_split)})": mo.ui.table(_split, page_size=12, selection=None),
-        f"No listed town — nearest town's LDZ ({len(_fallback)})": mo.ui.table(_fallback, selection=None),
+        f"No listed town: nearest town's LDZ ({len(_fallback)})": mo.ui.table(_fallback, selection=None),
         f"Towns not used ({len(_unplaced)})": mo.ui.table(_unplaced, page_size=12, selection=None),
         "How this was built": mo.md(r"""
         - Rebuild: `python -m ldz_demand.geo fetch` then `python -m ldz_demand.geo build`.
@@ -278,13 +291,13 @@ def _(las, mo, towns):
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## 4 · Weighting the weather → [LDZ weather](/ldz-weather)
+def _(mo, pages):
+    mo.md(f"""{pages.heading("Weighting", "The map method barely changes LDZ temperatures; the weighting and the stations do")}
 
-    With membership settled, each LDZ's weather is an average of the grid cells inside it. *How* to
-    weight those cells is a modelling choice, so several are built and compared by how well each
-    explains demand, not by how plausible it looks. The *LDZ weather* page builds and compares them:
+    - Each LDZ's weather is an average of the grid cells inside it. *How* to weight them is a modelling
+      choice, so several are built and judged by how well each explains demand.
+    - With gas-use weighting, the four maps give LDZ temperatures within a few hundredths of a degree
+      of each other, day to day. [LDZ weather](/ldz-weather) builds and compares them.
 
     | Variant | Weights | Status |
     |---|---|---|
@@ -293,10 +306,6 @@ def _(mo):
     | **Gas use** | Each authority's DESNZ gas use, spread over its area | ✓ built (`gas`) |
     | **Settlement density** | Density of the listed towns | 🚧 |
     | **Population** | Census population | 🚧 |
-
-    First result: with gas-use weighting, the four map methods give LDZ temperatures within a few
-    hundredths of a degree of each other day to day. The weighting, and above all the official
-    stations, matter far more.
     """)
     return
 

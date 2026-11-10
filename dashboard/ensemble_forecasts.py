@@ -9,28 +9,31 @@ def _():
     import marimo as mo
 
     from ldz_demand.charts import ensemble as ens
-    from ldz_demand.charts import style
+    from ldz_demand.charts import pages, style
 
     _theme = style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
-    return ens, mo
+    P10, P25, P50, P75, P90 = (pages.P(q) for q in (10, 25, 50, 75, 90))
+    return P10, P25, P50, P75, P90, ens, mo, pages
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    from ldz_demand.charts import pages as _pages
-
-    _pages.header("ensemble_forecasts.py", mo.md(r"""
+def _(P10, P90, mo, pages):
+    pages.header("ensemble_forecasts.py", mo.md(r"""
     # Ensemble LDZ weather
     *Fifty equally likely futures for each LDZ, every day, out to 15 days.*
-    """), mo.md(r"""
-    The official forecast gives one Composite Weather Variable per LDZ and gas day. The ECMWF
-    ensemble gives **50 members**, each an equally likely version of the next 15 days, run through our
-    LDZ map and gas-use weighting. The spread between them is the forecast's uncertainty, and its
-    **shape** matters as much as its size: demand rises faster as it gets colder, so a long cold tail
-    lifts expected demand above "demand at the average forecast temperature". This page looks at that
-    shape before it goes into the demand model.
+    """), mo.md(rf"""
+    **The official forecast gives one weather value per LDZ and day; the ECMWF ensemble gives 50 equally
+    likely ones.** Their spread is the forecast's uncertainty: a fraction of a degree for the next few
+    days, several degrees by the second week. Its shape matters as much as its size, because demand
+    rises faster as it gets colder.
 
-    Data: the 00z run each day (published ~09:30 UTC), per LDZ, gas days 0 (the run's own day) to 14.
+    - **Two weeks**: the latest run's mean temperature per LDZ, day by day.
+    - **Fan**: one LDZ's forecast, with its {P10}–{P90} range.
+    - **Lopsided**: whether the cold or the warm tail is longer.
+    - **Where**: the spread for every LDZ and lead day.
+
+    Data: the 00z run each day (published ~09:30 UTC), per LDZ, on our LDZ map and gas-use weighting,
+    gas days 0 (the run's own day) to 14.
     """))
     return
 
@@ -68,21 +71,32 @@ def _(ens, mo):
 
 
 @app.cell(hide_code=True)
-def _(ENS_LDZ_DAILY, ens, mo, runs, store):
+def _(ENS_LDZ_DAILY, P10, P90, ens, mo, pages, runs, store):
+    from datetime import timedelta as _td
+
     # the latest run only: one variable, our gas-weighted LDZ weather (a light read)
     _latest = runs[0]
     _rows = store.read(ENS_LDZ_DAILY, start=_latest, end=_latest, variable="t2m", membership=ens.REFERENCE[0])
+    _cube = ens.cube(_rows)
+    _gb = ens.with_gb(_cube, ens.gas_shares()).sel(variant="/".join(ens.REFERENCE), variable="t2m", ldz=ens.GB)
+    _mean = _gb.mean("member").to_series()
+    _cold = int(_mean.idxmin())
     mo.vstack([
-        mo.md(r"""
-        ## The next two weeks at a glance
+        mo.Html(pages.tiles([
+            ("Latest run", f"{_latest:%a %d %b}", "00z, published ~09:30 UTC"),
+            ("Members", f"{_gb.sizes['member']}", "equally likely"),
+            ("Gas days", f"{_gb.sizes['lead']}", "day 0 to day 14"),
+            ("Runs", f"{len(runs)}", "in the last 31 days"),
+        ])),
+        mo.md(f"""{pages.heading("Two weeks", f"The coldest gas day ahead for GB is {_latest + _td(days=_cold):%a %d %b}, "
+                                              f"at {_mean.iloc[_cold]:.1f} °C")}
 
-        The latest run's **ensemble mean** temperature for each LDZ — the average of the 50 members, on our
-        LDZ map and weighted by where gas is used. Drag the slider, or press ▶, to step through the 14 gas
-        days; hover an LDZ for the spread (P10–P90). Blue is colder than about 15.5 °C, roughly where
-        heating comes on. The sections below take one run and one LDZ at a time, in more detail.
-        """),
-        ens.mean_map(ens.cube(_rows), _latest),
-    ])
+    - The latest run's **ensemble mean** temperature for each LDZ: the average of the 50 members.
+    - Blue is colder than about 15.5 °C, roughly where heating comes on.
+    - Drag the slider, or press ▶, to step through the days; hover an LDZ for its {P10}–{P90} range.
+    """),
+        ens.mean_map(_cube, _latest),
+    ], gap=0.5)
     return
 
 
@@ -91,7 +105,10 @@ def _(ens, mo, runs):
     run_picker = mo.ui.dropdown(options={f"{r:%a %d %b %Y}": r for r in runs}, value=f"{runs[0]:%a %d %b %Y}",
                                 label="Run (00z)")
     ldz_picker = mo.ui.dropdown(options=[ens.GB, *ens.LDZS], value=ens.GB, label="LDZ")
-    mo.hstack([run_picker, ldz_picker], justify="start", gap=2, wrap=True)
+    mo.vstack([
+        mo.md("*The sections below take one run and one LDZ at a time.*"),
+        mo.hstack([run_picker, ldz_picker], justify="start", gap=2, wrap=True),
+    ], gap=0.5)
     return ldz_picker, run_picker
 
 
@@ -110,19 +127,31 @@ def _(ens, mo, variables):
                                      value=ens.VARIABLES["t2m"][0], label="Variable")
     members_switch = mo.ui.switch(value=False, label="Show the 50 members")
     station_switch = mo.ui.switch(value=False, label="Compare with the official station")
-    mo.vstack([
-        mo.md(r"""
-        ## 1 · The forecast fan
-
-        The shaded bands hold the middle 80% (P10–P90) and middle 50% (P25–P75) of the members, around
-        the median; the dotted line is the mean. Where the median sits off-centre in its band, or the
-        mean pulls away from the median, the members are lopsided. *GB* is the LDZs weighted by their
-        share of gas use. The station comparison shows the same forecast taken at the official CWV
-        weather station instead of our gas-weighted LDZ average.
-        """),
-        mo.hstack([variable_picker, members_switch, station_switch], justify="start", gap=2, wrap=True),
-    ])
     return members_switch, station_switch, variable_picker
+
+
+@app.cell(hide_code=True)
+def _(P10, P25, P50, P75, P90, cube, ens, ldz_picker, members_switch, mo, pages, station_switch, variable_picker):
+    # the selected LDZ and variable's spread, for the headings here and in the next section
+    spread = ens.asymmetry(cube.sel(variant="/".join(ens.REFERENCE), variable=variable_picker.value,
+                                    ldz=ldz_picker.value))
+    _unit = ens.VARIABLES[variable_picker.value][1]
+    _width = spread["lower"] + spread["upper"]
+    _widest = int(_width.idxmax())
+    mo.vstack([
+        mo.md(f"""{pages.heading("Fan", f"{ldz_picker.value}'s {P10}–{P90} range grows from {_width.iloc[0]:.1f} {_unit} "
+                                       f"on day 0 to {_width.iloc[_widest]:.1f} {_unit} by day {_widest}")}
+
+    - The shaded bands hold the middle 80% ({P10}–{P90}) and middle 50% ({P25}–{P75}) of the members,
+      around the median ({P50}); the dotted line is the mean.
+    - Where the median sits off-centre in its band, or the mean pulls away from it, the members are
+      lopsided (next section).
+    - *GB* is the LDZs weighted by their share of gas use. The station comparison takes the same
+      forecast at the official CWV station instead of our gas-weighted average.
+    """),
+        mo.hstack([variable_picker, members_switch, station_switch], justify="start", gap=2, wrap=True),
+    ], gap=0.5)
+    return (spread,)
 
 
 @app.cell(hide_code=True)
@@ -131,7 +160,7 @@ def _(cube, ens, ldz_picker, members_switch, mo, run_date, station_switch, varia
     _compare = ("station", "point") if station_switch.value and _ldz != ens.GB else None
     _note = mo.md("")
     if station_switch.value and _ldz == ens.GB:
-        _note = mo.md("*The station comparison is per LDZ — there is no single GB station.*")
+        _note = mo.md("*The station comparison is per LDZ: there is no single GB station.*")
     elif _compare is not None:
         # the usual station gap for this LDZ and month (ERA5; every LDZ read once, then kept)
         _note = mo.callout(mo.md(ens.station_gap_note(ens.station_gap(cube, _ldz, _variable),
@@ -145,25 +174,34 @@ def _(cube, ens, ldz_picker, members_switch, mo, run_date, station_switch, varia
 
 
 @app.cell(hide_code=True)
-def _(cube, mo):
+def _(P10, P90, cube, ens, ldz_picker, mo, pages, spread, variable_picker):
     lead_picker = mo.ui.slider(start=0, stop=int(cube["lead"].max()), value=9, step=1, label="Lead day", show_value=True)
     scale_picker = mo.ui.dropdown(options={"In standard deviations (growth removed)": "sd", "In the variable's units": "units"},
                                   value="In standard deviations (growth removed)", label="Scale")
+    _low, _high = ens.VARIABLES[variable_picker.value][2]
+    _lead = int(spread["kelly"].abs().idxmax())
+    _k = float(spread["kelly"].loc[_lead])
+    _statement = (f"{ldz_picker.value} is balanced in this run: no lead day leans far either way"
+                  if abs(_k) < 0.25 else
+                  f"{ldz_picker.value} leans {_low if _k < 0 else _high} at day {_lead} (Kelly skewness {_k:+.2f})".replace("-", "−"))
     mo.vstack([
-        mo.md(r"""
-        ## 2 · Is the spread lopsided?
+        mo.md(f"""{pages.heading("Lopsided", _statement)}
 
-        For each lead day, the two sides of the spread: down to P10 (left) and up to P90 (right). Equal
-        bars mean a balanced spread; a longer left bar means a longer **cold** tail — for demand, the side
-        that matters, because demand rises faster as it gets colder. **In standard deviations** (the
-        default), each side is measured from the mean and divided by that day's spread, so the growth in
-        uncertainty with lead time is taken out: a symmetric bell-shaped spread sits on the dashed lines
-        (1.28 either side), and anything else is lopsidedness. **In the variable's units** shows the raw
-        distances from the median, spread growth included. Hover for Kelly's skewness (−1 to 1). Below,
-        every member on one lead day.
-        """),
+    - For each lead day, the two sides of the spread: down to {P10} (left) and up to {P90} (right).
+    - A longer left bar is a longer **cold** tail: the side that matters for demand, which rises faster
+      as it gets colder.
+    - Below, every member on one lead day.
+    """),
+        mo.accordion({"More detail": mo.md(r"""
+        **In standard deviations** (the default), each side is measured from the mean and divided by that
+        day's spread, so the growth in uncertainty with lead time is taken out: a symmetric bell-shaped
+        spread sits on the dashed lines (1.28 either side), and anything else is lopsidedness. **In the
+        variable's units** shows the raw distances from the median, spread growth included. Hover for
+        Kelly's skewness, from −1 (all the spread on the low side) to 1; the heading calls ±0.25 or more
+        a lean.
+        """)}),
         mo.hstack([scale_picker, lead_picker], justify="start", gap=2, wrap=True),
-    ])
+    ], gap=0.5)
     return lead_picker, scale_picker
 
 
@@ -178,18 +216,17 @@ def _(cube, ens, lead_picker, ldz_picker, mo, run_date, scale_picker, variable_p
 
 
 @app.cell(hide_code=True)
-def _(mo):
+def _(P25, P75, mo, pages):
     measure_picker = mo.ui.dropdown(options={"Spread (P25–P75)": "iqr", "Lopsidedness (Kelly skewness)": "kelly"},
                                     value="Spread (P25–P75)", label="Colour by")
     mo.vstack([
-        mo.md(r"""
-        ## 3 · Where the uncertainty is
+        mo.md(f"""{pages.heading("Where", "Uncertainty grows with lead day, and not evenly across LDZs")}
 
-        Every LDZ and lead day for the selected run and variable: how wide the middle half of the
-        members is, or which way it leans.
-        """),
+    - Every LDZ and lead day for the selected run and variable: how wide the middle half of the members
+      is ({P25}–{P75}), or which way it leans.
+    """),
         measure_picker,
-    ])
+    ], gap=0.5)
     return (measure_picker,)
 
 
@@ -200,20 +237,14 @@ def _(cube, ens, measure_picker, mo, run_date, variable_picker):
 
 
 @app.cell(hide_code=True)
-def _(mo, runs):
-    mo.md(rf"""
-    ## 4 · Run to run — 🚧 as the archive grows
+def _(P10, P90, mo, pages):
+    mo.md(f"""{pages.heading("Still to come", "Run-to-run changes, and checks against what happened")}
 
-    How the forecast for one gas day changes from run to run as the day gets closer: the spread should
-    narrow, and a lopsided tail may grow or vanish. {len(runs)} run(s) archived so far; this needs a week
-    or two of runs to say much.
-
-    ## 5 · Did it happen? — 🚧 once ERA5 catches up
-
-    ERA5 runs ~5 days behind, so the first forecasts can soon be checked against what happened: does the
-    actual temperature fall inside the P10–P90 band about 80% of the time, does the spread match the
-    errors, and is the lopsidedness real information or noise? That decides how far the demand model
-    should trust the shape of the spread.
+    - **Run to run**: how the forecast for one gas day changes as the day gets closer. The spread should
+      narrow, and a lopsided tail may grow or vanish.
+    - **Did it happen?** ERA5 runs six days behind, so past forecasts can be checked: does the actual
+      temperature fall inside {P10}–{P90} about 8 times in 10, and is the lopsidedness information or
+      noise? That decides how far the demand model should trust the shape of the spread.
     """)
     return
 
@@ -231,7 +262,7 @@ def _(mo):
         - Code: `ldz_demand.charts.ensemble`.
         """),
         "Sources & attribution": mo.md(
-            "Forecasts: ECMWF open data, IFS ensemble (CC-BY-4.0) — contains ECMWF open data. LDZ map and "
+            "Forecasts: ECMWF open data, IFS ensemble (CC-BY-4.0); contains ECMWF open data. LDZ map and "
             "weights: see the LDZ geography page."),
     })
     return
