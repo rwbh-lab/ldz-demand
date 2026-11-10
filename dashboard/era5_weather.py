@@ -9,27 +9,29 @@ def _():
     import marimo as mo
 
     from ldz_demand.charts import era5 as ch
-    from ldz_demand.charts import style
+    from ldz_demand.charts import pages, style
 
     _theme = style.use(style.theme_name_from_css(mo.notebook_dir() / "theme.css"))
-    return ch, mo
+    return ch, mo, pages
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    from ldz_demand.charts import pages as _pages
-
-    _pages.header("era5_weather.py", mo.md(r"""
+def _(mo, pages):
+    pages.header("era5_weather.py", mo.md(r"""
     # ERA5 weather
     *The hourly weather the model is trained on: temperature and wind on a 0.25° grid over Great Britain.*
     """), mo.md(r"""
-    **ERA5** is ECMWF's reanalysis: a reconstruction of the weather every hour since 1940, made by
-    combining observations with a weather model. It is what the demand model is trained on — the same
-    kind of 2 m temperature and 10 m wind fields that the ECMWF ensemble will forecast later.
+    **Weather varies a lot within a single LDZ and a single gas day, which is what one station per LDZ
+    misses: on the coldest day in the archive, 15 Dec 2022, the day's mean temperature across England
+    runs from −5 °C to +6 °C (coast and sea the mildest), and a typical cell swings 7–8 °C through the
+    day.**
 
-    The raw grid is 0.25° (~28 km). Below, it is averaged into coarser square cells so each can be labelled,
-    and you can step through the **gas day** — 05:00 to 05:00 UK time, the day gas demand is measured
-    over. Pick one of a few days chosen from the archive for what they show.
+    **ERA5** is ECMWF's reanalysis: a reconstruction of the weather every hour since 1940, made by
+    combining observations with a weather model. The demand model is trained on it: the same 2 m
+    temperature and 10 m wind the ECMWF ensemble forecasts.
+
+    - The 0.25° grid (~28 km) is averaged into coarser square cells here so each can be labelled.
+    - Step through the **gas day**, 05:00 to 05:00 UK time, the day gas demand is measured over.
     """))
     return
 
@@ -52,13 +54,15 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(available, ch, mo):
+def _(available, ch, mo, pages):
     _days = [d for d in ch.SAMPLE_DAYS if d.day[:7] in available]
+    _heading = mo.md(pages.heading("Sample days", "Five days chosen for what they show: peak cold, a storm, record heat"))
     day_picker = mo.ui.dropdown(options={d.label: d.day for d in _days}, value=_days[0].label, label="Gas day")
     variable_picker = mo.ui.dropdown(options={v["label"]: k for k, v in ch.VARIABLES.items()},
                                      value="Temperature", label="Show")
     step_picker = mo.ui.dropdown(options=ch.CELL_SIZES, value="~110 km cells", label="Grid")
-    mo.hstack([day_picker, variable_picker, step_picker], justify="start", gap=2, wrap=True)
+    mo.vstack([_heading, mo.hstack([day_picker, variable_picker, step_picker], justify="start", gap=2, wrap=True)],
+              gap=0.5)
     return day_picker, step_picker, variable_picker
 
 
@@ -70,16 +74,15 @@ def _(ch, day_picker, raw_dir):
 
 
 @app.cell(hide_code=True)
-def _(ch, hourly, mo, sample):
+def _(ch, hourly, mo, pages, sample):
     _s = ch.day_summary(hourly)
     mo.vstack([
         mo.md(f"**{sample.label}.** {sample.why}"),
-        mo.hstack([
-            mo.stat(f"{_s['t_mean']:.1f} °C", label="England mean temperature",
-                    caption=f"hourly range {_s['t_min']:.1f} → {_s['t_max']:.1f} °C"),
-            mo.stat(f"{_s['ws_mean']:.1f} m/s", label="Mean wind, GB box", caption=f"strongest cell-hour {_s['ws_max']:.0f} m/s"),
-            mo.stat(f"{_s['hours']} h", label="Gas day", caption="05:00 → 05:00 UK time"),
-        ], widths="equal", gap=1, wrap=True),
+        mo.Html(pages.tiles([
+            ("England mean temperature", f"{_s['t_mean']:.1f}", f"hourly range {_s['t_min']:.1f} → {_s['t_max']:.1f} °C", "°C"),
+            ("Mean wind, GB box", f"{_s['ws_mean']:.1f}", f"strongest cell-hour {_s['ws_max']:.0f} m/s", "m/s"),
+            ("Gas day", f"{_s['hours']}", "05:00 → 05:00 UK time", "hours"),
+        ])),
     ])
     return
 

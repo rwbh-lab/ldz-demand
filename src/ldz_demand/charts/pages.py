@@ -214,6 +214,13 @@ def definitions_html() -> str:
             f'line-height: 1.7"><div style="font-weight: 600; color: var(--foreground)"><i>Definitions</i></div>{rows}</div>')
 
 
+def heading(label: str, statement: str, level: int = 2) -> str:
+    """A section heading as markdown: a muted label, a bar, then the takeaway, e.g. "Results | 9% below the
+    official CWV". The label says where you are; the statement says what the section shows."""
+    return (f'{"#" * level} <span style="color: var(--muted-foreground); font-weight: 400">{label} |</span> '
+            f'{statement}')
+
+
 def tiles(items: list[tuple[str, str, str] | tuple[str, str, str, str]]) -> str:
     """Headline numbers as compact tiles, (label, value, caption) or (label, value, caption, unit) each, in
     a grid that wraps to two or one columns on a narrow screen. A unit sits after the value, smaller and
