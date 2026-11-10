@@ -164,6 +164,7 @@ def verification(runs: pd.DataFrame, actual: pd.DataFrame, ldz: str) -> pd.DataF
     w["error %"] = (w["p50"] - w["actual"]) / w["actual"] * 100
     w["in 10–90%"] = (w["actual"] >= w["p10"]) & (w["actual"] <= w["p90"])
     w["in weather-only 10–90%"] = (w["actual"] >= w["weather_p10"]) & (w["actual"] <= w["weather_p90"])
+    extra = [c for c in ("p05", "p25", "p75", "p95") if c in w]  # the other percentiles, for the PIT (Error analysis)
     out = w[["run_date", "gas_day", "lead_days", "actual", "p50", "p10", "p90", "error %", "in 10–90%",
-             "in weather-only 10–90%", "provisional"]].sort_values(["gas_day", "run_date"])
+             "in weather-only 10–90%", "provisional", *extra]].sort_values(["gas_day", "run_date"])
     return out

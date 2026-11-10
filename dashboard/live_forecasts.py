@@ -23,14 +23,26 @@ def _():
 def _(mo):
     from ldz_demand.charts import pages as _pages
 
-    _pages.header("live_forecasts.py", notation=True, title=mo.md(r"""
+    _pages.header("live_forecasts.py", title=mo.md(r"""
     # Live forecasts
     *Gas demand for the next two weeks, per LDZ, from the ECMWF ensemble.*
     """), intro=mo.md(r"""
-    Each day's 00z ensemble gives 50 equally likely versions of the next 15 days' weather. Each goes
-    through the [demand model](/model-specification), giving 50 demand paths per LDZ for lead days 0–13; GB is
-    their sum, member by member.
+    **Two weeks of demand per LDZ as a range, with the model's own error added to the weather's.** Each
+    day's 00z ensemble gives 50 equally likely versions of the next 15 days' weather; each goes through the
+    [demand model](/model-specification), giving 50 demand paths per LDZ for lead days 0–13. GB is their
+    sum, member by member.
 
+    - **Forecast**: the latest run, with published demand as it arrives.
+    - **Run to run**: how the forecast for the same days moved.
+    - **Run history**: four views of the runs' ranges, while we choose one.
+    - **Verification**: how often demand landed inside the range (the detail is on [error analysis](/error-analysis)).
+    """), notation=True)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.accordion({"How the ranges are built": mo.md(r"""
     **The intervals include the model's own error, not just the weather's.** On its own, the spread of
     the 50 members is far too narrow at short leads: it says how uncertain the weather is, not how far
     the model can be off when the weather is known. So each member is combined with the model's
@@ -42,7 +54,7 @@ def _(mo):
     a bar for the figure's own P<sub>10</sub>–P<sub>90</sub> range. Provisional figures, <i>Q</i><sub>D+1</sub>, are drawn
     fainter, and their range is how far <i>Q</i><sub>D+1</sub> has usually moved by the closed-out <i>Q</i><sub>D+6</sub>; closed-out figures carry
     the ±1% metering tolerance ([methodology §8](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/methodology.md#8-forecasting)).
-    """))
+    """)})
     return
 
 
@@ -71,13 +83,14 @@ def _(RECENT_RUNS, all_runs, ldz_picker, mo, pages, runs):
 
 
 @app.cell(hide_code=True)
-def _(actual, fch, ldz_picker, mo, run_picker, runs):
+def _(actual, fch, ldz_picker, mo, pages, run_picker, runs):
     from ldz_demand.charts import overview as _ov
 
     _run = runs[runs["run_date"] == run_picker.value]
+    _t = _ov.outlook(_run, ldz_picker.value).takeaway
     mo.vstack([
-        mo.md("## 1 · The forecast"),
-        mo.md(f"**{_ov.outlook(_run, ldz_picker.value).takeaway}**"),
+        mo.md(pages.heading("Forecast", f"{ldz_picker.value} demand {_t[len('Demand '):]}" if _t.startswith("Demand ")
+                            else f"{ldz_picker.value}: {_t}")),
         fch.fan(_run, actual, ldz_picker.value),
         mo.md("*The interval widens with lead time as the weather becomes less certain; a long tail on one "
               "side is the ensemble disagreeing about a cold (or mild) spell.*"),
@@ -86,14 +99,12 @@ def _(actual, fch, ldz_picker, mo, run_picker, runs):
 
 
 @app.cell(hide_code=True)
-def _(actual, fch, ldz_picker, mo, recent):
+def _(actual, fch, ldz_picker, mo, pages, recent):
     mo.vstack([
-        mo.md(r"""
-        ## 2 · How the forecast moved from run to run
+        mo.md(f"""{pages.heading("Run to run", "Runs that agree are steady weather; jumps are the forecast changing its mind")}
 
-        Each run's median for the same days. Runs that agree are steady weather; jumps are the forecast
-        changing its mind as the day gets closer.
-        """),
+    - Each run's median for the same gas days, as each day gets closer.
+    """),
         fch.runs_compared(recent, actual, ldz_picker.value),
     ])
     return
@@ -111,7 +122,7 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(actual, history_view, ldz_picker, mo, rh, runs):
+def _(actual, history_view, ldz_picker, mo, pages, rh, runs):
     _ldz = ldz_picker.value
     _days = rh.target_days(runs, _ldz)
     _default = rh.default_target_day(runs, actual, _ldz)
@@ -126,12 +137,10 @@ def _(actual, history_view, ldz_picker, mo, rh, runs):
     _controls = {"ridgeline": [target_day], "blend": [weighting],
                  "heatmap": [heat_measure, heat_rows], "exceedance": [threshold]}[history_view.value]
     mo.vstack([
-        mo.md(r"""
-        ## 3 · The run history, with its ranges — 🚧 exploring
+        mo.md(f"""{pages.heading("Run history", "Four views of the runs' ranges, side by side while we choose one 🚧")}
 
-        Section 2 shows only each run's median. These four views show the ranges as well, each a
-        different way in; they sit here side by side while we choose which to keep.
-        """),
+    - *Run to run* shows only each run's median; these show the ranges as well, each a different way in.
+    """),
         mo.hstack([history_view, *_controls], justify="start", gap=2, wrap=True),
     ])
     return heat_measure, heat_rows, target_day, threshold, weighting
@@ -182,39 +191,30 @@ def _(actual, heat_measure, heat_rows, history_view, ldz_picker, mo, recent, rh,
 
 
 @app.cell(hide_code=True)
-def _(actual, fch, ldz_picker, mo, recent, runs):
+def _(actual, fch, ldz_picker, mo, pages, runs):
+    # the headline only; the scoring itself is on Error analysis
     _v = fch.verification(runs, actual, ldz_picker.value)
-    if _v.empty:
-        _out = mo.md("*No forecast day has published demand yet — demand for a gas day appears the next day "
-                     "(provisional) and closes out six days later. A run is fully verified 14 days after it.*")
+    _scored = _v[~_v["provisional"]] if not _v.empty else _v
+    if _scored.empty:
+        _statement = "Waiting for closed-out demand"
     else:
-        # the score covers every run, on closed-out (D+6) days only; the table, the runs shown above, with
-        # provisional days listed but not scored
-        _rows = _v[_v["run_date"].isin(recent["run_date"].unique())]
-        _scored = _v[~_v["provisional"]]
-        _shown = _rows.assign(**{
-            "run_date": _rows["run_date"].dt.strftime("%d %b"), "gas_day": _rows["gas_day"].dt.strftime("%a %d %b"),
-            "error %": _rows["error %"].round(1), **{c: _rows[c].round(0) for c in ("actual", "p50", "p10", "p90")},
-            "provisional": _rows["provisional"].map({True: "D+1 (not scored)", False: "D+6"})})
-        _score = ("*No forecast day is closed out yet: scores use the D+6 figure, six days after the gas day.*"
-                  if _scored.empty else
-                  f"Over the {_scored['run_date'].nunique()} runs with closed-out demand so far: inside "
-                  f"P<sub>10</sub>–P<sub>90</sub> on **{_scored['in 10–90%'].mean() * 100:.0f}%** of {len(_scored)} forecast days "
-                  f"(target 80%), against {_scored['in weather-only 10–90%'].mean() * 100:.0f}% for the weather-only "
-                  "interval. Only closed-out (D+6) days are scored: the provisional D+1 figure can be far off for "
-                  "some LDZs (WS's D+1 daily-metered figure is often incomplete), and GB inherits it. The table "
-                  "lists the days of the runs shown above, provisional ones included.")
-        _out = mo.vstack([mo.ui.table(_shown, selection=None, show_column_summaries=False, page_size=15), mo.md(_score)])
-    mo.vstack([mo.md("## 4 · Verification, as demand is published"), _out])
+        _statement = (f"{_scored['in 10–90%'].mean():.0%} of closed-out days inside {pages.P_RANGE} (target 80%); "
+                      f"weather alone {_scored['in weather-only 10–90%'].mean():.0%}")
+    mo.md(f"""{pages.heading("Verification", _statement)}
+
+    - Only closed-out (D+6) days are scored: the provisional D+1 figure can be far off for some LDZs, and
+      GB inherits it. A run is fully scored 14 days after it.
+    - The test of that figure, the bias, the tails and the weather forecast on its own are on
+      [error analysis](/error-analysis).
+    """)
     return
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## 5 · Notes
+def _(mo, pages):
+    mo.md(f"""{pages.heading("Notes", "Warm-up, the shoulder months, and the National Gas comparison")}
 
-    - **Warm-up.** The model's effective temperature needs the days before each run. ERA5 is about five
+    - **Warm-up.** The model's effective temperature needs the days before each run. ERA5 is six
       days behind, so those days come from earlier runs' ensemble mean (and a straight line across any gap);
       the model forgets fast, so this barely moves the forecast (0.2% on lead day 0 when tested).
     - **Shoulder months.** The model ran about 5% high in late September and early October 2026 — the

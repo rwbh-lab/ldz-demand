@@ -201,7 +201,7 @@ NODES: tuple[Node, ...] = (
          at=(0, 5.15)),
     Node("o_forecast", 4, 4.8, "Demand forecasts",
          "Demand per LDZ for the next 15 days from each ensemble member: a distribution, not a point.",
-         modules=("models.forecast", "quickstart"), datasets=("demand_forecast_daily",), page="live_forecasts.py",
+         modules=("models.forecast", "models.verification", "quickstart"), datasets=("demand_forecast_daily",), page="live_forecasts.py",
          files=("data/sample",), docs=("docs/methodology.md: 8", "docs/user_quickstart.md"),
          details=(("Now", "the final model on every member of a run: 50 demand paths per LDZ, lead days 0–13; "
                           "GB summed member by member"),
@@ -209,6 +209,8 @@ NODES: tuple[Node, ...] = (
                   ("Intervals", "members × the model's own out-of-sample errors (same season, all LDZs from the "
                                 "same day), centred; the weather-only spread alone is far too narrow"),
                   ("Scheduled", "the daily job forecasts every new run, after the ensemble and ERA5"),
+                  ("Scored", "on Error analysis: coverage of P10–P90 with a cluster-robust test, where demand lands "
+                             "among the percentiles, and ERA5 ranked among the members (models.verification)"),
                   ("Not yet", "scoring against National Gas by issue time needs a winter of runs"),
                   ("Quick start", "python -m ldz_demand.quickstart: the final model on a sample run (5 Jan 2025)")),
          at=(4.2, 5.15)),
@@ -235,7 +237,7 @@ NODES: tuple[Node, ...] = (
          "The marimo pages, served together, and their shared charts and theme; a static snapshot is hosted online.",
          modules=("dashboard", "publish", "charts.pages", "charts.style", "charts.ng_ldz_daily", "charts.era5", "charts.geography",
                   "charts.coastline", "charts.weather_ldz", "charts.ensemble", "charts.project_map", "charts.demand_model",
-                  "charts.results", "charts.forecasts", "charts.run_history", "charts.overview", "project_map"),
+                  "charts.results", "charts.forecasts", "charts.errors", "charts.run_history", "charts.overview", "project_map"),
          details=(("Command", "python -m ldz_demand.dashboard (http://localhost:2718)"),
                   ("Hosted", "python -m ldz_demand.publish --push: a static snapshot on GitHub Pages"))),
 )

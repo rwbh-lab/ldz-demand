@@ -145,15 +145,18 @@ def test_page_menu_links_every_page_and_marks_the_current_one():
         "Project": [("Overview", "/"), ("Summary", "/summary"), ("Project map", "/project-map")],
         "Datasets": [("National Gas data", "/ng-ldz-daily"), ("ERA5 weather", "/era5-weather")],
         "Pre-CWV": [("LDZ geography", "/ldz-geography"), ("LDZ weather", None),
-                    ("LDZ Ens forecast", "/ensemble-forecasts")],
+                    ("LDZ ECMWF ensemble", "/ensemble-forecasts")],
         "CWV model": [("Model specification", "/model-specification"), ("Model calibration", "/model-calibration")],
-        "Outputs": [("Backtesting results", "/backtesting-results"), ("Live forecasts", "/live-forecasts")]}
+        "Outputs": [("Backtesting results", "/backtesting-results"), ("Live forecasts", "/live-forecasts"),
+                    ("Error analysis", "/error-analysis")]}
     html = pages.contents_html("ldz_weather.py")
-    assert "\n" not in html and "LDZ weather</strong>" in html and 'href="/backtesting-results"' in html
+    assert "\n" not in html and "ldz weather</strong>" in html and 'href="/backtesting-results"' in html
+    assert ">backtesting results</a>" in html and ">ERA5 weather</a>" in html  # lower case, sources kept
+    assert ">ldz ECMWF ensemble</a>" in html
     import marimo as mo
 
     head = pages.header("ldz_weather.py", mo.md("# LDZ weather"), mo.md("Intro text.")).text
-    assert 'href="/"' in head and "Intro text." in head and "LDZ weather</strong>" in head
+    assert 'href="/"' in head and "Intro text." in head and "ldz weather</strong>" in head
 
 
 def test_dashboard_server_mounts_the_overview_at_root_and_every_page(monkeypatch):

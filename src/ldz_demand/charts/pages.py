@@ -32,11 +32,12 @@ PAGES = {  # file -> page, in reading order
     "era5_weather.py": Page("Datasets", "ERA5 weather", "/era5-weather"),
     "ldz_geography.py": Page("Pre-CWV", "LDZ geography", "/ldz-geography"),
     "ldz_weather.py": Page("Pre-CWV", "LDZ weather", "/ldz-weather"),
-    "ensemble_forecasts.py": Page("Pre-CWV", "LDZ Ens forecast", "/ensemble-forecasts"),
+    "ensemble_forecasts.py": Page("Pre-CWV", "LDZ ECMWF ensemble", "/ensemble-forecasts"),
     "model_specification.py": Page("CWV model", "Model specification", "/model-specification"),
     "model_calibration.py": Page("CWV model", "Model calibration", "/model-calibration"),
     "backtesting_results.py": Page("Outputs", "Backtesting results", "/backtesting-results"),
     "live_forecasts.py": Page("Outputs", "Live forecasts", "/live-forecasts"),
+    "error_analysis.py": Page("Outputs", "Error analysis", "/error-analysis"),
 }
 
 
@@ -48,9 +49,18 @@ def contents(current: str | None = None) -> dict[str, list[tuple[str, str | None
     return sections
 
 
+KEEP_CASE = {"ECMWF"}  # words the contents list leaves in capitals (besides those with digits, ERA5)
+
+
+def _quiet(title: str) -> str:
+    """A page title as the contents list shows it: lower case, LDZ too, keeping the names of sources (ERA5,
+    ECMWF)."""
+    return " ".join(w if w in KEEP_CASE or any(c.isdigit() for c in w) else w.lower() for w in title.split())
+
+
 def contents_html(current: str | None = None) -> str:
     """The contents as a two-column panel: sections down the left, each one's pages stacked in the right
-    column; the current page in bold, marked with an accent bar, rather than linked. One line of HTML, so it
+    column, in lower case; the current page in bold, marked with an accent bar, rather than linked. One line of HTML, so it
     can sit inside markdown."""
     from ldz_demand.charts import style
 
@@ -58,9 +68,9 @@ def contents_html(current: str | None = None) -> str:
     rows = []
     for section, links in contents(current).items():
         items = "".join(
-            f'<a href="{path}">{title}</a>' if path is not None else
+            f'<a href="{path}">{_quiet(title)}</a>' if path is not None else
             f'<strong style="border-left: 2px solid {accent}; padding-left: 0.45em; margin-left: calc(-0.45em - 2px)">'
-            f"{title}</strong>"
+            f"{_quiet(title)}</strong>"
             for title, path in links)
         rows.append(f'<span style="color: var(--foreground); font-weight: 600; padding: 0.4em 2em 0.4em 0">{section}</span>'
                     f'<span style="display: flex; flex-direction: column; padding: 0.4em 0">{items}</span>')
@@ -219,6 +229,16 @@ def heading(label: str, statement: str, level: int = 2) -> str:
     official CWV". The label says where you are; the statement says what the section shows."""
     return (f'{"#" * level} <span style="color: var(--muted-foreground); font-weight: 400">{label} |</span> '
             f'{statement}')
+
+
+def md(text: str):
+    """mo.md with every table centred, with room above and below. CSS can't do it: tables inside an
+    accordion render in their own shadow DOM, which the page's theme.css doesn't reach."""
+    import marimo as mo
+
+    html = mo.md(text).text
+    return mo.Html(html.replace("<table", '<div style="display: flex; justify-content: center; margin: 1em 0">'
+                                          "<table").replace("</table>", "</table></div>"))
 
 
 def tiles(items: list[tuple[str, str, str] | tuple[str, str, str, str]]) -> str:
