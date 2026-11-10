@@ -90,7 +90,7 @@ def _(mo, section):
     - A station can be unrepresentative: St Athan reads up to 0.85 °C warmer in November than where Wales
       South's gas is used.
     - The question here: how much better does weather over the whole LDZ, weighted to gas use, do? The full
-      chain is on the [Project map](/project-map).
+      chain is on the [project map](/project-map).
     """, r"""
     Gas demand in Great Britain swings with the weather: a January day takes nearly six times the gas
     of a summer one. Most of that swing is non-daily-metered demand — homes and small businesses heating
@@ -105,7 +105,7 @@ def _(mo, section):
     over the whole LDZ and weighted to where the gas goes — and builds the forecasts that follow.
 
     The whole chain, from public data to a demand forecast, with the code behind each step, is on the
-    [Project map](/project-map).
+    [project map](/project-map).
     """),
         section("Data", "Three public sources, free data access, for every gas day", r"""
     - **National Gas**: daily LDZ demand, the official CWV and National Gas's own forecasts, a rolling five
@@ -150,15 +150,15 @@ def _(mo, section):
 
     **Ensemble LDZ weather.** The same weights and gas-day rules for every ensemble member and lead day,
     so the forecasts see the same kind of weather the model was fitted on.
-    [LDZ Ens forecast](/ensemble-forecasts)
+    [LDZ ECMWF ensemble](/ensemble-forecasts)
     """),
         section("CWV model", "The official CWV's structure, refitted per LDZ, with three changes", r"""
     - Kept: an effective temperature with a few days' memory, wind chill, solar, a seasonal shape, a summer
       cut-off and a cold-weather upturn; demand a straight line in the CWV plus calendar terms.
     - Changed: **a seasonal shape shared by all LDZs**, **the heating-hours temperature** (−9% error), and
       **recent years weighted more** (half-life one year).
-    - What each part does: [Model specification](/model-specification); every fitted value per LDZ:
-      [Model calibration](/model-calibration).
+    - What each part does: [model specification](/model-specification); every fitted value per LDZ:
+      [model calibration](/model-calibration).
     """, r"""
     The official CWV's structure, refitted per LDZ to our weather: an effective temperature with a few
     days' memory, wind chill, solar, a seasonal shape, a summer cut-off and a cold-weather upturn. Demand
@@ -173,11 +173,11 @@ def _(mo, section):
     - **Recent years weighted more** (half-life one year), so the model follows the fall in demand after
       the 2022 price shock, and the partial recovery since, without hand-picked break dates.
 
-    What each part does is on [Model specification](/model-specification), and how it is fitted, with
-    every value per LDZ, on [Model calibration](/model-calibration); every
+    What each part does is on [model specification](/model-specification), and how it is fitted, with
+    every value per LDZ, on [model calibration](/model-calibration); every
     choice, and the alternatives it beat, in the [decisions](https://github.com/rwbh-lab/ldz-demand/blob/main/docs/decisions.md).
     """),
-        section("Results", "9% below the official CWV, 29% on the coldest days; ahead of National Gas in winter", r"""
+        section("Results", "9% below the official CWV, 29% on the coldest days; beats National Gas in winter", r"""
     - Every score is out of sample: each gas year is predicted only from the years before it.
     - **Against the official CWV** (same regression, same days): GB error 46.2 against 50.8 GWh/day (−9%),
       −22% in winter, −29% on the coldest days. Better in 10 of the 13 LDZs.

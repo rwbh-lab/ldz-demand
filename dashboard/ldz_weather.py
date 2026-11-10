@@ -88,7 +88,7 @@ def _(grid_weights, mo, pages, weights, wx):
         combination rather than picking one:
 
         - **Membership:** which places belong to the LDZ. These are the four map methods from the
-          [LDZ geography](/ldz-geography) page: local authority, Voronoi, hybrid and sampled.
+          [ldz geography](/ldz-geography) page: local authority, Voronoi, hybrid and sampled.
         - **Weighting:** how the places inside the LDZ count. **Area** weights every km² of land
           equally. **Gas use** weights each local authority by its annual gas consumption (DESNZ),
           spread over its area.
@@ -240,7 +240,7 @@ def _(mo, pages, weather, wx):
     _names = _stations[_stations["variable"].isin(["all", "t2m"])].set_index("ldz")["station"]
     _peak = _offsets.loc[_by.idxmax()].set_index("ldz")
     mo.vstack([
-        mo.md(f"""{pages.heading("Stations", f"The station gaps change through the year by up to {_swing.iloc[0]:.1f} °C "
+        mo.md(f"""{pages.heading("Stations", f"Gaps swing by up to {_swing.iloc[0]:.1f} °C through the year "
                                              f"({_names.get(_ldz, 'its station')}, {_ldz})")}
 
     - How much warmer (red) or colder (blue) the official station reads than our gas-weighted LDZ

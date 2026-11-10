@@ -203,7 +203,7 @@ def _(check, demand_note, energy, geo_charts, mo, pages, show_authority, show_de
       separate (EA/NT, SO/SE).
     """),
         mo.accordion({
-            "More detail": mo.md(r"""
+            "More detail": pages.md(r"""
         **Measuring the splits: the postcode sample.** Town votes count towns, and Voronoi cells count
         area, so neither measures how an authority's *gas* divides. Wiltshire shows the problem: its towns
         vote 19% SO, its Voronoi area is 34% SO. The sampled method measures it instead. In every
@@ -292,7 +292,7 @@ def _(las, mo, towns):
 
 @app.cell(hide_code=True)
 def _(mo, pages):
-    mo.md(f"""{pages.heading("Weighting", "The map method barely changes LDZ temperatures; the weighting and the stations do")}
+    pages.md(f"""{pages.heading("Weighting", "The map method barely moves LDZ temperatures; weighting and stations do")}
 
     - Each LDZ's weather is an average of the grid cells inside it. *How* to weight them is a modelling
       choice, so several are built and judged by how well each explains demand.

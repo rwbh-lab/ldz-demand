@@ -107,7 +107,7 @@ def _(Q1, Q6, mo, ng, pages, raw):
 def _(le, mo, pages):
     ldz_picker = mo.ui.dropdown(options=[le.GB, *le.LDZS], value=le.GB, label="Zone (this and the next chart)")
     mo.vstack([
-        mo.md(f"""{pages.heading("Composition", "Homes and small business make the seasonal swing; daily-metered demand is flat")}
+        mo.md(f"""{pages.heading("Composition", "Homes and small firms drive the seasonal swing; daily-metered is flat")}
 
     - **Daily-metered** (DM): large industry and business, fairly flat through the year.
     - **Non-daily-metered** (NDM): homes and small business, strongly seasonal.
@@ -179,7 +179,7 @@ def _(DECISIONS, Q, Q6, has_offtakes, mo, pages):
       model to it would partly fit the CWV to its own output.
     """
     mo.md(_part2 + (rf"""
-    {pages.heading("Checks", "South East's published total misses a ~31 GWh/day input, September 2022 to February 2024")}
+    {pages.heading("Checks", "South East's total misses a ~31 GWh/day input, Sep 2022 – Feb 2024")}
 
     - The gas metered in at the 122 NTS offtakes covers ~94–103% of each LDZ's total on a typical day,
       except **South East (~70%)**, which takes a steady ~31 GWh/day from a non-NTS input.
@@ -249,7 +249,10 @@ def _(energy, le, mo, pages):
       third test year.
     - Repaired days are rougher than measured ones (errors ~10 against ~6 GWh/day), so they are never scored.
     """),
-        mo.accordion({"More detail": mo.md(r"""
+        mo.accordion({"Days kept per LDZ (table)": mo.vstack([
+            pages.md("\n".join(_rows)),
+            mo.md("*Gas days per LDZ with a published total; flagged days by reason; the days each target keeps.*"),
+        ]), "More detail": mo.md(r"""
         Flagged days can't be used as they stand. **The model uses B.** On days that are real in both, the
         two give the same scores; but A leaves SE almost no data for 2022/23, and B gives it back — and with
         it a third test year for GB, which changed the choice of how the model follows behaviour over time
@@ -257,8 +260,6 @@ def _(energy, le, mo, pages):
         Repaired days are rougher than measured ones (errors ~10 vs ~6 GWh/day), so they train the model
         but are never used to score it.
         """)}),
-        mo.md("\n".join(_rows)),
-        mo.md("*Gas days per LDZ with a published total; flagged days by reason; the days each target keeps.*"),
     ], gap=0.5)
     return
 

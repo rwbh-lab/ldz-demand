@@ -30,8 +30,8 @@ def _(Q, mo, pages):
     - **Parameters**: one LDZ's fitted values against the published ones.
     - **Alternatives**: what else was tried, and why it lost.
 
-    The model's form is on [Model specification](/model-specification); how well it predicts days it
-    wasn't fitted on, on [Backtesting results](/backtesting-results).
+    The model's form is on [model specification](/model-specification); how well it predicts days it
+    wasn't fitted on, on [backtesting results](/backtesting-results).
     """), notation=True)
     return
 
@@ -62,10 +62,10 @@ def _(DECISIONS, Q, mo):
     mo.vstack([
         mo.accordion({"How the fit works": mo.md(rf"""
         - **What it is fitted to:** each LDZ's {Q}, total demand minus daily-metered, per gas day: the
-          demand the weather drives ([National Gas data](/ng-ldz-daily), Part II). The 18 months when
+          demand the weather drives ([national gas data](/ng-ldz-daily), Part II). The 18 months when
           South East's total was missing a feed are repaired for fitting.
         - **Inputs:** the LDZ weather built from ERA5: the heating-hours gas-day temperature, wind and
-          solar ([LDZ weather](/ldz-weather)).
+          solar ([ldz weather](/ldz-weather)).
         - **How:** all thirteen LDZs together, because the seasonal shape is shared, by **robust least
           squares** (a soft-L1 loss: large errors count less than when squared, so a few odd days can't
           drag the fit). Each parameter is held within a physically sensible range.
@@ -91,9 +91,9 @@ def _(fits, frames, ldz_picker):
 def _(DECISIONS, dm, final, fit, frame, mo, pages):
     _half = final.MODEL.half_life
     mo.vstack([
-        mo.md(f"""{pages.heading("Recency", ("Each day's weight halves every year, " if _half == 1 else
-                                            f"Each day's weight halves every {_half:g} years, ") +
-                                           "so the model follows demand since the 2022 price shock")}
+        mo.md(f"""{pages.heading("Recency", ("Each day's weight halves every year: " if _half == 1 else
+                                            f"Each day's weight halves every {_half:g} years: ") +
+                                           "so the model follows demand since 2022")}
 
     - Demand fell after the 2022 price shock and has partly recovered since.
     - Rather than pick break dates, each training day is weighted by its age
@@ -120,9 +120,9 @@ def _(at_cap, dm, fit, ldz, mo, pages):
     - The published values are fitted to station weather and the official seasonal profile, so they
       are a guide, not a target.
     """),
-        mo.md(dm.markdown_table(dm.parameter_table(fit, ldz))),
-        mo.md("And the line demand is fitted on ([Model specification](/model-specification), *Demand*):"),
-        mo.md(dm.markdown_table(dm.linear_table(fit))),
+        pages.md(dm.markdown_table(dm.parameter_table(fit, ldz))),
+        mo.md("And the line demand is fitted on ([model specification](/model-specification), *Demand*):"),
+        pages.md(dm.markdown_table(dm.linear_table(fit))),
     ], gap=0.5)
     return
 

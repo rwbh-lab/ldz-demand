@@ -42,7 +42,7 @@ def _(DECISIONS, Q, mo, pages):
     speed; *SR* solar radiation: all ERA5, averaged over the LDZ and weighted by where gas is used. The
     calendar is day of week, bank holidays and Christmas. Drawn with the final fit
     (`ldz_demand.models.fit`; [decisions C1–C9]({DECISIONS}#cwv-model)); the fitted values for every LDZ
-    are on [Model calibration](/model-calibration), the scores on [Backtesting results](/backtesting-results).
+    are on [model calibration](/model-calibration), the scores on [backtesting results](/backtesting-results).
     """), notation=True)
     return
 
