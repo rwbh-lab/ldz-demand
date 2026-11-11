@@ -6,7 +6,8 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from ldz_demand.data.ingest.ecmwf_ens import ENSIngestor, archived_runs, crop, load_run, parse_steps
+from ldz_demand.data.ingest.ecmwf_ens import (ENSIngestor, IncompleteStep, archived_runs, check_step, crop, load_run,
+                                             parse_steps)
 
 AREA = [61, -8.5, 49.5, 2.0]
 RUN = datetime(2026, 10, 12, 0)
@@ -49,7 +50,7 @@ def read_fake(path: Path) -> xr.Dataset:
 
 
 def ingestor(tmp_path, client, steps=(0, 3, 360)):
-    return ENSIngestor(tmp_path / "raw", AREA, steps=list(steps), client=client, reader=read_fake, pause=0, retry_wait=0)
+    return ENSIngestor(tmp_path / "raw", AREA, steps=list(steps), client=client, reader=read_fake, members=3, pause=0, retry_wait=0)
 
 
 def test_parse_steps():
@@ -147,7 +148,7 @@ def test_steps_download_in_parallel_and_still_archive_in_order(tmp_path):
                 self.active -= 1
 
     client = SlowClient()
-    ing = ENSIngestor(tmp_path / "raw", AREA, steps=[0, 3, 6, 9, 12, 15], client=client, reader=read_fake,
+    ing = ENSIngestor(tmp_path / "raw", AREA, steps=[0, 3, 6, 9, 12, 15], client=client, reader=read_fake, members=3,
                       pause=0, downloads=3)
     ds = xr.open_dataset(ing.pull(RUN))
     assert client.most == 3                                   # three at once, never more
@@ -202,3 +203,155 @@ def test_the_client_downloads_with_a_read_timeout():
 
     ENSIngestor(Path("/tmp"), AREA, source="ecmwf").client  # a real client: patches the download function
     assert ecmwf.opendata.client.download.keywords["timeout"] == ecmwf_ens.SOCKET_TIMEOUT_S
+
+
+# --- past runs from a mirror ---------------------------------------------------------------------
+
+class ThrottledClient(FakeClient):
+    """Answers each step's first `throttles` attempts the way S3 does when requests come too fast."""
+
+    def __init__(self, throttles: int):
+        super().__init__()
+        self.throttles, self.attempts = throttles, {}
+
+    def retrieve(self, target, step, **request):
+        self.attempts[step] = self.attempts.get(step, 0) + 1
+        if self.attempts[step] <= self.throttles:
+            raise RuntimeError("503 Server Error: Slow Down for url: https://ecmwf-forecasts.s3.amazonaws.com/x")
+        super().retrieve(target, step, **request)
+
+
+def throttled_ingestor(tmp_path, client, steps=(0, 3)):
+    return ENSIngestor(tmp_path / "raw", AREA, steps=list(steps), client=client, reader=read_fake, members=3, pause=0,
+                       retry_wait=0, throttle_wait=0)
+
+
+def test_is_throttled_recognises_slow_down_answers_only():
+    from ldz_demand.data.ingest.ecmwf_ens import is_throttled
+
+    class HTTPError(Exception):
+        def __init__(self, status):
+            super().__init__("error")
+            self.response = type("R", (), {"status_code": status})()
+
+    assert is_throttled(HTTPError(503)) and is_throttled(HTTPError(429))
+    assert is_throttled(RuntimeError("<Code>SlowDown</Code><Message>Please reduce your request rate.</Message>"))
+    assert not is_throttled(HTTPError(404)) and not is_throttled(TimeoutError("timed out"))
+
+
+def test_a_throttled_step_is_tried_past_the_ordinary_retry_limit(tmp_path):
+    from ldz_demand.data.ingest import ecmwf_ens
+
+    client = ThrottledClient(throttles=ecmwf_ens.STEP_ATTEMPTS + 1)  # more than an ordinary failure gets
+    path = throttled_ingestor(tmp_path, client).pull(RUN)
+    assert path.exists() and set(client.attempts.values()) == {ecmwf_ens.STEP_ATTEMPTS + 2}
+
+
+def test_a_step_throttled_every_attempt_stops_the_run(tmp_path):
+    from ldz_demand.data.ingest import ecmwf_ens
+
+    client = ThrottledClient(throttles=ecmwf_ens.THROTTLE_ATTEMPTS)
+    with pytest.raises(RuntimeError, match="Slow Down"):
+        throttled_ingestor(tmp_path, client, steps=(0,)).pull(RUN)
+    assert client.attempts == {0: ecmwf_ens.THROTTLE_ATTEMPTS} and not archived_runs(tmp_path / "raw")
+
+
+def test_backfill_fetches_each_day_oldest_first_skips_archived_and_carries_on_past_failures(tmp_path):
+    ing = ingestor(tmp_path, FakeClient(), steps=(0,))
+    ing.pull(datetime(2025, 12, 2))  # already archived
+
+    calls, dropped = [], set()
+    original = ing.pull
+
+    def pull(run):
+        calls.append(run)
+        if run == datetime(2025, 12, 3) and run not in dropped:  # fails the first time only
+            dropped.add(run)
+            raise ConnectionError("network dropped")
+        return original(run)
+
+    ing.pull = pull
+    done, failed = ing.backfill(datetime(2025, 11, 30), datetime(2025, 12, 4))
+    assert calls == [datetime(2025, 11, 30), datetime(2025, 12, 1), datetime(2025, 12, 3), datetime(2025, 12, 4)]
+    assert failed == [datetime(2025, 12, 3)] and len(done) == 3
+    assert set(archived_runs(tmp_path / "raw")) == {datetime(2025, 11, 30), datetime(2025, 12, 1),
+                                                    datetime(2025, 12, 2), datetime(2025, 12, 4)}
+
+    calls.clear()  # the same command again fetches only what is missing
+    done, failed = ing.backfill(datetime(2025, 11, 30), datetime(2025, 12, 4))
+    assert calls == [datetime(2025, 12, 3)] and not failed
+
+
+def test_backfill_command_defaults_to_the_aws_mirror_and_takes_downloads(monkeypatch):
+    from ldz_demand.data.ingest import ecmwf_ens
+
+    seen = {}
+
+    def backfill(self, start, end):
+        seen.update(source=self.source, downloads=self.downloads, start=start, end=end)
+        return [], [start]
+
+    monkeypatch.setattr(ecmwf_ens.ENSIngestor, "backfill", backfill)
+    assert ecmwf_ens.main(["backfill", "2025-10-01", "2026-03-31", "--downloads", "2"]) == 1  # a failure -> 1
+    assert seen == {"source": "aws", "downloads": 2, "start": datetime(2025, 10, 1), "end": datetime(2026, 3, 31)}
+
+
+def test_check_step_catches_missing_and_all_nan_members_but_not_step_0_extremes():
+    check_step(global_step(0), 0, members=3)                   # tmin/tmax NaN at step 0 is expected
+    check_step(global_step(3), 3, members=3)
+    with pytest.raises(IncompleteStep, match="2 of 3 members"):
+        check_step(global_step(3, members=(1, 3)), 3, members=3)
+    ds = global_step(3)
+    ds["tp"][1] = np.nan                                       # what a skipped GRIB message leaves
+    with pytest.raises(IncompleteStep, match=r"tp members \[2\]"):
+        check_step(ds, 3, members=3)
+
+
+def test_a_step_decoded_incomplete_is_downloaded_again(tmp_path):
+    reads = {}
+
+    def read_once_short(path):
+        step = int(Path(path).read_text())
+        reads[step] = reads.get(step, 0) + 1
+        return global_step(step, members=(1, 2) if step == 3 and reads[step] == 1 else (1, 2, 3))
+
+    client = FakeClient()
+    ing = ENSIngestor(tmp_path / "raw", AREA, steps=[0, 3, 360], client=client, reader=read_once_short,
+                      members=3, pause=0, retry_wait=0)
+    path = ing.pull(RUN)
+    assert path.exists() and [s for s, _ in client.requests].count(3) == 2 and reads == {0: 1, 3: 2, 360: 1}
+    assert xr.open_dataset(path).sizes["number"] == 3
+
+
+def test_a_step_always_decoding_incomplete_stops_the_run_and_keeps_the_good_steps(tmp_path):
+    from ldz_demand.data.ingest import ecmwf_ens
+
+    def read_short(path):
+        step = int(Path(path).read_text())
+        return global_step(step, members=(1, 2) if step == 3 else (1, 2, 3))
+
+    client = FakeClient()
+    ing = ENSIngestor(tmp_path / "raw", AREA, steps=[0, 3, 6, 9], client=client, reader=read_short,
+                      members=3, pause=0, retry_wait=0, downloads=1)
+    with pytest.raises(IncompleteStep):
+        ing.pull(RUN)
+    assert [s for s, _ in client.requests].count(3) == ecmwf_ens.STEP_ATTEMPTS
+    assert not archived_runs(tmp_path / "raw") and (ing.partial_dir(RUN) / "step_000.nc").exists()
+    assert not list((tmp_path / "raw").rglob("*.grib2"))
+
+
+def test_with_a_scratch_folder_the_global_files_never_touch_the_archive(tmp_path):
+    seen = []
+
+    class Recording(FakeClient):
+        def retrieve(self, target, step, **request):
+            seen.append(Path(target).parent)
+            super().retrieve(target, step, **request)
+
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    ing = ENSIngestor(tmp_path / "raw", AREA, steps=[0, 3], client=Recording(), reader=read_fake, members=3,
+                      pause=0, retry_wait=0, scratch=scratch)
+    assert ing.pull(RUN).exists()
+    assert seen and all(p.parent == scratch for p in seen)
+    assert not list(scratch.iterdir())                         # its temporary folder is removed

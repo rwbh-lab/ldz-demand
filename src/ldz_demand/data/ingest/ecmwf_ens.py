@@ -24,6 +24,12 @@ archived before 2026-10-13 have temperature and wind only. load_run() converts t
 Run as a script:
     python -m ldz_demand.data.ingest.ecmwf_ens refresh                 # the latest runs not yet archived
     python -m ldz_demand.data.ingest.ecmwf_ens pull 2026-10-12         # one run (must still be published)
+    python -m ldz_demand.data.ingest.ecmwf_ens pull 2025-12-15 --source aws        # one past run, from a mirror
+    python -m ldz_demand.data.ingest.ecmwf_ens backfill 2025-10-01 2026-03-31 --downloads 3  # past runs (AWS)
+
+Past runs: the cloud mirrors keep the open data from 18 Jan 2023 (AWS); 0.25° with every variable above
+from 1 Feb 2024 (0.4° and temperature, wind and precipitation only before). The mirrors throttle, so
+fewer steps download at once there, and a throttled step waits longer and is tried more often.
     python -m ldz_demand.data.ingest.ecmwf_ens status                  # archived runs
 """
 
@@ -34,11 +40,12 @@ import os
 import shutil
 import sys
 import socket
+import tempfile
 import threading
 import time
 import warnings
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
@@ -65,6 +72,17 @@ DOWNLOADS = 6  # steps downloading at once (the portal allows 500 connections; p
 SOCKET_TIMEOUT_S = 120   # no data for this long -> the read fails
 STEP_ATTEMPTS = 3        # tries per step before the run stops (its saved steps are kept for the next run)
 RETRY_WAIT_S = 30.0
+# The cloud mirrors throttle (AWS S3 answers "SlowDown" / HTTP 503 when requests come too fast, seen on
+# 10 Nov 2026 with a few requests 8 s apart). Being throttled is not the step failing: wait longer, try more.
+THROTTLE_ATTEMPTS = 8    # tries per step while the source says to slow down
+THROTTLE_WAIT_S = 120.0  # times the attempt number
+THROTTLE_MARKERS = ("slowdown", "slow down", "reduce your request rate", "503", "429", "service unavailable",
+                    "too many requests")
+MEMBERS = 50            # perturbed members per run (pf 1-50; no control)
+# cfgrib skips a GRIB message it can't read ("skipping corrupted Message") and carries on, so a decoded step
+# can lack members, or hold them as NaN, with no error. Seen on 10 Nov 2026 reading global files over an SMB
+# share from a Mac: 2 of 50 members NaN in two steps, files intact when read again. Every step is checked;
+# an incomplete one is downloaded and decoded again.
 ATTRIBUTION = "Contains ECMWF open data (CC-BY-4.0), https://www.ecmwf.int/en/forecasts/datasets/open-data"
 
 
@@ -77,6 +95,15 @@ def step_params(step: int) -> list[str]:
     if step == 0:
         return list(PARAMS)
     return PARAMS + ACCUMULATED + EXTREMES[3 if step <= 144 else 6]
+
+
+def is_throttled(exc: BaseException) -> bool:
+    """Whether an error is the source asking us to slow down (HTTP 503 / 429, S3 SlowDown)."""
+    response = getattr(exc, "response", None)
+    if getattr(response, "status_code", None) in (429, 503):
+        return True
+    text = f"{type(exc).__name__} {exc}".lower()
+    return any(marker in text for marker in THROTTLE_MARKERS)
 
 
 def parse_steps(text: str) -> list[int]:
@@ -99,6 +126,12 @@ class ENSIngestor:
         north, west, south, east in degrees (the ERA5 box, so the grids match cell for cell).
     source : str
         ecmwf-opendata source: "ecmwf" (the open-data portal) or a mirror ("aws", "azure", "google").
+    members : int
+        Members every step must hold (MEMBERS); a step decoded with fewer is downloaded again.
+    scratch : Path, optional
+        Where the global files go while they are decoded (a temporary folder made inside it, removed after).
+        Default: beside the saved steps, in the run's partial folder on the archive. A local disk is faster
+        and safer than a network share.
     client, reader : optional
         Injectable for testing: an ecmwf.opendata.Client-like object with retrieve() and latest(), and a
         function reading one downloaded step file into a Dataset (defaults to read_step).
@@ -106,7 +139,9 @@ class ENSIngestor:
 
     def __init__(self, raw_dir: Path, area, source: str = "ecmwf", run_hour: int = RUN_HOUR,
                  steps: list[int] | None = None, client=None, reader=None, pause: float = 1.0,
-                 downloads: int = DOWNLOADS, retry_wait: float = RETRY_WAIT_S) -> None:
+                 downloads: int = DOWNLOADS, retry_wait: float = RETRY_WAIT_S,
+                 throttle_wait: float = THROTTLE_WAIT_S, members: int = MEMBERS,
+                 scratch: Path | None = None) -> None:
         self.root = Path(raw_dir) / "ecmwf_ens"
         self.area = [float(x) for x in area]
         self.source = source
@@ -118,6 +153,9 @@ class ENSIngestor:
         self.pause = pause
         self.downloads = max(1, downloads)
         self.retry_wait = retry_wait
+        self.throttle_wait = throttle_wait
+        self.members = members
+        self.scratch = Path(scratch) if scratch else None
 
     @property
     def client(self):
@@ -162,6 +200,34 @@ class ENSIngestor:
                 logger.warning(f"{run:%Y-%m-%d %Hz}: not archived ({type(exc).__name__}: {exc})")
         return done
 
+    def backfill(self, start: date, end: date) -> tuple[list[Path], list[datetime]]:
+        """
+        Archive every run from `start` to `end` (inclusive), oldest first, from a mirror that keeps past
+        runs. Runs already archived are skipped and half-finished ones resume from their saved steps, so a
+        stopped backfill is restarted with the same command. A run that fails is logged and left for the
+        next attempt. Returns (archived, failed).
+        """
+        runs = [datetime.combine(d.date(), datetime.min.time()).replace(hour=self.run_hour)
+                for d in pd.date_range(start, end, freq="D")]
+        todo = [r for r in runs if not self.run_path(r).exists()]
+        logger.info(f"backfill {start:%Y-%m-%d} to {end:%Y-%m-%d} from {self.source}: {len(runs)} runs, "
+                    f"{len(runs) - len(todo)} archived already, {len(todo)} to fetch")
+        done, failed = [], []
+        t0 = time.monotonic()
+        for k, run in enumerate(todo, 1):
+            try:
+                done.append(self.pull(run))
+            except Exception as exc:  # keep going; the run is fetched on the next backfill
+                failed.append(run)
+                logger.warning(f"{run:%Y-%m-%d %Hz}: not archived ({type(exc).__name__}: {exc})")
+            hours = (time.monotonic() - t0) / 3600
+            logger.info(f"backfill: {k}/{len(todo)} runs tried, {len(done)} archived, {len(failed)} failed, "
+                        f"{hours:.1f} h; about {hours / k * (len(todo) - k):.1f} h to go")
+        if failed:
+            logger.warning(f"backfill: {len(failed)} runs not archived: "
+                           + ", ".join(f"{r:%Y-%m-%d}" for r in failed))
+        return done, failed
+
     # --- download ------------------------------------------------------------------------------
 
     def pull(self, run: datetime) -> Path:
@@ -176,34 +242,53 @@ class ENSIngestor:
         todo = [s for s in self.steps if not (work / f"step_{s:03d}.nc").exists()]
         timing = {"mb": 0.0, "download_s": 0.0, "process_s": 0.0, "done": len(self.steps) - len(todo)}
         t0 = time.monotonic()
-        # downloads run in threads, several at once; each finished download is cropped and saved here,
-        # with the next downloads already started, so every connection stays busy while this thread decodes
-        # (at most twice `downloads` global files on disk at a time)
-        errors = []
-        with ThreadPoolExecutor(self.downloads) as pool:
-            queue, running = list(todo), set()
-            while queue or running:
-                while queue and not errors and len(running) < self.downloads:
-                    running.add(pool.submit(self._download, run, queue.pop(0), work))
-                finished, running = wait(running, return_when=FIRST_COMPLETED)
-                errors += [f.exception() for f in finished if f.exception() is not None]  # stop starting downloads
-                while queue and not errors and len(running) < self.downloads:
-                    running.add(pool.submit(self._download, run, queue.pop(0), work))
-                for future in finished:
-                    if future.exception() is not None:  # save the ones that did finish
-                        continue
-                    step, grib, mb, seconds = future.result()
-                    t = time.monotonic()
-                    saved = work / f"step_{step:03d}.nc"
-                    crop(self.reader(grib), self.area).to_netcdf(saved.with_suffix(".part"))
-                    saved.with_suffix(".part").rename(saved)
-                    grib.unlink()  # never keep the global fields
-                    timing["mb"] += mb
-                    timing["download_s"] += seconds
-                    timing["process_s"] += time.monotonic() - t
-                    timing["done"] += 1
-                    if timing["done"] % 10 == 0 or timing["done"] == len(self.steps):
-                        self._log_progress(run, timing, time.monotonic() - t0)
+        # downloads run in threads, several at once; each finished download is cropped, checked and saved
+        # here, with the next downloads already started, so every connection stays busy while this thread
+        # decodes (at most twice `downloads` global files on disk at a time). A step that decodes incomplete
+        # goes back in the queue, up to STEP_ATTEMPTS times.
+        gribs = Path(tempfile.mkdtemp(prefix=f"ens_{run:%Y%m%d}_", dir=self.scratch)) if self.scratch else work
+        errors, decode_failures = [], {}
+        try:
+            with ThreadPoolExecutor(self.downloads) as pool:
+                queue, running = list(todo), set()
+                while running or (queue and not errors):
+                    while queue and not errors and len(running) < self.downloads:
+                        running.add(pool.submit(self._download, run, queue.pop(0), gribs))
+                    finished, running = wait(running, return_when=FIRST_COMPLETED)
+                    errors += [f.exception() for f in finished if f.exception() is not None]  # stop starting downloads
+                    while queue and not errors and len(running) < self.downloads:
+                        running.add(pool.submit(self._download, run, queue.pop(0), gribs))
+                    for future in finished:
+                        if future.exception() is not None:  # save the ones that did finish
+                            continue
+                        step, grib, mb, seconds = future.result()
+                        t = time.monotonic()
+                        saved = work / f"step_{step:03d}.nc"
+                        try:
+                            ds = crop(self.reader(grib), self.area)
+                            check_step(ds, step, self.members)
+                        except Exception as exc:
+                            decode_failures[step] = decode_failures.get(step, 0) + 1
+                            if decode_failures[step] == STEP_ATTEMPTS:
+                                errors.append(exc)
+                            else:
+                                logger.warning(f"{run:%Y-%m-%d %Hz} step {step}: {exc.__class__.__name__} ({exc}); "
+                                               f"downloading again ({decode_failures[step] + 1}/{STEP_ATTEMPTS})")
+                                queue.insert(0, step)
+                            continue
+                        finally:
+                            grib.unlink(missing_ok=True)  # never keep the global fields
+                        ds.to_netcdf(saved.with_suffix(".part"))
+                        saved.with_suffix(".part").rename(saved)
+                        timing["mb"] += mb
+                        timing["download_s"] += seconds
+                        timing["process_s"] += time.monotonic() - t
+                        timing["done"] += 1
+                        if timing["done"] % 10 == 0 or timing["done"] == len(self.steps):
+                            self._log_progress(run, timing, time.monotonic() - t0)
+        finally:
+            if gribs != work:
+                shutil.rmtree(gribs, ignore_errors=True)
         if errors:
             raise errors[0]
         self._combine(run, work, final, started)
@@ -211,22 +296,31 @@ class ENSIngestor:
         logger.info(f"{run:%Y-%m-%d %Hz}: archived -> {final} ({final.stat().st_size / 1e6:.0f} MB)")
         return final
 
-    def _download(self, run: datetime, step: int, work: Path) -> tuple[int, Path, float, float]:
-        """One step's global fields -> work/step_NNN.grib2, retried. Returns (step, path, MB, seconds)."""
-        grib = work / f"step_{step:03d}.grib2"
+    def _download(self, run: datetime, step: int, folder: Path) -> tuple[int, Path, float, float]:
+        """One step's global fields -> folder/step_NNN.grib2, retried. Returns (step, path, MB, seconds)."""
+        grib = folder / f"step_{step:03d}.grib2"
         t = time.monotonic()
-        for attempt in range(1, STEP_ATTEMPTS + 1):
+        failures = throttles = 0  # counted apart: being told to slow down is not the step failing
+        while True:
             try:
                 self.client.retrieve(date=run.strftime("%Y-%m-%d"), time=run.hour, stream="enfo", type="pf",
                                      param=step_params(step), step=step, target=str(grib))
                 break
             except Exception as exc:
                 grib.unlink(missing_ok=True)  # never resume from a half-written file
-                if attempt == STEP_ATTEMPTS:
-                    raise
+                if is_throttled(exc):
+                    throttles += 1
+                    if throttles == THROTTLE_ATTEMPTS:
+                        raise
+                    wait_s, note = self.throttle_wait * throttles, f"throttled {throttles}/{THROTTLE_ATTEMPTS}"
+                else:
+                    failures += 1
+                    if failures == STEP_ATTEMPTS:
+                        raise
+                    wait_s, note = self.retry_wait * failures, f"retrying ({failures + 1}/{STEP_ATTEMPTS})"
                 logger.warning(f"{run:%Y-%m-%d %Hz} step {step}: {exc.__class__.__name__} ({exc}); "
-                               f"retrying ({attempt + 1}/{STEP_ATTEMPTS})")
-                time.sleep(self.retry_wait * attempt)
+                               f"{note}, waiting {wait_s:.0f} s")
+                time.sleep(wait_s)
         seconds = time.monotonic() - t
         time.sleep(self.pause)
         return step, grib, grib.stat().st_size / 1e6, seconds
@@ -303,6 +397,29 @@ def read_step(path: Path, area=None) -> xr.Dataset:
 PARAMS_NAMES = ["t2m", "u10", "v10"]
 
 
+class IncompleteStep(ValueError):
+    """A decoded step lacks members, or holds some as NaN (a GRIB message skipped while reading)."""
+
+
+def check_step(ds: xr.Dataset, step: int, members: int = MEMBERS) -> None:
+    """Raise IncompleteStep unless every variable has members 1..`members`, none of them all NaN.
+    tmin/tmax are NaN throughout at step 0 (no period yet) and are not checked there."""
+    expected = list(range(1, members + 1))
+    if ds["number"].values.tolist() != expected:
+        got = ds["number"].values.tolist()
+        raise IncompleteStep(f"step {step}: {len(got)} of {members} members "
+                             f"(missing {sorted(set(expected) - set(got))[:10]})")
+    problems = []
+    for name in ds.data_vars:
+        if step == 0 and name in ("tmin", "tmax"):
+            continue
+        empty = ds[name].isnull().all([d for d in ds[name].dims if d != "number"])
+        if bool(empty.any()):
+            problems.append(f"{name} members {ds['number'].values[empty.values].tolist()}")
+    if problems:
+        raise IncompleteStep(f"step {step}: all NaN in " + "; ".join(problems))
+
+
 def _patch_downloads(quiet: bool = True) -> None:
     """
     The client's downloads, with a read timeout (multiurl passes timeout=None to requests by default:
@@ -374,6 +491,17 @@ def main(argv: list[str] | None = None) -> int:
     pull_parser.add_argument("date")
     pull_parser.add_argument("--source", help="ecmwf (portal: the last few days) or a mirror (aws, azure, google: "
                                               "older runs); default [ecmwf_ens] source")
+    backfill_parser = sub.add_parser("backfill", help="archive every run from START to END (YYYY-MM-DD) from a "
+                                                      "mirror; rerun the same command to resume")
+    backfill_parser.add_argument("start")
+    backfill_parser.add_argument("end")
+    backfill_parser.add_argument("--source", default="aws", help="a mirror keeping past runs: aws (default), "
+                                                                 "azure, google")
+    for p in (pull_parser, backfill_parser):
+        p.add_argument("--downloads", type=int, help="steps downloading at once; default [ecmwf_ens] downloads "
+                                                     "(use fewer on a mirror that throttles)")
+        p.add_argument("--scratch", help="a local folder for the global files while they decode; default "
+                                         "[ecmwf_ens] scratch, else the run's partial folder on the archive")
     sub.add_parser("status", help="list archived runs")
     args = parser.parse_args(argv)
 
@@ -391,7 +519,12 @@ def main(argv: list[str] | None = None) -> int:
     source = getattr(args, "source", None) or section["source"]
     ingestor = ENSIngestor(raw_dir, [x.strip() for x in section["area"].split(",")], source=source,
                            run_hour=section.getint("run_hour"), steps=parse_steps(section["steps"]),
-                           downloads=section.getint("downloads", DOWNLOADS))
+                           downloads=getattr(args, "downloads", None) or section.getint("downloads", DOWNLOADS),
+                           scratch=getattr(args, "scratch", None) or section.get("scratch") or None)
+    if args.command == "backfill":
+        day = lambda s: datetime.strptime(s, "%Y-%m-%d")  # noqa: E731
+        _, failed = ingestor.backfill(day(args.start), day(args.end))
+        return 1 if failed else 0
     if args.command == "refresh":
         ingestor.refresh(section.getint("days_back"))
         if not ingestor.run_path(ingestor.latest).exists():  # a non-zero exit is what makes a scheduler alert
