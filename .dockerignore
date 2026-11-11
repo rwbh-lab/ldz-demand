@@ -7,6 +7,7 @@
 *.env
 config/local.ini
 data
-dashboard
+!data/sample
+dashboard/__marimo__
 docs
 tests

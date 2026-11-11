@@ -40,4 +40,36 @@ def test_branches_run_side_by_side_and_the_forecasts_wait_for_both():
         return subprocess.CompletedProcess(command, 0)
 
     assert jobs.run("daily", runner) == 0
-    assert order[-1] == "ldz_demand.models.forecast"
+    assert order[-2:] == ["ldz_demand.models.forecast", "ldz_demand.publish"]
+
+
+def test_publish_runs_only_if_the_forecasts_succeeded():
+    def run(failing):
+        calls = []
+
+        def runner(command):
+            calls.append(command[2])
+            return subprocess.CompletedProcess(command, 4 if command[2] == failing else 0)
+
+        return jobs.run("daily", runner), calls
+
+    status, calls = run("ldz_demand.models.forecast")
+    assert status == 4 and "ldz_demand.publish" not in calls          # a failed forecast: nothing pushed
+    status, calls = run("ldz_demand.data.ingest.era5")                 # ERA5 failing (e.g. CDS): still publish
+    assert status == 4 and calls[-1] == "ldz_demand.publish"
+
+
+def test_a_step_with_unmet_needs_is_skipped_without_counting_as_a_failure():
+    branch = (jobs.Step("a", "mod.a"), jobs.Step("b", "mod.b", needs=("a",)), jobs.Step("c", "mod.c", needs=("x",)))
+    calls = []
+
+    def runner(command):
+        calls.append(command[2])
+        return subprocess.CompletedProcess(command, 0)
+
+    assert jobs.run_branch(branch, runner) == [0, 0, 0] and calls == ["mod.a", "mod.b"]  # c: x never ran
+
+
+def test_the_daily_publish_step_pushes_only_where_a_target_is_set():
+    (step,) = jobs.PUBLISH
+    assert step.module == "ldz_demand.publish" and {"--push", "--if-configured"} <= set(step.args)

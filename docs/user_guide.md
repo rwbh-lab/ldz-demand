@@ -320,13 +320,14 @@ python -m ldz_demand.data.build.ens_ldz_daily --since 2026-10-10  # every run fr
 ### 5.4 Scheduled jobs (Docker)
 
 One daily job keeps everything current; `ldz_demand/jobs.py` lists its steps (`python -m ldz_demand.jobs
-daily --list`). It runs in two stages, the first with two branches side by side:
+daily --list`). It runs in three stages, the first with two branches side by side:
 
 | Stage | Branch | Steps |
 |---|---|---|
 | 1 | Ensemble | `ecmwf_ens refresh` → `ens_ldz_daily` |
 | 1 | Gas and weather | `national_gas refresh` → `ng_ldz_daily`, `ng_offtake_daily`, `ng_forecast_daily` → `era5 refresh` → `weather_ldz_daily --recent 1` |
 | 2 | Forecasts | `models.forecast --missing` (needs both branches) |
+| 3 | Publish | `publish --push --if-configured` (only if the forecasts succeeded) |
 
 The ensemble branch is the heavy one (~10 GB of download, then decoding, ~75 minutes). ERA5 is mostly
 waiting in the Copernicus queue, so running it alongside costs little, and the job takes about as long as
@@ -338,10 +339,20 @@ Only the ensemble has to be downloaded every day: its runs leave the portal afte
 others are refreshed daily so the forecasts and their verification are current; the forecasts are made
 *as issued* (each uses only the ERA5 that existed on its run date), so a late or catch-up run makes the
 same forecast. Every step runs even if an earlier one failed (missing ERA5 days are bridged in the
-forecasts); the job fails if any step does, so the scheduler can report it. `weekly` is the same job
-under its earlier name.
+forecasts); the job fails if any step does, so the scheduler can report it. The exception is the publish
+step: it runs only if the forecasts succeeded, so a failed forecast never pushes a stale site. `weekly` is
+the same job under its earlier name.
 
-**The image.** The `Dockerfile` packages the jobs (with the `weather`, `db` and `forecast` extras). In
+**Publishing.** The last step exports the dashboard and pushes the snapshot to the repository's
+`gh-pages` branch (GitHub Pages), so the hosted site refreshes after every run. It needs
+`LDZ_PUBLISH_TOKEN`: a fine-grained GitHub token for the repository with *Contents: read and write*
+(`LDZ_PUBLISH_REPO` for a fork; `LDZ_PUBLISH_NAME` / `LDZ_PUBLISH_EMAIL` for the commit author). Without
+the token the step does nothing, so the job runs on any host. A page is never published if its export
+fails, if it shows a local path, or if it shows a warning (its data is missing): then nothing is pushed
+and the step fails.
+
+**The image.** The `Dockerfile` packages the jobs (with the `weather`, `db`, `forecast` and `dashboard`
+extras, git, the dashboard pages and the quick-start sample). In
 the container the config is `config/docker.ini`: the raw archive is mounted at `/data/raw` and tables go
 to MySQL, so the jobs need the database settings.
 
@@ -352,7 +363,8 @@ docker build -t ldz-demand .     # add --platform linux/amd64 to build on Apple 
 **Running the job.** `deploy/docker/compose.yaml` defines it. Copy `deploy/docker/.env.example` to
 `deploy/docker/.env` (git-ignored) and set the paths for this host: `RAW_DIR` (the raw archive), `DB_ENV`
 (a file with `LDZ_DB_HOST`, `LDZ_DB_PORT`, `LDZ_DB_NAME`, `LDZ_DB_USER`, `LDZ_DB_PASSWORD`) and `CDS_ENV`
-(a file with `CDSAPI_URL` and `CDSAPI_KEY`). Keep the two settings files readable by their owner only. Then:
+(a file with `CDSAPI_URL` and `CDSAPI_KEY`), and optionally `PUBLISH_ENV` (a file with
+`LDZ_PUBLISH_TOKEN`, for the publish step). Keep the settings files readable by their owner only. Then:
 
 ```bash
 docker compose -f deploy/docker/compose.yaml run --rm daily
@@ -363,6 +375,8 @@ Without Compose, the same with `docker run`:
 ```bash
 docker run --rm -v <raw dir>:/data/raw --env-file <db.env> --env-file <cds.env> ldz-demand ldz_demand.jobs daily
 ```
+
+(add `--env-file <publish.env>`, or put `LDZ_PUBLISH_TOKEN` in one of the other files, to publish.)
 
 The database host must be reachable from inside a container: usually the server's LAN address rather
 than `localhost` or a VPN-only address. Migration 007 (`demand_forecast_daily`) must be applied
@@ -378,7 +392,7 @@ than `localhost` or a VPN-only address. Migration 007 (`demand_forecast_daily`) 
 - **A NAS** (Synology, QNAP, …): its task scheduler, running the `docker run` form as a user allowed to
   use Docker, with email on failure if it offers it.
 - **Without Docker:** the same jobs run directly, `python -m ldz_demand.jobs daily`, with the
-  `weather,db,forecast` extras installed and `config/local.ini` pointing at the archive and the database.
+  `weather,db,forecast,dashboard` extras installed and `config/local.ini` pointing at the archive and the database.
 
 Archive contents at any time:
 `docker run --rm -v <raw dir>:/data/raw ldz-demand ldz_demand.data.ingest.ecmwf_ens status`.

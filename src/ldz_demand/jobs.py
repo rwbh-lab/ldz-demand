@@ -9,6 +9,8 @@ A job is a list of stages; a stage's branches run side by side, each branch's st
 
     1. ensemble: download -> build             | National Gas: download -> builds; ERA5: download -> build
     2. forecasts for every new run (needs both: the run, and the ERA5 that existed on its run date)
+    3. publish the dashboard snapshot to GitHub Pages, if the forecasts succeeded and a push target is set
+       (LDZ_PUBLISH_TOKEN; ldz_demand/publish.py), so the hosted site refreshes itself
 
 The ensemble is the heavy branch (~10 GB of download, then decoding); ERA5 is mostly waiting in the
 Copernicus queue, so running them together costs little and the job ends with the slower of the two.
@@ -17,8 +19,9 @@ downloaded every day (runs leave the portal after a few days); the others are re
 forecasts and their verification are current. "weekly" is the same job under its earlier name.
 
 Each step runs in its own process and every step runs even if an earlier one failed (a build still picks
-up earlier downloads; the forecasts bridge missing ERA5 days). The job fails if any step does, so the
-scheduler can report it.
+up earlier downloads; the forecasts bridge missing ERA5 days), except a step that names steps it needs:
+it runs only if they succeeded (publishing after a failed forecast would push a stale or broken site),
+and is logged as skipped otherwise. The job fails if any step does, so the scheduler can report it.
 """
 
 import argparse
@@ -37,6 +40,7 @@ class Step:
     label: str
     module: str
     args: tuple[str, ...] = ()
+    needs: tuple[str, ...] = ()  # labels of earlier steps that must have succeeded, else this one is skipped
 
     def command(self) -> list[str]:
         return [sys.executable, "-m", self.module, *self.args]
@@ -60,8 +64,12 @@ GAS_AND_WEATHER: Branch = (
 FORECASTS: Branch = (
     Step("forecasts: missing runs", "ldz_demand.models.forecast", ("--missing",)),
 )
+PUBLISH: Branch = (
+    Step("publish: dashboard", "ldz_demand.publish", ("--push", "--if-configured"),
+         needs=("forecasts: missing runs",)),
+)
 
-DAILY: tuple[Stage, ...] = ((ENSEMBLE, GAS_AND_WEATHER), (FORECASTS,))
+DAILY: tuple[Stage, ...] = ((ENSEMBLE, GAS_AND_WEATHER), (FORECASTS,), (PUBLISH,))
 JOBS: dict[str, tuple[Stage, ...]] = {"daily": DAILY, "weekly": DAILY}
 
 
@@ -70,24 +78,35 @@ def steps(job: str) -> list[Step]:
     return [step for stage in JOBS[job] for branch in stage for step in branch]
 
 
-def run_branch(branch: Branch, runner=subprocess.run) -> list[int]:
-    """Run a branch's steps in order (all of them, whatever fails); their exit codes."""
+def run_branch(branch: Branch, runner=subprocess.run, done: dict[str, int] | None = None) -> list[int]:
+    """
+    Run a branch's steps in order (all of them, whatever fails); their exit codes. `done` holds the exit
+    codes of the steps run so far, by label: a step whose `needs` didn't all succeed is skipped (code 0,
+    since the failure it waits on is already counted).
+    """
+    done = {} if done is None else done
     statuses = []
     for step in branch:
+        unmet = [label for label in step.needs if done.get(label) != 0]
+        if unmet:
+            logger.info(f"{step.label}: skipped ({', '.join(unmet)} did not succeed)")
+            statuses.append(0)
+            continue
         logger.info(f"{step.label}: start ({' '.join(step.command()[1:])})")
         start = time.monotonic()
         status = runner(step.command()).returncode
         logger.info(f"{step.label}: finished (exit {status}, {time.monotonic() - start:.0f} s)")
         statuses.append(status)
+        done[step.label] = status
     return statuses
 
 
 def run(job: str, runner=subprocess.run) -> int:
     """Run every stage of job; 0 if all steps succeeded, else the first failing step's exit code (listed order)."""
-    statuses = []
+    statuses, done = [], {}
     for stage in JOBS[job]:
         with ThreadPoolExecutor(max_workers=len(stage)) as pool:
-            for branch_statuses in pool.map(lambda branch: run_branch(branch, runner), stage):
+            for branch_statuses in pool.map(lambda branch: run_branch(branch, runner, done), stage):
                 statuses += branch_statuses
     failed = next((status for status in statuses if status), 0)
     logger.info(f"{job}: {'failed' if failed else 'done'}")
@@ -105,7 +124,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"stage {number}" + (" (branches side by side)" if len(stage) > 1 else ""))
             for branch in stage:
                 for step in branch:
-                    print(f"  {step.label:34} python -m {step.module} {' '.join(step.args)}".rstrip())
+                    print(f"  {step.label:34} python -m {step.module} {' '.join(step.args)}".rstrip()
+                          + (f"  (only if {', '.join(step.needs)} succeeded)" if step.needs else ""))
                 if len(stage) > 1 and branch is not stage[-1]:
                     print("  " + "-" * 34)
         return 0

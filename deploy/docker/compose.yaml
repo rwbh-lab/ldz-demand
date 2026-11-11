@@ -16,9 +16,11 @@ x-job: &job
     - ${RAW_DIR:?set RAW_DIR to the raw archive folder on this host}:/data/raw
 
 services:
-  daily:                                # every source, the builds, then forecasts for the new runs
+  daily:                                # every source, the builds, forecasts for the new runs, publish
     <<: *job
     env_file:
       - ${DB_ENV:-db.env}                 # LDZ_DB_* database settings (the container writes to MySQL)
       - ${CDS_ENV:-cds.env}               # CDSAPI_URL, CDSAPI_KEY for ERA5
+      - path: ${PUBLISH_ENV:-publish.env}  # LDZ_PUBLISH_TOKEN: push the dashboard snapshot (optional)
+        required: false
     command: ["ldz_demand.jobs", "daily"]
