@@ -102,7 +102,8 @@ def load(path: Path = DATA_DIR / OUTPUT) -> dict[str, demand.Fit]:
         params = cwv.CWVParams(**{n: float(r[f"p_{n}"]) for n in names})
         fits[r["ldz"]] = demand.Fit("weather", r["ldz"], r[coef_cols].to_numpy(dtype=float), [c[2:] for c in coef_cols],
                                     params, bool(r["success"]), int(r["n_train"]), str(r["seasonal"]),
-                                    shape=r[shape_cols].to_numpy(dtype=float))
+                                    shape=r[shape_cols].to_numpy(dtype=float),
+                                    extras=tuple(e for e in ("bridge", "weekend_cwv") if f"c_{e}" in coef_cols))
     return fits
 
 

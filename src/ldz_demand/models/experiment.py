@@ -36,6 +36,15 @@ the hourly table — flat, or with the heating hours weighted up — hourly and 
 Experiment "final": the model in models.fit (FINAL: BEST with the daily table's heating-hours
 temperature, t2m_heat) and the official CWV, forward on target B — the headline scores.
 
+Experiment "challenger": the final model and the official CWV against models of other families, on the
+same folds, training days, target B and recency weights (Model.family): the control (models.control, a
+degree-day regression on the flat daily mean), climatology (models.climatology, no weather) and
+the challenger (models.ebm, an Explainable Boosting Machine on the final model's inputs), forward.
+
+Experiment "features": the final model with and without the two features its held-out errors pointed
+to (models.diagnostics): bridge days (calendar.bridge) and the weekend dip deepening with the cold
+(a weekend × CWV term), forward.
+
 Run:
     python -m ldz_demand.models.experiment cwv_inputs              # all LDZs (a few minutes)
     python -m ldz_demand.models.experiment cwv_inputs --ldz NT WS  # some LDZs
@@ -45,10 +54,13 @@ Run:
     python -m ldz_demand.models.experiment variables
     python -m ldz_demand.models.experiment averaging
     python -m ldz_demand.models.experiment final
+    python -m ldz_demand.models.experiment challenger
+    python -m ldz_demand.models.experiment features
 Writes data/results/<experiment>_{predictions,scores,scores_2025_26,params}.csv.
 """
 
 import argparse
+import importlib
 import logging
 import sys
 import time
@@ -90,6 +102,8 @@ class Model:
     extremes: bool = False           # daily min / max temperature in the CWV's temperature
     solar: bool = True               # the solar term (else held at 0)
     temperature: str = "t2m"         # the daily table's temperature: "t2m" (flat mean) or "t2m_heat" (heating hours)
+    family: str = "cwv"              # "cwv" (models.demand), or a module in ldz_demand.models with fit / predict
+    extras: tuple = ()               # optional CWV-model terms: "bridge" (calendar.EXTRAS), "weekend_cwv"
 
 
 MODELS = {  # experiment -> models
@@ -117,8 +131,15 @@ AVERAGING = [(f"{profile}_{step}h", profile, step) for step in (1, 3) for profil
 MODELS["averaging"] = [replace(BEST, label="daily_table")] + [replace(BEST, label=label) for label, _, _ in AVERAGING]
 FINAL = replace(BEST, label="final", temperature="t2m_heat")  # after experiment 5: the model in models.fit
 MODELS["final"] = [Model("official", "official", breaks=(_B, _O), target="target_repaired"), FINAL]
+CONTROL = replace(BEST, label="control", seasonal="none", family="control")          # flat daily mean temperature
+CLIMATOLOGY = replace(BEST, label="climatology", seasonal="none", family="climatology")
+EBM = replace(FINAL, label="ebm", seasonal="none", family="ebm")               # same inputs as final
+MODELS["challenger"] = MODELS["final"] + [CONTROL, CLIMATOLOGY, EBM]
+_GRID = {"bridge": ("bridge",), "weekend": ("weekend_cwv",), "both": ("bridge", "weekend_cwv")}
+MODELS["features"] = [FINAL] + [replace(FINAL, label=f"final+{k}", extras=e) for k, e in _GRID.items()]
 SCHEME = {"cwv_inputs": "held_out", "seasonal": "held_out", "change": "forward", "target": "forward",
-          "variables": "forward", "averaging": "forward", "final": "forward"}
+          "variables": "forward", "averaging": "forward", "final": "forward", "challenger": "forward",
+          "features": "forward"}
 FORWARD_FROM = "2023/24"  # forward scheme: the first year predicted (from at least two years before it)
 
 
@@ -134,7 +155,7 @@ def _year_starts(years) -> tuple:
     return tuple(pd.Timestamp(f"{y[:4]}-10-01") for y in sorted(years)[1:])
 RESULTS = get_project_root() / "data" / "results"
 MIN_REGIME_DAYS = 90  # training days needed in each regime a held-out year contains (SE 2022/23 has ~5)
-WEATHER_VARIABLES = ("t2m", "t2m_heat", "ws10", "ssrd", "tmin", "tmax")
+WEATHER_VARIABLES = ("t2m", "t2m_heat", "ws10", "ssrd", "tmin", "tmax", "tp")
 COLD_SHARE = 0.05  # "coldest days": this share of each LDZ's days, by its gas-weighted temperature
 
 
@@ -212,24 +233,34 @@ def run(frames: dict[str, pd.DataFrame], ldzs=LDZS, models=None, scheme: str = "
                 continue
             weights = ({ldz: demand.recency_weights(d.index, tr, m.half_life) for ldz, (d, tr, _) in folds.items()}
                        if m.half_life else None)
-            if name == "official":
+            family = None if m.family == "cwv" else importlib.import_module(f"ldz_demand.models.{m.family}")
+            if family is not None:  # the same folds, weights and target; the model's own fit
+                fits = family.fit({ldz: (d, tr) for ldz, (d, tr, _) in folds.items()}, weights, m)
+            elif name == "official":
                 fits = {ldz: demand.fit_official(d, tr, ldz, breaks) for ldz, (d, tr, _) in folds.items()}
             elif "calendar" in seasonal:  # one shape shared by the LDZs: fitted together
                 fits = demand.fit_joint({ldz: (d, tr) for ldz, (d, tr, _) in folds.items()}, seasonal, breaks, weights,
-                                        m.summer, m.cold, m.extremes, m.solar)
+                                        m.summer, m.cold, m.extremes, m.solar, m.extras)
             else:
                 fits = {ldz: demand.fit_weather(d, tr, ldz, seasonal, breaks, weights and weights[ldz], m.summer, m.cold,
-                                                m.extremes, m.solar)
+                                                m.extremes, m.solar, m.extras)
                         for ldz, (d, tr, _) in folds.items()}
             for ldz, (data, _, test) in folds.items():
                 fit = fits[ldz]
-                pred, x = demand.predict(fit, data), demand.cwv_series(fit, data)
+                if family is None:
+                    pred, x = demand.predict(fit, data), demand.cwv_series(fit, data)
+                else:
+                    pred, x = family.predict(fit, data), np.full(len(data), np.nan)
                 predictions.append(pd.DataFrame({"gas_day": data.index[test], "ldz": ldz, "input": label,
                                                  "held_out": held, "actual": data["target"].to_numpy()[test],
                                                  "repaired": data["repaired"].to_numpy()[test],
                                                  "predicted": pred[test], "cwv": x[test]}))
-                row = {"ldz": ldz, "input": label, "held_out": held, "success": fit.success, "n_train": fit.n_train,
-                       **dict(zip(fit.columns, fit.coef))}
+                row = {"ldz": ldz, "input": label, "held_out": held, "success": fit.success, "n_train": fit.n_train}
+                if family is not None:
+                    row.update(family.params(fit) if hasattr(family, "params") else {})
+                    params.append(row)
+                    continue
+                row.update(zip(fit.columns, fit.coef))
                 if fit.params is not None:
                     row.update({f"p_{k}": v for k, v in asdict(fit.params).items()})
                 if fit.shape is not None:

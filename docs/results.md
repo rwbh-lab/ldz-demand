@@ -389,3 +389,6 @@ fitted models for prediction; they expect the heating-hours gas-day temperature 
 - **The cold-weather upturn's bound** binds in the final fit (see above).
 - **Against National Gas's forecasts, like for like** — our model on the ensemble (needs the archive
   backfill).
+- **Two features from the error analysis** (weekend × cold, bridge days: GB 43.7 → 41.8 GWh/day) to
+  confirm on the backfilled forecasts before they go into the live model; and the challenger models,
+  none better than ours ([challenger](challenger.md)).

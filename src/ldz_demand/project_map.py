@@ -186,11 +186,15 @@ NODES: tuple[Node, ...] = (
     # --- Outputs ---------------------------------------------------------------------------------------------
     Node("o_results", 4, 3.4, "Experiment results",
          "Held-out and forward predictions, scores and fitted parameters for each experiment.",
-         modules=("models.experiment", "models.results"), page="backtesting_results.py",
-         files=("src/ldz_demand/models/data/results/experiments.csv",), docs=("docs/decisions.md: V1 – V3", "docs/results.md",),
+         modules=("models.experiment", "models.results", "models.features", "models.control", "models.climatology",
+                  "models.ebm", "models.diagnostics"), page="backtesting_results.py",
+         files=("src/ldz_demand/models/data/results/experiments.csv",),
+         docs=("docs/decisions.md: V1 – V3", "docs/results.md", "docs/challenger.md"),
          details=(("Where", "data/results/<experiment>_{predictions,scores,params}.csv (not committed)"),
                   ("Experiments", "1 weather input, 2 variables, 3 seasonal term, 4 change over time, 5 gas-day averaging, 6 target A vs B"),
-                  ("Best so far", "GB winter 2.5% per gas day, 2024/25 (official CWV 3.3%)")),
+                  ("Best so far", "GB winter 2.5% per gas day, 2024/25 (official CWV 3.3%)"),
+                  ("Challengers", "climatology, a degree-day control and an EBM on the same inputs: none beats ours; "
+                                  "an error tree found two features (docs/challenger.md)")),
          at=(1.1, 5.15)),
     Node("o_benchmark", 4, 2.4, "National Gas benchmark",
          "Our model against National Gas's published day-ahead forecasts.",

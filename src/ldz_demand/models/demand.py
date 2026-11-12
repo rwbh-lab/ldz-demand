@@ -101,9 +101,11 @@ class Fit:
     cold: str = "fitted"             # cold-end form (cwv.COLD)
     extremes: bool = False           # daily min / max temperature in T (weights m_min, m_max)
     solar: bool = True               # solar term S0 (else held at 0)
+    extras: tuple = ()               # optional terms: "bridge" (calendar.EXTRAS), "weekend_cwv" (weekend × CWV)
 
 
-def _design(x: np.ndarray, cal: pd.DataFrame, breaks=(), summer: np.ndarray | None = None) -> tuple[np.ndarray, list[str]]:
+def _design(x: np.ndarray, cal: pd.DataFrame, breaks=(), summer: np.ndarray | None = None,
+            extras=()) -> tuple[np.ndarray, list[str]]:
     cols = [np.ones(len(x)), x]
     names = ["intercept", "cwv"]
     if summer is not None:
@@ -117,7 +119,11 @@ def _design(x: np.ndarray, cal: pd.DataFrame, breaks=(), summer: np.ndarray | No
             cols.append(post * summer)
             names.append(f"summer_after_{b:%Y-%m}")
     cols += [cal[c].to_numpy() for c in cal.columns]
-    return np.column_stack(cols), names + list(cal.columns)
+    names += list(cal.columns)
+    if "weekend_cwv" in extras:  # the weekend dip deepening with the cold (challenger feature grid)
+        cols.append((cal["sat"] + cal["sun"]).to_numpy() * x)
+        names.append("weekend_cwv")
+    return np.column_stack(cols), names
 
 
 def _robust_scale(r: np.ndarray) -> float:
@@ -154,10 +160,10 @@ def _seasonal(t, gas_days, p: cwv.CWVParams, seasonal: str, shape=None, h=None):
 
 def fit_weather(frame: pd.DataFrame, train: np.ndarray, ldz: str, seasonal: str = "none", breaks=(),
                 weights: np.ndarray | None = None, summer: bool = False, cold: str = "fitted",
-                extremes: bool = False, solar: bool = True) -> Fit:
+                extremes: bool = False, solar: bool = True, extras=()) -> Fit:
     """frame: consecutive gas days with t2m, ws10, ssrd (tmin, tmax), target. Fits on rows where train is True."""
     return fit_joint({ldz: (frame, train)}, seasonal, breaks, None if weights is None else {ldz: weights}, summer,
-                     cold, extremes, solar)[ldz]
+                     cold, extremes, solar, extras)[ldz]
 
 
 def recency_weights(gas_days, train: np.ndarray, half_life: float) -> np.ndarray:
@@ -169,7 +175,7 @@ def recency_weights(gas_days, train: np.ndarray, half_life: float) -> np.ndarray
 
 def fit_joint(data: dict[str, tuple[pd.DataFrame, np.ndarray]], seasonal: str = "none", breaks=(),
               weights: dict[str, np.ndarray] | None = None, summer: bool = False,
-              cold: str = "fitted", extremes: bool = False, solar: bool = True) -> dict[str, Fit]:
+              cold: str = "fitted", extremes: bool = False, solar: bool = True, extras=()) -> dict[str, Fit]:
     """
     Fit several LDZs in one problem: each has its own CWV parameters and linear terms; with the
     "calendar" seasonal term they share the day-of-year shape. Each LDZ's residuals are divided by its
@@ -184,7 +190,7 @@ def fit_joint(data: dict[str, tuple[pd.DataFrame, np.ndarray]], seasonal: str = 
         lo, hi = cwv.bounds(ldz, names, cold)
         base = cwv.fixed_values(ldz, cold, solar)
         blocks.append(dict(ldz=ldz, t=t, w=w, sr=sr, tmin=tmin, tmax=tmax, y=frame["target"].to_numpy(dtype=float), train=train,
-                           cal=calendar.features(frame.index, ldz), days=frame.index, lo=lo, hi=hi,
+                           cal=calendar.features(frame.index, ldz, extras), days=frame.index, lo=lo, hi=hi,
                            p0=np.clip(base.vector(names), lo, hi), base=base,
                            sw=np.sqrt(weights[ldz][train]) if weights else 1.0,
                            h=harmonics(frame.index) if n_shape else None))
@@ -194,7 +200,7 @@ def fit_joint(data: dict[str, tuple[pd.DataFrame, np.ndarray]], seasonal: str = 
         t = temperature(b["t"], b["tmin"], b["tmax"], p)
         s, g = _seasonal(t, b["days"], p, seasonal, shape, b["h"])
         cw = composite_weather(t, b["w"], b["sr"], p, s, g)
-        return _design(transform(cw, p), b["cal"], breaks, summer_weight(cw, p) if summer else None)[0]
+        return _design(transform(cw, p), b["cal"], breaks, summer_weight(cw, p) if summer else None, extras)[0]
 
     theta0, lo, hi, slices, start = [np.zeros(n_shape)], [np.full(n_shape, -SHAPE_BOUND)], [np.full(n_shape, SHAPE_BOUND)], [], n_shape
     for b in blocks:
@@ -223,11 +229,11 @@ def fit_joint(data: dict[str, tuple[pd.DataFrame, np.ndarray]], seasonal: str = 
         r0 += n
     res = least_squares(residuals, theta0, bounds=(lo, hi), loss="soft_l1", f_scale=1.0, x_scale="jac",
                         jac_sparsity=sparsity if len(blocks) > 1 else None, max_nfev=3000)
-    columns = _design(np.zeros(1), blocks[0]["cal"].iloc[:1], breaks, np.zeros(1) if summer else None)[1]
+    columns = _design(np.zeros(1), blocks[0]["cal"].iloc[:1], breaks, np.zeros(1) if summer else None, extras)[1]
     shape = res.x[:n_shape] if n_shape else None
     return {b["ldz"]: Fit("weather", b["ldz"], res.x[bs], columns, cwv.CWVParams.from_vector(res.x[ps], names, b["base"]),
                           bool(res.success), int(b["train"].sum()), seasonal, tuple(breaks), shape, summer, cold,
-                          extremes, solar)
+                          extremes, solar, tuple(extras))
             for b, (ps, bs) in zip(blocks, slices)}
 
 
@@ -258,5 +264,6 @@ def cwv_series(fit: Fit, frame: pd.DataFrame) -> np.ndarray:
 def predict(fit: Fit, frame: pd.DataFrame) -> np.ndarray:
     """Predicted target for every row of frame (same layout as for the fit)."""
     summer = summer_weight(_cw(fit, frame), fit.params) if fit.summer else None
-    x, _ = _design(cwv_series(fit, frame), calendar.features(frame.index, fit.ldz), fit.breaks, summer)
+    x, _ = _design(cwv_series(fit, frame), calendar.features(frame.index, fit.ldz, fit.extras), fit.breaks, summer,
+                   fit.extras)
     return x @ fit.coef
